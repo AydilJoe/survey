@@ -96,6 +96,19 @@
   --rm20:  #c96a1e;
   --rm50:  #0f7f8c;
   --rm100: #6a4193;
+  /* Unified Jelly Bubble capsule tokens (Light) */
+  --jelly-a: color-mix(in srgb, #ffffff 86%, var(--card));
+  --jelly-b: color-mix(in srgb, var(--stage) 72%, var(--brand) 12%);
+  --jelly-c: color-mix(in srgb, var(--brand) 24%, transparent);
+  --jelly-border: color-mix(in srgb, #ffffff 78%, var(--border));
+  --jelly-rim: color-mix(in srgb, var(--brand) 34%, transparent);
+  --jelly-glow: color-mix(in srgb, var(--brand) 28%, transparent);
+  --jelly-spec: rgba(255, 255, 255, 0.86);
+  --jelly-dark-a: color-mix(in srgb, var(--primary) 86%, #ffffff 14%);
+  --jelly-dark-b: color-mix(in srgb, var(--primary) 94%, #000000 6%);
+  --jelly-dark-ink: var(--card);
+  --jelly-gain-b: color-mix(in srgb, var(--gain) 22%, var(--card));
+  --jelly-scrim: color-mix(in srgb, var(--text) 44%, transparent);
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-serif: 'Fraunces', Georgia, serif;
   --font-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
@@ -170,6 +183,18 @@
     --rm20:  #e0954c;
     --rm50:  #45b3c0;
     --rm100: #a17ccc;
+    --jelly-a: color-mix(in srgb, var(--card-soft) 84%, #ffffff 10%);
+    --jelly-b: color-mix(in srgb, var(--card) 86%, #000000 14%);
+    --jelly-c: color-mix(in srgb, var(--brand) 32%, transparent);
+    --jelly-border: color-mix(in srgb, var(--text) 32%, transparent);
+    --jelly-rim: color-mix(in srgb, var(--brand) 42%, transparent);
+    --jelly-glow: color-mix(in srgb, var(--brand) 38%, transparent);
+    --jelly-spec: rgba(255, 245, 236, 0.42);
+    --jelly-dark-a: color-mix(in srgb, var(--brand) 86%, #ffffff 14%);
+    --jelly-dark-b: color-mix(in srgb, var(--brand) 88%, #000000 18%);
+    --jelly-dark-ink: #ffffff;
+    --jelly-gain-b: color-mix(in srgb, var(--gain) 28%, var(--card));
+    --jelly-scrim: rgba(6, 5, 4, 0.66);
     color-scheme: dark;
   }
 }
@@ -227,6 +252,18 @@ html[data-theme="dark"] {
   --rm20:  #e0954c;
   --rm50:  #45b3c0;
   --rm100: #a17ccc;
+  --jelly-a: color-mix(in srgb, var(--card-soft) 84%, #ffffff 10%);
+  --jelly-b: color-mix(in srgb, var(--card) 86%, #000000 14%);
+  --jelly-c: color-mix(in srgb, var(--brand) 32%, transparent);
+  --jelly-border: color-mix(in srgb, var(--text) 32%, transparent);
+  --jelly-rim: color-mix(in srgb, var(--brand) 42%, transparent);
+  --jelly-glow: color-mix(in srgb, var(--brand) 38%, transparent);
+  --jelly-spec: rgba(255, 245, 236, 0.42);
+  --jelly-dark-a: color-mix(in srgb, var(--brand) 86%, #ffffff 14%);
+  --jelly-dark-b: color-mix(in srgb, var(--brand) 88%, #000000 18%);
+  --jelly-dark-ink: #ffffff;
+  --jelly-gain-b: color-mix(in srgb, var(--gain) 28%, var(--card));
+  --jelly-scrim: rgba(6, 5, 4, 0.66);
   color-scheme: dark;
 }
 html[data-theme="light"] { color-scheme: light; }
@@ -8828,6 +8865,18 @@ html[data-theme="pastel"] {
   --warn: #8f500c;               /* 5.1:1 on card */
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
   --warn-line: color-mix(in srgb, var(--warn) 32%, transparent);
+  --jelly-a: color-mix(in srgb, var(--pastel-shine) 86%, var(--card));
+  --jelly-b: color-mix(in srgb, var(--card) 72%, var(--brand) 16%);
+  --jelly-c: color-mix(in srgb, var(--accent) 34%, transparent);
+  --jelly-border: color-mix(in srgb, var(--pastel-shine) 78%, transparent);
+  --jelly-rim: color-mix(in srgb, var(--brand) 38%, transparent);
+  --jelly-glow: color-mix(in srgb, var(--brand) 34%, transparent);
+  --jelly-spec: rgba(255, 250, 245, 0.88);
+  --jelly-dark-a: color-mix(in srgb, var(--text) 84%, #ffffff 12%);
+  --jelly-dark-b: color-mix(in srgb, var(--text) 92%, #000000 8%);
+  --jelly-dark-ink: var(--pastel-shine);
+  --jelly-gain-b: color-mix(in srgb, var(--gain) 22%, var(--pastel-shine));
+  --jelly-scrim: color-mix(in srgb, var(--text) 42%, transparent);
   --font-sans: "Duitful Nunito", "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-serif: var(--font-sans);
 }
@@ -10759,6 +10808,549 @@ html[data-theme="pastel"] {
   svg.kira.kira-dance-bow {
     animation: kira-dance-bow 3.1s cubic-bezier(0.34, 1.3, 0.64, 1) infinite;
   }
+}
+
+/* ---------- 2.0 (stage A): Unified Jelly Bubble, 4-bubble radial, sheets, ☰ ----------
+   The middle Jelly Bubble (kira-bubble.js) is the one way to add or ask: a raised
+   glossy capsule in the middle of the bottom bar, the first item of the side rail /
+   sidebar on wider screens (FoldLab.navFor). Face: Kira inside a warm translucent
+   Jelly capsule (Pro, trial, AI+), else a crisp + inside a dark Jelly capsule.
+   Settings leaves the bar below the sidebar; ☰ in the header reaches it. */
+:root {
+  --bubble-size: 4rem;
+  --bubble-lift: 1.4rem;
+}
+.kira-bubble,
+.radial-dot,
+.radial-close {
+  position: relative;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 28% 24%, var(--jelly-spec) 0%, color-mix(in srgb, var(--jelly-spec) 22%, transparent) 28%, transparent 56%),
+    radial-gradient(circle at 76% 80%, var(--jelly-c) 0%, transparent 60%),
+    radial-gradient(circle at 50% 54%, var(--jelly-a) 0%, var(--jelly-b) 100%);
+  border: 1.5px solid var(--jelly-border);
+  box-shadow:
+    inset 0 2px 5px var(--jelly-spec),
+    inset 0 -6px 12px var(--jelly-rim),
+    0 8px 22px var(--jelly-glow),
+    0 2px 6px color-mix(in srgb, var(--text) 16%, transparent);
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+}
+.kira-bubble::before,
+.radial-dot::before,
+.radial-close::before {
+  content: "";
+  position: absolute;
+  top: 10%;
+  left: 18%;
+  width: 38%;
+  height: 17%;
+  border-radius: 50%;
+  background: linear-gradient(180deg, var(--jelly-spec), transparent);
+  transform: rotate(-20deg);
+  pointer-events: none;
+}
+.kira-bubble::after,
+.radial-dot::after,
+.radial-close::after {
+  content: "";
+  position: absolute;
+  bottom: 13%;
+  right: 17%;
+  width: 12%;
+  height: 8%;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--jelly-spec) 72%, transparent);
+  filter: blur(0.4px);
+  pointer-events: none;
+}
+
+.kira-bubble {
+  appearance: none;
+  flex: 0 0 auto;
+  z-index: 1;
+  width: var(--bubble-size);
+  height: var(--bubble-size);
+  margin: 0 0.15rem;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  cursor: pointer;
+  box-shadow:
+    0 0 0 4px var(--stage),
+    inset 0 2px 5px var(--jelly-spec),
+    inset 0 -6px 12px var(--jelly-rim),
+    0 8px 22px var(--jelly-glow);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+.kira-bubble:not(.is-kira),
+.radial-item[data-radial="outflow"] .radial-dot {
+  background:
+    radial-gradient(circle at 28% 24%, color-mix(in srgb, var(--jelly-spec) 52%, transparent) 0%, color-mix(in srgb, var(--jelly-spec) 10%, transparent) 30%, transparent 56%),
+    radial-gradient(circle at 75% 80%, color-mix(in srgb, var(--brand) 34%, transparent) 0%, transparent 58%),
+    radial-gradient(circle at 50% 55%, var(--jelly-dark-a) 0%, var(--jelly-dark-b) 100%);
+  border-color: color-mix(in srgb, var(--jelly-spec) 48%, transparent);
+  color: var(--jelly-dark-ink);
+}
+.kira-bubble:not(.is-kira) {
+  box-shadow:
+    0 0 0 4px var(--stage),
+    inset 0 2px 6px color-mix(in srgb, var(--jelly-spec) 42%, transparent),
+    inset 0 -7px 14px color-mix(in srgb, #000000 38%, transparent),
+    0 10px 26px color-mix(in srgb, var(--text) 36%, transparent);
+}
+.radial-item[data-radial="outflow"] .radial-dot {
+  box-shadow:
+    inset 0 2px 6px color-mix(in srgb, var(--jelly-spec) 42%, transparent),
+    inset 0 -7px 14px color-mix(in srgb, #000000 38%, transparent),
+    0 10px 26px color-mix(in srgb, var(--text) 36%, transparent);
+}
+.radial-item[data-radial="income"] .radial-dot {
+  background:
+    radial-gradient(circle at 28% 24%, var(--jelly-spec) 0%, color-mix(in srgb, var(--jelly-spec) 18%, transparent) 28%, transparent 56%),
+    radial-gradient(circle at 76% 80%, color-mix(in srgb, var(--gain) 38%, transparent) 0%, transparent 60%),
+    radial-gradient(circle at 50% 54%, var(--jelly-a) 0%, var(--jelly-gain-b) 100%);
+  color: var(--gain);
+}
+.kira-bubble:hover {
+  box-shadow:
+    0 0 0 4px var(--stage),
+    inset 0 2px 6px var(--jelly-spec),
+    inset 0 -6px 12px var(--jelly-rim),
+    0 10px 26px var(--jelly-glow);
+}
+.kira-bubble:active { transform: scale(0.94); }
+.kira-bubble:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+.kira-bubble.is-kira { color: var(--text); }
+.kira-bubble.is-charging {
+  box-shadow:
+    0 0 0 4px var(--stage),
+    inset 0 2px 10px var(--jelly-spec),
+    0 0 0 10px color-mix(in srgb, var(--brand) 28%, transparent),
+    0 16px 36px var(--jelly-glow);
+}
+.kira-bubble.is-popped { pointer-events: none; }
+.kira-bubble[aria-expanded="true"] { visibility: hidden; }
+.kira-bubble-face { display: grid; place-items: center; width: 100%; height: 100%; pointer-events: none; position: relative; z-index: 1; }
+.kira-bubble-face .bubble-plus { width: 1.9rem; height: 1.9rem; }
+.kira-bubble-face svg.kira { width: 2.85rem; height: 2.85rem; overflow: visible; }
+
+.pop-particle {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, var(--jelly-spec), var(--brand));
+  border: 1px solid var(--jelly-border);
+  pointer-events: none;
+  z-index: 200;
+}
+
+/* Phones: the bar has four tabs and the raised bubble between them. */
+@media (max-width: 999px) {
+  .tabs { align-items: flex-end; overflow: visible; }
+  .tabs .kira-bubble { margin-top: calc(-1 * var(--bubble-lift)); margin-bottom: 0.1rem; align-self: center; }
+  .tab.tab-wide-only { display: none !important; }
+  main { padding-bottom: calc(var(--tabbar-h) + var(--bubble-lift) + 1.5rem); }
+}
+/* Side rail and sidebar: the bubble heads the column. */
+@media (min-width: 600px) and (max-width: 999px),
+       (min-width: 440px) and (max-width: 599px) and (max-height: 719px) {
+  :root { --bubble-size: 3.5rem; }
+  .tabs { align-items: stretch; }
+  .tabs .kira-bubble { order: -1; margin: 0.15rem auto 0.6rem; align-self: center; }
+  main { padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px)); }
+}
+@media (min-width: 1000px) {
+  :root { --bubble-size: 3.5rem; }
+  .tabs::before { order: -2; }
+  .tabs .kira-bubble { order: -1; margin: 0.25rem 0 0.75rem 0.4rem; align-self: flex-start; }
+}
+
+/* The 4-bubble Jelly radial: a full-screen, see-through dialog over a frosted scrim.
+   Each item is placed by radialLayout (--x, --y: its dot's centre) and
+   springs out from the bubble (--dx, --dy); --i staggers them. */
+.radial-dialog {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: hidden;
+  color: var(--text);
+}
+.radial-dialog::backdrop {
+  background: var(--jelly-scrim);
+  backdrop-filter: blur(7px) saturate(1.08);
+  -webkit-backdrop-filter: blur(7px) saturate(1.08);
+}
+.radial { position: absolute; inset: 0; margin: 0; }
+.radial-item {
+  --t: translate(-50%, -1.75rem);
+  appearance: none;
+  position: fixed;
+  left: var(--x, 50%);
+  top: var(--y, 50%);
+  width: max-content;
+  max-width: 6.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transform: var(--t);
+  opacity: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.radial-dot {
+  width: 3.5rem;
+  height: 3.5rem;
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.radial-dot svg { width: 1.45rem; height: 1.45rem; position: relative; z-index: 1; }
+.radial-label {
+  max-width: 100%;
+  padding: 0.14rem 0.55rem;
+  border-radius: var(--r-pill);
+  background: var(--card);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: anywhere;
+  box-shadow: 0 2px 8px -2px color-mix(in srgb, var(--text) 32%, transparent);
+}
+.radial-item:focus { outline: none; }
+.radial-item:focus-visible .radial-dot { outline: 3px solid var(--brand); outline-offset: 3px; }
+.radial-item:hover .radial-dot { transform: scale(1.08); }
+.radial-item:active .radial-dot { transform: scale(0.92); }
+.radial-dialog.is-side .radial-item {
+  --t: translate(-1.75rem, -50%);
+  width: auto;
+  flex-direction: row;
+  gap: 0.55rem;
+}
+.radial-dialog.is-side .radial-label { white-space: nowrap; font-size: 0.8rem; padding: 0.2rem 0.65rem; }
+.radial-dialog.is-in .radial-item { opacity: 1; }
+.radial-close {
+  appearance: none;
+  position: fixed;
+  left: var(--x, 50%);
+  top: var(--y, 90%);
+  width: var(--s, 4rem);
+  height: var(--s, 4rem);
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  cursor: pointer;
+}
+.radial-close svg { width: 1.5rem; height: 1.5rem; position: relative; z-index: 1; }
+.radial-close:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+.radial-meter {
+  position: fixed;
+  left: var(--x, 50%);
+  top: var(--y, 1rem);
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--r-pill);
+  background: var(--card);
+  color: var(--muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+.radial-dialog.is-side .radial-meter { transform: none; }
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes jelly-morph {
+    0%, 100% { border-radius: 52% 48% 50% 50% / 50% 52% 48% 50%; }
+    25%      { border-radius: 47% 53% 47% 53% / 53% 47% 53% 47%; }
+    50%      { border-radius: 53% 47% 52% 48% / 48% 53% 47% 52%; }
+    75%      { border-radius: 49% 51% 50% 50% / 51% 49% 51% 49%; }
+  }
+  @keyframes jelly-squish {
+    0%   { transform: scale(1, 1); }
+    22%  { transform: scale(1.22, 0.78); }
+    46%  { transform: scale(0.86, 1.15); }
+    68%  { transform: scale(1.08, 0.93); }
+    85%  { transform: scale(0.97, 1.03); }
+    100% { transform: scale(1, 1); }
+  }
+  @keyframes jelly-charge {
+    0%   { transform: scale(1) rotate(0deg); }
+    25%  { transform: scale(1.12, 1.06) rotate(-2deg); }
+    50%  { transform: scale(1.2, 1.16) rotate(2deg); }
+    75%  { transform: scale(1.28, 1.24) rotate(-2.5deg); }
+    100% { transform: scale(1.36, 1.32) rotate(2deg); }
+  }
+  @keyframes jelly-pop-out {
+    0%   { transform: scale(1.36); opacity: 1; }
+    50%  { transform: scale(1.8); opacity: 0.35; }
+    100% { transform: scale(2.15); opacity: 0; }
+  }
+  @keyframes pop-droplet {
+    0%   { transform: translate(0, 0) scale(1); opacity: 0.95; }
+    100% { transform: translate(var(--dx), var(--dy)) scale(0.15); opacity: 0; }
+  }
+  .kira-bubble,
+  .radial-dot,
+  .radial-close {
+    animation: jelly-morph 5.4s ease-in-out infinite;
+  }
+  .kira-bubble.is-squish { animation: jelly-squish 0.54s cubic-bezier(0.22, 1.2, 0.36, 1) forwards; }
+  .kira-bubble.is-charging { animation: jelly-charge 0.48s cubic-bezier(0.3, 0, 0.6, 1) forwards; }
+  .kira-bubble.is-popped { animation: jelly-pop-out 0.28s ease-out forwards; }
+  .pop-particle { animation: pop-droplet 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  .radial-item {
+    transform: var(--t) translate(var(--dx, 0px), var(--dy, 0px)) scale(0.3);
+    transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.16s ease;
+    transition-delay: calc(var(--i, 0) * 22ms);
+  }
+  .radial-dialog.is-in .radial-item { transform: var(--t); }
+  .radial-dialog[open]::backdrop { animation: backdrop-in 0.2s ease-out; }
+  .radial-close svg { transition: transform 0.3s var(--ease-out, ease); }
+  .radial-dialog:not(.is-in) .radial-close svg { transform: rotate(-45deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .radial-item { transition: opacity 0.15s ease; }
+}
+
+/* Money out 3-tab modal & Income modal */
+.add-dialog,
+.income-dialog { max-width: 460px; }
+.add-dialog .add-sheet,
+.income-dialog .add-sheet { padding: 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.add-dialog .add-sheet .card-head,
+.income-dialog .add-sheet .card-head { display: flex; align-items: center; gap: 0.5rem; margin: 0; }
+.add-dialog .add-sheet .card-head h2,
+.income-dialog .add-sheet .card-head h2 { margin: 0; flex: 1; }
+.add-dialog-close { flex: none; }
+.add-dialog .add-sheet form,
+.income-dialog .add-sheet form { padding: 0; }
+.income-dialog .income-title { color: var(--gain); }
+.income-dialog .income-submit {
+  background: var(--gain);
+  border-color: var(--gain);
+  color: var(--card);
+}
+.income-dialog .income-submit:hover {
+  background: color-mix(in srgb, var(--gain) 88%, var(--text));
+  border-color: color-mix(in srgb, var(--gain) 88%, var(--text));
+}
+
+/* Unified Kira / Docs hub sheet */
+.kira-hub-dialog { max-width: 440px; }
+.kira-hub-sheet { padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.kira-hub-head { display: flex; align-items: center; gap: 0.5rem; margin: 0; }
+.kira-hub-head h2 { margin: 0; }
+.kira-hub-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.14rem 0.55rem;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--brand) 16%, transparent);
+  color: var(--brand-ink);
+  margin-right: auto;
+}
+.kira-hub-badge.is-local {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  color: var(--ink2);
+}
+.kira-hub-card {
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--r-md);
+  background: var(--card-soft);
+  border: 0.5px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.kira-hub-meter-text { margin: 0; font-size: 0.88rem; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.kira-hub-meter-sub { margin: 0; font-size: 0.78rem; color: var(--muted); }
+.kira-hub-upsell-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.kira-hub-upsell-copy { flex: 1; min-width: 0; }
+.kira-hub-upsell-title { margin: 0; font-size: 0.92rem; font-weight: 700; color: var(--text); }
+.kira-hub-upsell-price { margin: 0.15rem 0 0; font-size: 0.8rem; color: var(--muted); }
+.kira-hub-voice {
+  width: 100%;
+  min-height: 2.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  justify-content: flex-start;
+  padding: 0.55rem 0.8rem;
+  border-radius: var(--r-md);
+}
+.kira-hub-voice svg { width: 1.15rem; height: 1.15rem; flex: none; color: var(--brand-ink); }
+.kira-hub-section-label {
+  margin: 0.1rem 0 0;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.kira-hub-docs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-md);
+  background: var(--card-soft);
+  border: 0.5px solid var(--line);
+  overflow: hidden;
+}
+.kira-hub-docs li + li { border-top: 0.5px solid var(--line); }
+.kira-hub-doc {
+  appearance: none;
+  width: 100%;
+  min-height: 3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.75rem;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.kira-hub-doc:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
+.kira-hub-doc svg { width: 1.15rem; height: 1.15rem; flex: none; color: var(--muted); }
+.kira-hub-doc-label { flex: 1; min-width: 0; }
+.kira-hub-pill {
+  flex: none;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.12rem 0.48rem;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--brand) 16%, transparent);
+  color: var(--brand-ink);
+}
+.kira-hub-pill.is-local {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  color: var(--ink2);
+}
+
+/* ☰ menu */
+.menu-dialog { max-width: 380px; }
+.menu-dialog .card-head { display: flex; align-items: center; justify-content: space-between; }
+.menu-dialog .card-head h2 { margin: 0; }
+.menu-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.menu-list li + li { border-top: 0.5px solid var(--line); }
+.menu-item[hidden] { display: none; }
+.menu-item {
+  appearance: none;
+  width: 100%;
+  min-height: 3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.55rem 0.35rem;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--r-sm);
+}
+.menu-item:hover { background: var(--card-soft); }
+.menu-item svg { width: 1.2rem; height: 1.2rem; flex: none; color: var(--muted); }
+.menu-item > span { flex: 1; min-width: 0; }
+.menu-kbd {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  padding: 0.05rem 0.4rem;
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-xs);
+}
+@media (hover: none) { .menu-kbd { display: none; } }
+
+/* "Settings moved here": once, beside ☰. */
+.menu-hint {
+  position: absolute;
+  top: var(--top, 4rem);
+  right: var(--right, 1rem);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: min(20rem, calc(100vw - 2rem));
+  padding: 0.5rem 0.5rem 0.5rem 0.6rem;
+  border-radius: var(--r-md);
+  background: var(--card);
+  border: 0.5px solid var(--line);
+  box-shadow: var(--shadow), 0 10px 30px -12px color-mix(in srgb, var(--text) 40%, transparent);
+}
+.menu-hint[hidden] { display: none; }
+.menu-hint::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  right: var(--arrow, 1.5rem);
+  width: 12px;
+  height: 12px;
+  background: var(--card);
+  border-left: 0.5px solid var(--line);
+  border-top: 0.5px solid var(--line);
+  transform: translateX(50%) rotate(45deg);
+}
+.menu-hint-kira { flex: none; width: 2.4rem; height: 2.4rem; display: grid; place-items: center; }
+.menu-hint-kira[hidden] { display: none; }
+.menu-hint-kira svg.kira { width: 2.4rem; height: 2.4rem; }
+.menu-hint-text { margin: 0; flex: 1; font-size: 0.88rem; font-weight: 600; }
+.menu-hint-ok { flex: none; min-height: 40px; }
+@media (prefers-reduced-motion: no-preference) {
+  .menu-hint:not([hidden]) { animation: dialog-rise 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+}
+
+/* Glance Home: top spending this month. */
+.home-cats-list { list-style: none; margin: 0.25rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.home-cat { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.25rem 0.75rem; align-items: baseline; }
+.home-cat-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-cat-amount { font-variant-numeric: tabular-nums; font-weight: 600; }
+.home-cat-bar { grid-column: 1 / -1; height: 6px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--primary) 10%, transparent); overflow: hidden; }
+.home-cat-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
+.home-cats .today-links { margin-top: 0.5rem; }
+.up-more { cursor: pointer; }
+/* The sheet is narrower than the old card on a small phone: the three tabs
+   stack icon over label so a long word ("Bayar hutang", "Tabung") stays in. */
+.add-dialog .quick-add .type-pills { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.add-dialog .quick-add .pill { min-width: 0; text-align: center; overflow-wrap: anywhere; }
+@media (max-width: 420px) {
+  .add-dialog .quick-add .pill { flex-direction: column; gap: 0.2rem; padding: 0.55rem 0.3rem; font-size: 0.82rem; line-height: 1.2; }
 }
 
 /* ---------- Kira purchase processing / waiting modal ---------- */

@@ -2079,7 +2079,10 @@ document.getElementById("scan-cancel")?.addEventListener("click", () => {
   const typeIn = scanCancel?.dataset.typeIn === "1" && window.scanApplyTarget !== "split";
   window.scanApplyTarget = null;
   closeScanDialog();
-  if (typeIn) document.querySelector("#form-daily input[name='amount']")?.focus();
+  if (typeIn) {
+    if (typeof openAddEntry === "function") openAddEntry(null);
+    else document.querySelector("#form-daily input[name='amount']")?.focus();
+  }
 });
 
 scanInput?.addEventListener("change", async (e) => {
@@ -2309,5 +2312,6 @@ function applyScanResult({ direct }) {
   setDailyMoreOpen(true);
 
   closeScanDialog();
-  amountInput?.focus();
+  if (typeof openAddEntry === "function") openAddEntry(null);
+  else amountInput?.focus();
 }

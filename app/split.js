@@ -1759,7 +1759,7 @@ function splitOpenCompose(opts) {
     mode: o.mode === "loan" ? "loan" : o.mode === "request" ? "request" : "split",
     // "equal" is the whole of Phase 1 and stays the default; "item" is the
     // Phase 2.5 tick-who-ate-what flow.
-    method: "equal",
+    method: o.method === "item" ? "item" : "equal",
     expenseId: o.expenseId || "",
     title: splitText(o.title, SPLIT_TITLE_MAX),
     date: splitIsDate(o.date) ? o.date : todayISO(),

@@ -196,7 +196,15 @@
     },
   };
 
+  // Duitful 2.0: the bubble ("Add": Kira or a big +) sits in the middle of
+  // the bottom bar and heads the rail / sidebar; Settings is behind ☰ in the
+  // header, and stays in the sidebar only (app/styles.css, kira-bubble.js).
   const NAV = ["Home", "Monthly", "Debts", "Savings", "Settings"];
+  function navItems(nav) {
+    if (nav === "bottom") return ["Home", "Monthly", "Add", "Debts", "Savings"];
+    if (nav === "rail") return ["Add", "Home", "Monthly", "Debts", "Savings"];
+    return ["Add", "Home", "Monthly", "Debts", "Savings", "Settings"];
+  }
 
   // Layout constants, in CSS px.
   const SIDEBAR_MIN_W = 1000; // tablets and desktop; every folding phone stays below it
@@ -272,8 +280,9 @@
         else if (r.x <= 1) { const nx = r.x + r.w; content.w -= nx - content.x; content.x = nx; }
       }
     }
-    NAV.forEach((label, i) => {
-      const n = NAV.length;
+    const navList = navItems(nav);
+    navList.forEach((label, i) => {
+      const n = navList.length;
       let b;
       if (nav === "sidebar") b = { x: navBox.x + 12, y: navBox.y + 64 + i * 46, w: navBox.w - 24, h: 40 };
       else if (nav === "rail") {
@@ -287,7 +296,7 @@
         const iw = navBox.w / n;
         b = { x: navBox.x + i * iw + 4, y: navBox.y + 6, w: iw - 8, h: BAR_H - 12 };
       }
-      add({ kind: "navitem", label, active: i === navIndex(screen), ...b });
+      add({ kind: "navitem", label, bubble: label === "Add", active: label === navLabel(screen), ...b });
     });
 
     // 2. Panes: one per fold segment; otherwise two when there is room.
@@ -350,8 +359,8 @@
     };
   }
 
-  function navIndex(screen) {
-    return { home: 0, entries: 1, debts: 2, savings: 3, tax: 0, settings: 4 }[screen] ?? 0;
+  function navLabel(screen) {
+    return { home: "Home", entries: "Monthly", debts: "Debts", savings: "Savings", tax: "Home", settings: "Settings" }[screen] || "Home";
   }
 
   function flowRows(rows, r, add, withSelection) {
@@ -451,5 +460,5 @@
     return cases;
   }
 
-  root.FoldLab = { DEVICES, SCREENS, CONTENT, navFor, layout, problems, allCases, device, posture, foldRect, reservedRects };
+  root.FoldLab = { DEVICES, SCREENS, CONTENT, NAV, navItems, navFor, layout, problems, allCases, device, posture, foldRect, reservedRects };
 })(typeof window !== "undefined" ? window : globalThis);

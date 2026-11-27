@@ -58,6 +58,7 @@ const APP_FILES = [
   "ai-cloud.js",
   "pro.js",
   "ocr.js",
+  "kira-bubble.js",
   "analytics.js",
   "theme-boot.js",
   // Self-hosted single-file QR libraries. cpSync creates the nested

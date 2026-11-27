@@ -120,6 +120,8 @@ await page.fill('#lock-input', 'test1234');
 if (await page.locator('#lock-confirm').isVisible()) await page.fill('#lock-confirm', 'test1234');
 await page.click('#lock-submit');
 await page.waitForTimeout(1200);
+// Key derivation can run past 1.2s on a busy machine: wait for the vault itself.
+await page.waitForFunction(() => document.getElementById('lock')?.hidden, null, { timeout: 20000 }).catch(() => {});
 check('unlocked', await page.locator('#tabbtn-dashboard').isVisible());
 
 // Dismiss the first-run guide dialog.
@@ -6154,13 +6156,16 @@ check('preprocess sizing: upscale to a 1200px short side, cap the long side at 2
 await S(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
 await page.click('#tabbtn-dashboard');
 await page.waitForTimeout(250);
+// 2.0: the form is the Add entry sheet (the bubble's Spend).
+await S(() => openAddEntry('expense', { focus: false }));
+await page.waitForTimeout(150);
 check('Split / Request money sits inside "More details", off the card\'s face',
   await page.locator('#daily-more').isHidden()
   && !(await page.locator('#btn-split-quick').isVisible())
   && await page.locator('#btn-split-quick').evaluate((e) => !!e.closest('#daily-more')));
 check('Home has exactly one Split entry point, and the Debts tab keeps its own',
   await page.locator('#tab-debts [data-action="split-compose"]').count() === 1
-  && await page.locator('#tab-dashboard [data-action="split-compose"]').count() === 1);
+  && await page.locator('#add-dialog [data-action="split-compose"]').count() === 1);
 await page.fill('#form-daily [name="amount"]', '42.50');
 await page.click('#daily-more-toggle');
 await page.waitForTimeout(150);
@@ -7966,7 +7971,7 @@ check('and what was typed reaches the home screen calculation',
     payoffOnDebts: !!document.querySelector('#tab-debts #payoff-card') && !!document.querySelector('#tab-debts #debt-card'),
     homeCards: [...document.querySelectorAll('#tab-dashboard > .card, #tab-dashboard > section.card')].map((c) => c.id || c.className.split(' ').slice(0, 2).join('.')),
   }));
-  check('the nav is five tabs', JSON.stringify(nav.visible) === JSON.stringify(['dashboard', 'flow', 'debts', 'savings', 'data']),
+  check('the nav is five tabs in the desktop sidebar (phones: four around the bubble, Settings behind ☰ — checked in the 2.0 section)', JSON.stringify(nav.visible) === JSON.stringify(['dashboard', 'flow', 'debts', 'savings', 'data']),
     JSON.stringify(nav.visible));
   check('the payoff plan and order live on Debts, not Home',
     nav.payoffOnDebts && !nav.homeCards.some((c) => /debt-card|payoff|dash-spending|budget-summary/.test(c)),
@@ -8054,7 +8059,7 @@ check('and what was typed reaches the home screen calculation',
     JSON.stringify(today));
   check('and says so plainly when nothing is logged', today.emptyShown, JSON.stringify(today));
 
-  await page.click('#tabbtn-data');
+  await S(() => document.getElementById('tabbtn-data').click());
   const settingsWords = await S(() => {
     const w = document.createTreeWalker(document.getElementById('tab-data'), NodeFilter.SHOW_TEXT);
     let n = 0, t;
@@ -8064,6 +8069,496 @@ check('and what was typed reaches the home screen calculation',
   // Was ~390 words before v1.35. A ceiling, so it can't creep back.
   check('Settings reads in under 260 words', settingsWords < 260, String(settingsWords));
   await page.click('#tabbtn-dashboard');
+}
+
+/* ── 2.0 stage A: the bubble, its radial actions, the Add entry sheet, ☰ ──
+   Home is a glance (no form). The middle bubble is Kira for Pro, the trial
+   and AI+, a big + otherwise; a tap fans out the actions, a hold talks.
+   Settings, Reports and Tax live behind ☰. */
+{
+  await S(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  await page.click('#tabbtn-dashboard');
+  await page.waitForTimeout(150);
+
+  // 1) The face follows the Kira tier; Home's Today Kira steps aside for it; 4th radial bubble switches Docs <-> Kira.
+  const faces = await S(() => {
+    const saved = { pro: state.pro, trial: state.proTrialStartedAt, sub: state.aiSub, daily: state.dailyExpenses, streak: state.streak };
+    state.dailyExpenses = state.dailyExpenses.filter((e) => e.date !== todayISO());
+    if (state.streak && Array.isArray(state.streak.noSpendDates)) state.streak = { ...state.streak, noSpendDates: state.streak.noSpendDates.filter((d) => d !== todayISO()) };
+    const read = () => {
+      renderAll();
+      const b = document.getElementById('kira-bubble');
+      document.getElementById('radial-meter').hidden = true;
+      radialOpen();
+      const meter = document.getElementById('radial-meter');
+      const hubLabel = document.getElementById('radial-kira-label')?.textContent.trim() || '';
+      const out = { tier: kiraTier(), kira: !!b.querySelector('svg.kira--proud'), plus: !!b.querySelector('.bubble-plus'), label: b.getAttribute('aria-label'),
+        todayKira: document.getElementById('today-kira').innerHTML !== '', meter: meter.hidden ? '' : meter.textContent, hubLabel };
+      radialClose();
+      return out;
+    };
+    state.pro = false; state.proTrialStartedAt = 0; state.aiSub = null;
+    const free = read();
+    state.proTrialStartedAt = Date.now();
+    const trial = read();
+    state.proTrialStartedAt = 0; state.pro = true;
+    const pro = read();
+    state.pro = false; state.aiSub = { active: true, expiresAt: Date.now() + 864e5, periodKey: new Date().toISOString().slice(0, 7), textUsed: 6, textLimit: 1000 };
+    const aiplus = read();
+    state.aiSub = { active: true, expiresAt: Date.now() + 864e5, periodKey: '2025-01', textUsed: 6, textLimit: 1000 };
+    const stale = read();
+    // On-device AI working: the sempoa, and only then.
+    const tok = aiThinkStart(5000);
+    const counting = !!document.querySelector('#kira-bubble svg.kira--counting .sempoa');
+    aiThinkEnd(tok);
+    const after = !!document.querySelector('#kira-bubble svg.kira--proud');
+    state.pro = saved.pro; state.proTrialStartedAt = saved.trial; state.aiSub = saved.sub; state.dailyExpenses = saved.daily; state.streak = saved.streak;
+    renderAll();
+    return { free, trial, pro, aiplus, stale, counting, after };
+  });
+  check('2.0 bubble: a big + named "Add" without Kira+, 4th radial bubble is "Docs", and Home keeps its own Today Kira',
+    faces.free.tier === 'free' && faces.free.plus && !faces.free.kira && faces.free.label === 'Add' && faces.free.hubLabel === 'Docs' && faces.free.todayKira && !faces.free.meter, JSON.stringify(faces.free));
+  check('2.0 bubble: Kira (proud) named "Kira: add or ask" for the trial, lifetime Pro and AI+; 4th radial bubble is "Kira"; one Kira on Home, so the Today Kira steps aside',
+    [faces.trial, faces.pro, faces.aiplus].every((f) => f.kira && !f.plus && f.label === 'Kira: add or ask' && f.hubLabel === 'Kira' && !f.todayKira)
+    && faces.trial.tier === 'trial' && faces.pro.tier === 'pro_taste' && faces.aiplus.tier === 'aiplus', JSON.stringify(faces));
+  check('2.0 bubble: the meter shows only when the server\'s figure is known (AI+ current month), never a guess or stale month',
+    !faces.trial.meter && !faces.pro.meter && !faces.stale.meter && /994 of 1,?000 left/.test(faces.aiplus.meter), JSON.stringify([faces.pro.meter, faces.stale.meter, faces.aiplus.meter]));
+  check('2.0 bubble: Kira counts on the sempoa while on-device AI works, then goes back to proud',
+    faces.counting && faces.after, JSON.stringify(faces));
+
+  // 2) The 4-bubble Jelly radial: keyboard, Escape, a tap outside.
+  const expectedFourth = await S(() => (kiraTier() === 'free' ? 'Docs' : 'Kira'));
+  await page.focus('#kira-bubble');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(450);
+  const at = () => S(() => document.activeElement && document.activeElement.dataset.radial);
+  const kb = { open: await S(() => document.getElementById('radial-dialog').open), expanded: await S(() => document.getElementById('kira-bubble').getAttribute('aria-expanded')), first: await at() };
+  await page.keyboard.press('ArrowRight'); kb.right = await at();
+  await page.keyboard.press('ArrowLeft'); await page.keyboard.press('ArrowLeft'); kb.left = await at();
+  await page.keyboard.press('End'); kb.end = await at();
+  await page.keyboard.press('Home'); kb.home = await at();
+  await page.keyboard.press('Tab'); kb.tabStaysIn = await S(() => document.getElementById('radial-dialog').contains(document.activeElement));
+  kb.items = await S(() => [...document.querySelectorAll('#radial .radial-item')].map((b) => ({ k: b.dataset.radial, role: b.getAttribute('role'), tag: b.tagName, label: b.textContent.trim() })));
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(150);
+  kb.closed = await S(() => !document.getElementById('radial-dialog').open && document.getElementById('kira-bubble').getAttribute('aria-expanded') === 'false');
+  await page.click('#kira-bubble');
+  await page.waitForTimeout(400);
+  await page.mouse.click(8, 140);
+  await page.waitForTimeout(150);
+  kb.outside = await S(() => !document.getElementById('radial-dialog').open);
+  check('2.0 radial: Enter on the bubble opens it (aria-expanded) with focus on Money out; arrows, Home and End move round the 4-bubble arc; Tab stays inside',
+    kb.open && kb.expanded === 'true' && kb.first === 'outflow' && kb.right === 'income' && kb.left === 'scan' && kb.end === 'kira' && kb.home === 'scan' && kb.tabStaysIn, JSON.stringify(kb));
+  check('2.0 radial: four Jelly buttons with labels — Scan, Money out, Income, Kira/Docs (never No spend today)',
+    kb.items.length === 4 && kb.items.every((i) => i.tag === 'BUTTON' && i.role === 'menuitem' && i.label)
+    && kb.items.map((i) => i.label).join('|') === `Scan|Money out|Income|${expectedFourth}`, JSON.stringify(kb.items));
+  check('2.0 radial: Escape and a tap outside both close it', kb.closed && kb.outside, JSON.stringify(kb));
+
+  // 3) Each of the 4 radial bubbles opens its own sheet or flow.
+  const via = async (k) => {
+    await S(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+    await page.click('#kira-bubble');
+    await page.waitForTimeout(420);
+    await page.click(`#radial [data-radial="${k}"]`);
+    await page.waitForTimeout(300);
+    return S(() => ({ open: [...document.querySelectorAll('dialog[open]')].map((d) => d.id), type: document.getElementById('daily-type').value,
+      focus: document.activeElement && document.activeElement.name }));
+  };
+  const items = {};
+  for (const k of ['outflow', 'income', 'kira']) items[k] = await via(k);
+
+  // Money out 3-tab modal: Spend -> Pay debt -> Split.
+  await via('outflow');
+  await page.click('#add-dialog [data-type="debt"]');
+  await page.waitForTimeout(150);
+  items.outflowDebt = await S(() => ({
+    open: document.getElementById('add-dialog').open,
+    type: document.getElementById('daily-type').value,
+    submit: document.getElementById('daily-submit-btn')?.textContent.trim(),
+  }));
+  await page.click('#add-dialog [data-outflow-tab="split"]');
+  await page.waitForTimeout(250);
+  items.outflowSplit = await S(() => ({
+    open: [...document.querySelectorAll('dialog[open]')].map((d) => d.id).join(),
+  }));
+
+  // Income modal: submit into state.income, then restore state.income so downstream tests stay clean.
+  await via('income');
+  const savedIncome = await S(() => JSON.stringify(state.income));
+  await page.fill('#form-income-quick [name="amount"]', '320.50');
+  await page.fill('#form-income-quick [name="name"]', 'Freelance bonus');
+  await page.click('#form-income-quick button[type="submit"]');
+  await page.waitForTimeout(350);
+  items.incomeSaved = await S((prevJson) => {
+    const prev = JSON.parse(prevJson);
+    const added = state.income.length - prev.length;
+    const last = state.income[state.income.length - 1];
+    const closed = !document.getElementById('income-dialog').open;
+    state.income = prev; save(); renderAll();
+    return { added, amount: last?.amount, name: last?.name, closed };
+  }, savedIncome);
+
+  // Unified Kira/Docs hub sheet: Free vs Paid header/meter/upsell, 4 doc rows, and accessible #btn-voice.
+  items.hub = await S(() => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    const saved = { pro: state.pro, trial: state.proTrialStartedAt, sub: state.aiSub };
+    state.pro = false; state.proTrialStartedAt = 0; state.aiSub = null;
+    openKiraHub();
+    const free = {
+      open: document.getElementById('kira-hub-dialog').open,
+      title: document.getElementById('kira-hub-title').textContent.trim(),
+      badge: document.getElementById('kira-hub-badge').textContent.trim(),
+      meterHidden: document.getElementById('kira-hub-meter').hidden,
+      upsellHidden: document.getElementById('kira-hub-upsell').hidden,
+      docs: [...document.querySelectorAll('#kira-hub-dialog .kira-hub-doc')].map((b) => b.id),
+      voiceVisible: !!document.querySelector('#kira-hub-dialog #btn-voice') && !document.querySelector('#kira-hub-dialog #btn-voice').hidden,
+    };
+    closeKiraHub();
+    state.aiSub = { active: true, expiresAt: Date.now() + 864e5, periodKey: new Date().toISOString().slice(0, 7), textUsed: 6, textLimit: 1000 };
+    openKiraHub();
+    const paid = {
+      title: document.getElementById('kira-hub-title').textContent.trim(),
+      badge: document.getElementById('kira-hub-badge').textContent.trim(),
+      meterHidden: document.getElementById('kira-hub-meter').hidden,
+      meterText: document.getElementById('kira-hub-meter-text').textContent.trim(),
+      upsellHidden: document.getElementById('kira-hub-upsell').hidden,
+    };
+    // Accessible #btn-voice closes the hub and opens #voice-dialog.
+    document.querySelector('#kira-hub-dialog #btn-voice').click();
+    const voiceFromHub = {
+      hubOpen: document.getElementById('kira-hub-dialog').open,
+      voiceOpen: document.getElementById('voice-dialog').open,
+    };
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    state.pro = saved.pro; state.proTrialStartedAt = saved.trial; state.aiSub = saved.sub;
+    renderAll();
+    return { free, paid, voiceFromHub };
+  });
+
+  // Scan bubble opens the picture picker — never under the radial.
+  await S(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  await page.click('#kira-bubble');
+  await page.waitForTimeout(420);
+  const chooser = page.waitForEvent('filechooser', { timeout: 2500 }).then(() => true).catch(() => false);
+  await page.click('#radial [data-radial="scan"]');
+  items.scan = await chooser;
+
+  // No spend today lives ONLY on Home's Today card when RM 0 spent, never in the radial.
+  const ns = await S(async () => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    const saved = { daily: state.dailyExpenses, streak: JSON.stringify(state.streak) };
+    state.dailyExpenses = state.dailyExpenses.filter((e) => e.date !== todayISO());
+    const st = coerceStreak(state.streak);
+    state.streak = {
+      ...st,
+      enabled: true,
+      noSpendDates: (st.noSpendDates || []).filter((d) => d !== todayISO()),
+      activityDates: (st.activityDates || []).filter((d) => d !== todayISO()),
+    };
+    renderAll();
+    const inRadial = !!document.querySelector('#radial [data-radial="nospend"]');
+    const btn = document.getElementById('btn-no-spend-today');
+    const rowVisible = !document.getElementById('today-nospend-row').hidden;
+    btn.click();
+    await new Promise((r) => setTimeout(r, 120));
+    const checked = coerceStreak(state.streak).noSpendDates.includes(todayISO());
+    const doneVisible = !document.getElementById('today-nospend-done').hidden;
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    state.dailyExpenses = saved.daily; state.streak = JSON.parse(saved.streak); save(); renderAll();
+    return { inRadial, rowVisible, checked, doneVisible };
+  });
+  check('2.0 radial: Money out opens #add-dialog on Spend (amount focused), switches to Pay debt, and Split opens split composer',
+    items.outflow.open.join() === 'add-dialog' && items.outflow.type === 'expense' && items.outflow.focus === 'amount'
+    && items.outflowDebt.open && items.outflowDebt.type === 'debt' && items.outflowDebt.submit === 'Record payment'
+    && items.outflowSplit.open === 'split-compose-dialog', JSON.stringify(items));
+  check('2.0 radial: Income opens #income-dialog (amount focused) and submits directly into state.income; Scan opens the picture picker',
+    items.income.open.join() === 'income-dialog' && items.income.focus === 'amount'
+    && items.incomeSaved.added === 1 && items.incomeSaved.amount === 320.5 && items.incomeSaved.name === 'Freelance bonus' && items.incomeSaved.closed
+    && items.scan === true, JSON.stringify({ income: items.income, incomeSaved: items.incomeSaved, scan: items.scan }));
+  check('2.0 radial: Kira/Docs opens unified hub with Free upsell vs Paid meter, 4 doc rows, and accessible voice trigger',
+    items.kira.open.join() === 'kira-hub-dialog'
+    && items.hub.free.open && items.hub.free.title === 'Import Docs' && items.hub.free.badge === 'On-device' && items.hub.free.meterHidden && !items.hub.free.upsellHidden
+    && items.hub.free.docs.join(',') === 'hub-doc-statement,hub-doc-ea,hub-doc-loan,hub-doc-split' && items.hub.free.voiceVisible
+    && items.hub.paid.title === 'Kira' && items.hub.paid.badge === 'AI+ Active' && !items.hub.paid.meterHidden && /994 of 1,?000 left/.test(items.hub.paid.meterText) && items.hub.paid.upsellHidden
+    && !items.hub.voiceFromHub.hubOpen && items.hub.voiceFromHub.voiceOpen, JSON.stringify(items.hub));
+  check('2.0 Home Today card: No spend today is absent from the radial and checks in from Home when RM 0 spent',
+    !ns.inRadial && ns.rowVisible && ns.checked && ns.doneVisible, JSON.stringify(ns));
+
+  // 4) A spend through the Money out sheet lands on Home and the sheet goes.
+  await S(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  const before = await S(() => ({ n: state.dailyExpenses.length, today: document.getElementById('today-total').textContent }));
+  await page.click('#kira-bubble');
+  await page.waitForTimeout(420);
+  await page.click('#radial [data-radial="outflow"]');
+  await page.waitForTimeout(250);
+  await page.fill('#form-daily [name="amount"]', '17.40');
+  await page.click('#form-daily button[type="submit"]');
+  await page.waitForTimeout(500);
+  const added = await S((n) => ({ added: state.dailyExpenses.length - n, last: state.dailyExpenses[state.dailyExpenses.length - 1].amount,
+    closed: !document.getElementById('add-dialog').open, row: [...document.querySelectorAll('#today-list .today-row')].some((r) => /17\.40/.test(r.textContent)) }), before.n);
+  check('2.0 Money out sheet: a spend saved from it is on Home\'s Today card and the sheet closes', added.added === 1 && added.last === 17.4 && added.closed && added.row, JSON.stringify(added));
+
+  // 5) Hold-to-pop (>= 480ms) works on BOTH Free (+) and Paid (Kira); early release cancels charging without opening voice.
+  const holdSaved = await S(() => ({ pro: state.pro, trial: state.proTrialStartedAt, sub: state.aiSub }));
+  const testHold = async () => {
+    await S(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+    const bb = await page.locator('#kira-bubble').boundingBox();
+    await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    const out = await S(() => ({ tier: kiraTier(), voice: document.getElementById('voice-dialog').open, radial: document.getElementById('radial-dialog').open }));
+    await page.mouse.up();
+    await page.waitForTimeout(250);
+    out.radialAfter = await S(() => document.getElementById('radial-dialog').open);
+    await S(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+    return out;
+  };
+  await S(() => { state.pro = false; state.proTrialStartedAt = 0; state.aiSub = null; renderAll(); });
+  const heldFree = await testHold();
+  await S(() => { state.pro = true; state.proTrialStartedAt = 0; state.aiSub = null; renderAll(); });
+  const heldPaid = await testHold();
+  // Early release (< 480ms, moving off the bubble) cancels charging without popping into voice.
+  await S(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  const bbEarly = await page.locator('#kira-bubble').boundingBox();
+  await page.mouse.move(bbEarly.x + bbEarly.width / 2, bbEarly.y + bbEarly.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(150);
+  const chargingDuring = await S(() => document.getElementById('kira-bubble').classList.contains('is-charging'));
+  await page.mouse.move(bbEarly.x + bbEarly.width + 40, bbEarly.y);
+  await page.mouse.up();
+  await page.waitForTimeout(450);
+  const earlyCancel = await S((during) => ({
+    chargingDuring: during,
+    chargingAfter: document.getElementById('kira-bubble').classList.contains('is-charging'),
+    voice: document.getElementById('voice-dialog').open,
+  }), chargingDuring);
+  await S((s) => { state.pro = s.pro; state.proTrialStartedAt = s.trial; state.aiSub = s.sub; renderAll(); document.querySelectorAll('dialog[open]').forEach((d) => d.close()); }, holdSaved);
+  check('2.0 bubble: hold-to-pop opens Voice on both Free (+) and Paid (Kira); letting go does not open the radial',
+    heldFree.tier === 'free' && heldFree.voice && !heldFree.radial && !heldFree.radialAfter
+    && heldPaid.tier === 'pro_taste' && heldPaid.voice && !heldPaid.radial && !heldPaid.radialAfter, JSON.stringify({ heldFree, heldPaid }));
+  check('2.0 bubble: early release (< 480ms) cancels charging without opening Voice',
+    earlyCancel.chargingDuring && !earlyCancel.chargingAfter && !earlyCancel.voice, JSON.stringify(earlyCancel));
+
+  // 6) Quick actions and deep links open the same sheets.
+  const deep = await S(async () => {
+    const out = {};
+    const wait = () => new Promise((r) => setTimeout(r, 260));
+    for (const [k, url] of [['spend', 'duitful://action/spend'], ['debt', 'duitful://action/debt'], ['saving', '?action=saving'], ['voice', 'duitful://action/voice'], ['split', 'duitful://action/split']]) {
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      lastQuickAction = { name: '', at: 0 };
+      requestQuickAction(quickActionFromUrl(url));
+      await wait();
+      out[k] = { open: [...document.querySelectorAll('dialog[open]')].map((d) => d.id).join(), type: document.getElementById('daily-type').value };
+    }
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    // No spend: the same check-in as the Home Today card button.
+    const realNs = checkInNoSpendToday;
+    let ns = 0;
+    checkInNoSpendToday = () => { ns++; };
+    lastQuickAction = { name: '', at: 0 };
+    requestQuickAction(quickActionFromUrl('duitful://action/no-spend'));
+    await wait();
+    checkInNoSpendToday = realNs;
+    out.nospend = ns;
+    return out;
+  });
+  // Scan: the radial's Scan (it used to click a button that didn't exist).
+  const scanChooser = page.waitForEvent('filechooser', { timeout: 2500 }).then(() => true).catch(() => false);
+  await S(() => { lastQuickAction = { name: '', at: 0 }; requestQuickAction(quickActionFromUrl('duitful://action/scan')); });
+  deep.scan = await scanChooser;
+  await S(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  check('2.0 deep links: duitful://action/scan opens the receipt scan, /no-spend checks in',
+    deep.scan === true && deep.nospend === 1, JSON.stringify({ scan: deep.scan, nospend: deep.nospend }));
+  check('2.0 deep links: duitful://action/spend, /debt, ?action=saving open the Add entry sheet on the right tab; voice and split their own sheets',
+    deep.spend.open === 'add-dialog' && deep.spend.type === 'expense' && deep.debt.open === 'add-dialog' && deep.debt.type === 'debt'
+    && deep.saving.open === 'add-dialog' && deep.saving.type === 'saving' && deep.voice.open === 'voice-dialog' && deep.split.open === 'split-compose-dialog', JSON.stringify(deep));
+
+  // 7) ☰: every item works (including Kira & Docs), and the search shortcuts still open search.
+  const menuGo = async (sel) => {
+    await S(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+    await page.click('#btn-menu');
+    await page.waitForTimeout(200);
+    const open = await S(() => document.getElementById('menu-dialog').open && document.getElementById('btn-menu').getAttribute('aria-expanded') === 'true');
+    await page.click(`#menu-dialog ${sel}`);
+    await page.waitForTimeout(300);
+    return { open, ...(await S(() => ({ menu: document.getElementById('menu-dialog').open, tab: document.querySelector('.tab-panel.active')?.id, dlg: [...document.querySelectorAll('dialog[open]')].map((d) => d.id).join() }))) };
+  };
+  const menu = {
+    kiraHub: await menuGo('#menu-kira-hub'),
+    settings: await menuGo('[data-go-tab="data"]'),
+    reports: await menuGo('[data-go-tab="reports"]'),
+    tax: await menuGo('#today-tax-link'),
+    entries: await menuGo('[data-go-tab="daily"]'),
+    tour: await menuGo('#menu-tour'),
+    news: await menuGo('#menu-whats-new'),
+  };
+  // Search itself is checked in its own section with the vault open; here
+  // only that ☰ → Search, "/" and Ctrl+K still reach openSearch (a spy, so
+  // nothing here needs the vault key an earlier section took away).
+  await S(() => { window.__realOpenSearch = openSearch; window.__searchCalls = 0; openSearch = () => { window.__searchCalls++; }; });
+  menu.search = await menuGo('#btn-search');
+  menu.search.calls = await S(() => window.__searchCalls);
+  await S(() => { document.querySelectorAll('dialog[open]').forEach((d) => d.close()); document.getElementById('tabbtn-dashboard').click(); document.activeElement?.blur?.(); });
+  await page.waitForTimeout(150);
+  await page.keyboard.press('/');
+  await page.waitForTimeout(150);
+  menu.slash = await S(() => window.__searchCalls === 2);
+  await page.keyboard.press('Control+k');
+  await page.waitForTimeout(150);
+  menu.ctrlK = await S(() => window.__searchCalls === 3);
+  await S(() => { openSearch = window.__realOpenSearch; delete window.__realOpenSearch; });
+  await S(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  check('2.0 ☰: Settings, Reports, Tax and All entries open their pages and the menu closes',
+    menu.settings.open && !menu.settings.menu && menu.settings.tab === 'tab-data' && menu.reports.tab === 'tab-reports' && menu.tax.tab === 'tab-tax' && menu.entries.tab === 'tab-daily', JSON.stringify(menu));
+  check('2.0 ☰: Kira & Docs, Search, Help & tour and What\'s new open their sheets; / and Ctrl+K still open search',
+    menu.kiraHub.open && !menu.kiraHub.menu && menu.kiraHub.dlg === 'kira-hub-dialog'
+    && menu.search.calls === 1 && !menu.search.menu && menu.tour.dlg === 'guide-dialog' && menu.news.dlg === 'whats-new-dialog' && menu.slash && menu.ctrlK, JSON.stringify(menu));
+
+  // 7b) Settings toggles: Bubble & save sounds and Haptics default ON and persist via localStorage across reload.
+  let prefsBefore, prefsOff, prefsReload;
+  const ctxPrefs = await b.newContext({ viewport: { width: 390, height: 844 } });
+  try {
+    const pPrefs = await ctxPrefs.newPage();
+    await pPrefs.goto(`${BASE}/app/index.html`, { waitUntil: 'domcontentloaded' });
+    await pPrefs.waitForFunction(() => typeof window.kiraSoundEnabled === 'function' && !!document.getElementById('pref-bubble-sound'));
+    prefsBefore = await pPrefs.evaluate(() => {
+      const s = document.getElementById('pref-bubble-sound');
+      const h = document.getElementById('pref-haptics');
+      return { soundChecked: !!s?.checked, hapticsChecked: !!h?.checked, soundOn: kiraSoundEnabled(), hapticsOn: kiraHapticsEnabled() };
+    });
+    await pPrefs.evaluate(() => {
+      const s = document.getElementById('pref-bubble-sound');
+      const h = document.getElementById('pref-haptics');
+      s.checked = false; s.dispatchEvent(new Event('change'));
+      h.checked = false; h.dispatchEvent(new Event('change'));
+    });
+    prefsOff = await pPrefs.evaluate(() => ({
+      soundLS: localStorage.getItem('duitful.soundOff'),
+      hapticsLS: localStorage.getItem('duitful.hapticsOff'),
+      soundOn: kiraSoundEnabled(),
+      hapticsOn: kiraHapticsEnabled(),
+    }));
+    await pPrefs.reload({ waitUntil: 'domcontentloaded' });
+    await pPrefs.waitForFunction(() => typeof window.kiraSoundEnabled === 'function' && !!document.getElementById('pref-bubble-sound'));
+    prefsReload = await pPrefs.evaluate(() => ({
+      soundChecked: !!document.getElementById('pref-bubble-sound')?.checked,
+      hapticsChecked: !!document.getElementById('pref-haptics')?.checked,
+      soundOn: kiraSoundEnabled(),
+      hapticsOn: kiraHapticsEnabled(),
+    }));
+  } finally {
+    await ctxPrefs.close();
+  }
+  check('2.0 Settings: Bubble & save sounds and Haptics default ON and persist OFF across reload via localStorage',
+    prefsBefore.soundChecked && prefsBefore.hapticsChecked && prefsBefore.soundOn && prefsBefore.hapticsOn
+    && prefsOff.soundLS === '1' && prefsOff.hapticsLS === '1' && !prefsOff.soundOn && !prefsOff.hapticsOn
+    && !prefsReload.soundChecked && !prefsReload.hapticsChecked && !prefsReload.soundOn && !prefsReload.hapticsOn,
+    JSON.stringify({ prefsBefore, prefsOff, prefsReload }));
+
+  // 8) "Settings moved here": once, for people who had used Duitful before.
+  const hint = await S(() => {
+    const out = {};
+    const shown = () => !document.getElementById('menu-hint').hidden;
+    localStorage.removeItem('duitful.menuHint');
+    menuHintMaybe();
+    out.existing = shown();
+    document.getElementById('menu-hint-ok').click();
+    out.gone = !shown() && localStorage.getItem('duitful.menuHint') === 'x';
+    menuHintMaybe();
+    out.once = !shown();
+    const saved = { income: state.income, expenses: state.expenses, daily: state.dailyExpenses, debts: state.debts, savings: state.savings };
+    Object.assign(state, { income: [], expenses: [], dailyExpenses: [], debts: [], savings: [] });
+    localStorage.removeItem('duitful.menuHint');
+    menuHintMaybe();
+    out.newUser = !shown() && localStorage.getItem('duitful.menuHint') === 'x';
+    Object.assign(state, { income: saved.income, expenses: saved.expenses, dailyExpenses: saved.daily, debts: saved.debts, savings: saved.savings });
+    renderAll();
+    return out;
+  });
+  check('2.0 hint: "Settings moved here" shows once for an existing user, never again after OK, and never for a brand-new vault',
+    hint.existing && hint.gone && hint.once && hint.newUser, JSON.stringify(hint));
+
+  // 9) Glance Home: top three categories, three upcoming at most, no form.
+  const glance = await S(() => {
+    const saved = state.dailyExpenses;
+    const m = currentMonthISO();
+    state.dailyExpenses = [...saved, ...[['Kopi', 3], ['Fuel', 120], ['Groceries', 80], ['Books', 40], ['Fuel', 30]].map(([c, a], i) => ({ id: 'g' + i, kind: 'expense', date: m + '-01', amount: a, category: c, createdAt: i }))];
+    renderAll();
+    const names = [...document.querySelectorAll('#home-cats .home-cat-name')].map((e) => e.textContent);
+    const out = { shown: !document.getElementById('home-cats').hidden, names, top: homeCatsData().top.map((c) => c.name),
+      noForm: !document.querySelector('#tab-dashboard form#form-daily') && !!document.querySelector('#add-dialog #form-daily'),
+      upcoming: document.querySelectorAll('#upcoming-list li:not(.up-more)').length };
+    state.dailyExpenses = saved; renderAll();
+    return out;
+  });
+  check('2.0 Home: no form on Home (it lives in the Add entry sheet); top spending lists this month\'s three biggest categories in order; Upcoming shows at most three',
+    glance.shown && glance.noForm && glance.names.length === 3 && glance.names.join() === glance.top.join() && glance.upcoming <= 3, JSON.stringify(glance));
+
+  // 10) Rail and sidebar: the bubble heads the column; Settings in the sidebar only.
+  const vpKeep = page.viewportSize();
+  const frames = {};
+  for (const [w, h] of [[390, 844], [700, 1000], [820, 1180], [1100, 800]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.waitForTimeout(120);
+    frames[`${w}x${h}`] = await S(async () => {
+      const b = document.getElementById('kira-bubble').getBoundingClientRect();
+      const tabs = [...document.querySelectorAll('.tabs .tab')].filter((t) => t.getClientRects().length);
+      const first = tabs[0].getBoundingClientRect();
+      radialOpen();
+      await new Promise((r) => setTimeout(r, 450));
+      const rects = [...document.querySelectorAll('#radial .radial-item')].map((i) => i.getBoundingClientRect());
+      const inside = rects.every((r) => r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight);
+      let overlap = 0;
+      for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) {
+        const a = rects[i], c = rects[j];
+        if (a.left < c.right - 1 && c.left < a.right - 1 && a.top < c.bottom - 1 && c.top < a.bottom - 1) overlap++;
+      }
+      const side = document.getElementById('radial-dialog').classList.contains('is-side');
+      radialClose();
+      return { headsColumn: b.top < first.top, beside: b.left < first.left + 4 || b.top >= first.top, visible: tabs.map((t) => t.dataset.tab).join(), inside, overlap, side };
+    });
+  }
+  await page.setViewportSize(vpKeep);
+  await page.waitForTimeout(120);
+  check('2.0 nav: phones show Home · Monthly · bubble · Debts · Savings, the fan opens up over the bar, every item on screen and none overlapping',
+    frames['390x844'].visible === 'dashboard,flow,debts,savings' && !frames['390x844'].side && frames['390x844'].inside && frames['390x844'].overlap === 0, JSON.stringify(frames['390x844']));
+  check('2.0 nav: on the rail (700px, iPad 820×1180) and the sidebar (1100px) the bubble heads the column and the fan opens sideways, on screen, no overlaps; Settings stays in the sidebar only',
+    ['700x1000', '820x1180', '1100x800'].every((k) => frames[k].headsColumn && frames[k].side && frames[k].inside && frames[k].overlap === 0)
+    && frames['700x1000'].visible === 'dashboard,flow,debts,savings' && frames['1100x800'].visible === 'dashboard,flow,debts,savings,data', JSON.stringify(frames));
+
+  // 10b) At 360px nothing sits under the bubble: scrolled to the end, the
+  // last card ends above it and the bubble is what a tap on it reaches.
+  await page.setViewportSize({ width: 360, height: 780 });
+  await S(() => document.getElementById('tabbtn-dashboard').click());
+  await page.waitForTimeout(200);
+  const clear = await S(async () => {
+    scrollTo(0, document.documentElement.scrollHeight);
+    await new Promise((r) => setTimeout(r, 150));
+    const b = document.getElementById('kira-bubble').getBoundingClientRect();
+    const cards = [...document.querySelectorAll('#tab-dashboard > *')].filter((c) => c.getClientRects().length && c.getBoundingClientRect().height > 0);
+    const last = cards[cards.length - 1].getBoundingClientRect();
+    const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+    const out = { lastBottom: Math.round(last.bottom), bubbleTop: Math.round(b.top), hit: !!hit && !!hit.closest('#kira-bubble') };
+    scrollTo(0, 0);
+    return out;
+  });
+  await page.setViewportSize(vpKeep);
+  await page.waitForTimeout(120);
+  check('2.0 bubble at 360px: scrolled to the end, Home\'s last card ends above the bubble and a tap on it reaches the bubble',
+    clear.lastBottom <= clear.bubbleTop && clear.hit, JSON.stringify(clear));
+
+  // 11) Reduced motion: the fan fades, nothing travels.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const still = await S(async () => {
+    radialOpen();
+    await new Promise((r) => setTimeout(r, 60));
+    const cs = getComputedStyle(document.querySelector('#radial .radial-item'));
+    const out = { prop: cs.transitionProperty, transform: cs.transform };
+    radialClose();
+    return out;
+  });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  check('2.0 radial under reduced motion: opacity only, no spring', !/transform|all/.test(still.prop), JSON.stringify(still));
 }
 
 /* ── Spending pools stay editable after the trial ────────────────────────
@@ -8133,7 +8628,9 @@ check('and what was typed reaches the home screen calculation',
     const out = {};
     const form = document.getElementById('form-daily');
     const before = state.dailyExpenses.length;
-    setDailyType('expense');
+    // 2.0: the form is the Add entry sheet; the amount flies from its button.
+    openAddEntry('expense', { focus: false });
+    await new Promise((r) => setTimeout(r, 320));
     form.querySelector('[name="amount"]').value = '7.25';
     form.requestSubmit();
     out.savedNow = state.dailyExpenses.length === before + 1; // synchronous
@@ -8275,6 +8772,10 @@ check('the vault is open before the quick-add checks',
     out.missing = SEARCH_FEATURES.filter((f) => f.go && !document.querySelector(f.go[1])).map((f) => f.title);
     out.tabsExist = SEARCH_FEATURES.filter((f) => f.go && !document.querySelector(`.tab[data-tab="${f.go[0]}"]`)).map((f) => f.title);
 
+    // 2.0: ☰ → Search is the same button, now in the menu sheet.
+    document.getElementById('btn-search').click();
+    out.viaMenu = document.getElementById('search-dialog').open;
+    closeSearch();
     openSearch('grab');
     renderSearch();
     out.total = document.querySelector('.search-group-total')?.textContent || '';
@@ -8322,6 +8823,7 @@ check('the vault is open before the quick-add checks',
   check('search totals spent and saved apart, never summed together',
     /32\.50 spent/.test(se.total) && /50\.00 saved/.test(se.total), se.total);
   check('search results honour privacy mode', se.masked, JSON.stringify(se));
+  check('2.0: the ☰ menu\'s Search opens the real search sheet', se.viaMenu === true, JSON.stringify(se.viaMenu));
   check('recent searches live in the encrypted vault, never in plain storage',
     se.recent === 'grab secret-query-xyz' && !se.leak, JSON.stringify(se));
   check('"show all" lands on All entries with the filter pre-filled', se.showAll.tab === 'tab-daily'
@@ -8549,9 +9051,12 @@ check('the vault is open before the quick-add checks',
     out.dueWords = [...document.querySelectorAll('#list-debt .debt-due')].map((e) => e.textContent);
     out.chips = document.querySelectorAll('#list-debt .day-chip').length;
 
+    openAddEntry(null, { focus: false });
+    await new Promise((r) => setTimeout(r, 350));
     const sub = document.querySelector('#form-daily > button[type="submit"]');
     const card = document.querySelector('.quick-add').getBoundingClientRect();
     out.submitFull = sub.getBoundingClientRect().width > card.width * 0.8;
+    closeAddEntry();
     out.splitInMore = !!document.getElementById('btn-split-quick').closest('#daily-more');
 
     const tabs = document.querySelector('.tabs').getBoundingClientRect();
@@ -8583,11 +9088,13 @@ check('the vault is open before the quick-add checks',
   check('Reports Top 5 leads with what it was, and the pie says why it excludes debt and savings',
     ui.top1 === 'Mydin groceries' && /aren't spending/.test(ui.pieNote), JSON.stringify(ui));
 
-  // The bar steps aside while a text field has focus.
-  await page.focus('#form-daily input[name="amount"]');
+  // The bar steps aside while a text field on the page has focus.
+  await page.click('#tabbtn-debts');
+  await openAdd('form-debt');
+  await page.focus('#form-debt input[name="name"]');
   await page.waitForTimeout(300);
   const hidden = await S(() => document.querySelector('.tabs').getBoundingClientRect().top >= innerHeight - 2);
-  await S(() => document.activeElement.blur());
+  await S(() => { document.activeElement.blur(); document.querySelector('#form-debt [data-add-cancel]')?.click(); });
   await page.waitForTimeout(300);
   const back = await S(() => document.querySelector('.tabs').getBoundingClientRect().bottom <= innerHeight + 1);
   check('the bottom tab bar hides while typing and comes back after', hidden && back, JSON.stringify({ hidden, back }));
@@ -9831,7 +10338,8 @@ check('the vault is open before the quick-add checks',
 // Instalment plans are Pro-gated and the trial was aged out earlier in this
 // file, so restore Pro before touching the form — otherwise every add below
 // silently no-ops and the section passes vacuously.
-await S(() => { state.pro = true; state.debts = []; save(); renderAll(); });
+// 2.0: a quick action earlier leaves the Add entry sheet open; put it away.
+await S(() => { document.querySelectorAll('dialog[open]').forEach((d) => d.close()); state.pro = true; state.debts = []; save(); renderAll(); });
 await page.click('#tabbtn-debts');
 await page.waitForTimeout(200);
 
@@ -11991,7 +12499,7 @@ check('the brand catalogue makes no network calls at all',
   await S(() => { const y = new Date().getFullYear(); const t = taxState(); t.reviews[`${y}-nov`] = 1; t.reviews[`${y - 1}-final`] = 1; save(); });
   const addSpend = async (amount, category, note) => {
     await S(() => document.getElementById('tabbtn-dashboard').click());
-    await S(() => setDailyMoreOpen(true));
+    await S(() => { openAddEntry('expense', { focus: false }); setDailyMoreOpen(true); });
     await page.fill('#form-daily input[name="amount"]', amount);
     await page.fill('#form-daily input[name="category"]', category);
     await page.fill('#form-daily input[name="note"]', note);
@@ -14441,12 +14949,12 @@ check('the brand catalogue makes no network calls at all',
   }));
   const en0 = await look();
   check('languages: a phone set to English opens in English, choice left on "Phone\'s language"',
-    en0.tab === 'Home' && en0.lang === 'en' && en0.add === 'Add entry' && en0.stored === null && !en0.hint, JSON.stringify(en0));
+    en0.tab === 'Home' && en0.lang === 'en' && en0.add === 'Save spend' && en0.stored === null && !en0.hint, JSON.stringify(en0));
 
   await pick('ms');
   const ms = await look();
   check('languages: picking Bahasa Melayu loads only ms on demand and repaints the page and what script.js draws, with no reload (tab, button, balance line, <html lang>)',
-    ms.tab === 'Utama' && ms.lang === 'ms' && ms.dir === 'ltr' && ms.add === 'Tambah catatan' && /^.*Hari \d+\/\d+/.test(ms.progress) && ms.hint && ms.stored === 'ms' && JSON.stringify(ms.loaded) === '["ms"]', JSON.stringify(ms));
+    ms.tab === 'Utama' && ms.lang === 'ms' && ms.dir === 'ltr' && ms.add === 'Simpan belanja' && /^.*Hari \d+\/\d+/.test(ms.progress) && ms.hint && ms.stored === 'ms' && JSON.stringify(ms.loaded) === '["ms"]', JSON.stringify(ms));
   const fills = await lp.evaluate(() => [
     tr('Day {d}/{n}', { d: 3, n: 30 }),
     trn(1, '{n} day left', '{n} days left'),
@@ -14484,7 +14992,7 @@ check('the brand catalogue makes no network calls at all',
   const zh = await look();
   const zhDate = await lp.evaluate(() => document.getElementById('greeting').textContent);
   check('languages: 中文 loads on demand and repaints too, and dates follow it (月 in the greeting)',
-    zh.tab === '首页' && zh.lang === 'zh-Hans' && zh.add === '添加记录' && /月/.test(zhDate) && zh.loaded.includes('zh'), JSON.stringify({ ...zh, zhDate }));
+    zh.tab === '首页' && zh.lang === 'zh-Hans' && zh.add === '保存消费' && /月/.test(zhDate) && zh.loaded.includes('zh'), JSON.stringify({ ...zh, zhDate }));
 
   await pick('auto');
   const back = await look();
@@ -14524,7 +15032,8 @@ check('the brand catalogue makes no network calls at all',
       '#onboard-dialog', '#guide-dialog', '#edit-dialog', '#daily-edit-dialog', '#bulk-income-dialog', '#bulk-debt-pay-dialog', '#last-month-edit-dialog', '#search-dialog',
       '#scan-dialog', '#stmt-dialog', '#capture-check-dialog', '#capture-share-dialog',
       '#split-compose-dialog', '#split-share-dialog', '#split-ingest-dialog', '#split-payto-dialog', '#split-paid-dialog', '#rs-dialog',
-      '#wallet-dialog', '#wallet-detail-dialog', '#wallet-adjust-dialog', '#wallet-move-dialog', '#ai-info-dialog', '#ai-think', '#ea-dialog'];
+      '#wallet-dialog', '#wallet-detail-dialog', '#wallet-adjust-dialog', '#wallet-move-dialog', '#ai-info-dialog', '#ai-think', '#ea-dialog',
+      '#add-dialog', '#income-dialog', '#kira-hub-dialog', '#radial-dialog', '#menu-dialog', '#menu-hint'];
     const out = {};
     for (const l of I18N.langs.filter((x) => x.pack).map((x) => x.code)) out[l] = scopes.flatMap((s) => I18N.missing(l, doc.querySelector(s)));
     return out;
@@ -14670,7 +15179,12 @@ check('the brand catalogue makes no network calls at all',
           '1. Nama Kumpulan Wang: KWSP   6,996.00', '2. PERKESO: Amaun caruman yang wajib dibayar (nyatakan bahagian pekerja sahaja)   296.25', 'SIP   59.40'] });
       }],
       ['on-device AI', () => { const keep = window.Capacitor; window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} }; try { openAiInfo('badge'); } finally { window.Capacitor = keep; } }],
-      ['AI thinking', () => { aiThinkStart(1500, { overlay: true, label: 'Sorting your statement' }); }]]) {
+      ['AI thinking', () => { aiThinkStart(1500, { overlay: true, label: 'Sorting your statement' }); }],
+      // 2.0: the Money out sheet, Income modal, Kira/Docs hub, the open radial and the ☰ menu.
+      ['add entry', () => { openAddEntry('debt', { focus: false }); setDailyMoreOpen(true); }],
+      ['income', () => { openIncomeModal({ focus: false }); }],
+      ['kira hub', () => { openKiraHub(); }],
+      ['radial', () => radialOpen()], ['menu', () => menuOpen()]]) {
       await p.evaluate(open);
       await p.waitForTimeout(250);
       (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang}${theme ? '/' + theme : ''} ${label} dialog: ${x}`));
@@ -14738,7 +15252,7 @@ check('the brand catalogue makes no network calls at all',
     }
     await p.close();
   }
-  check('languages: at 360px, in English, Malay and Chinese (and again in Pastel), nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / EA form / claim / review / paywall / passcode / tour / edit / search / scan / statement / split / wallet / move money / on-device AI / AI thinking dialogs)',
+  check('languages: at 360px, in English, Malay and Chinese (and again in Pastel), nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / EA form / claim / review / paywall / passcode / tour / edit / search / scan / statement / split / wallet / move money / on-device AI / AI thinking dialogs, the Add entry sheet, the radial and the ☰ menu)',
     layoutMiss.length === 0, layoutMiss.slice(0, 10).join(' | '));
 
   /* ── iPad (1.63.0): full screen in every orientation ─────────────────────
@@ -14803,12 +15317,12 @@ check('the brand catalogue makes no network calls at all',
             if (tog && tog.getAttribute('aria-expanded') !== 'true') tog.click();
             const cut = [...document.querySelectorAll('#hero-grid strong')].filter((x) => x.scrollWidth > x.clientWidth + 1).map((x) => x.textContent);
             if (tog) tog.click();
-            const form = document.querySelector('#tab-dashboard > .quick-add').getBoundingClientRect();
-            return { cols, cut, todayUnderHero: Math.abs(today.left - hero.left) < 2 && today.top >= hero.bottom - 1 && today.top < form.bottom };
+            // 2.0: no form on Home; Today sits beside the balance.
+            return { cols, cut, todayBesideHero: today.left >= hero.right - 1 && Math.abs(today.top - hero.top) < 2 };
           });
           ipadInfo[tag] = home;
           if (home.cut.length) ipadMiss.push(`${tag} Home: breakdown figures cut off ${JSON.stringify(home.cut)}`);
-          if (run.w < 1280 && (home.cols !== 2 || !home.todayUnderHero)) ipadMiss.push(`${tag} Home: ${JSON.stringify(home)} (want two columns, Today under the balance, beside the form)`);
+          if (run.w < 1280 && (home.cols !== 2 || !home.todayBesideHero)) ipadMiss.push(`${tag} Home: ${JSON.stringify(home)} (want two columns, Today beside the balance)`);
         }
       }
       if (!run.full) { await ctx.close(); continue; }
@@ -14818,7 +15332,8 @@ check('the brand catalogue makes no network calls at all',
         ['paywall', () => openPaywall('installment')], ['search', () => { openSearch('rent'); }], ['scan', () => openScanDialog()],
         ['statement', () => openStatementImport()], ['split', () => splitOpenCompose({ mode: 'split' })], ['recurring split', () => rsOpenEdit(state.split.recurring[0].id)],
         ['wallet', () => openWalletEdit(state.wallets[0].id)], ['move money', () => openWalletMove(state.wallets[0].id)], ['EA form', () => taxOpenEa()],
-        ['on-device AI', () => openAiInfo('badge')]]) {
+        ['on-device AI', () => openAiInfo('badge')], ['add entry', () => openAddEntry('expense', { focus: false })],
+        ['income', () => openIncomeModal({ focus: false })], ['kira hub', () => openKiraHub()], ['menu', () => menuOpen()]]) {
         await p.evaluate(open);
         await p.waitForTimeout(250);
         const d = await p.evaluate(() => {
@@ -14853,7 +15368,7 @@ check('the brand catalogue makes no network calls at all',
     }
     check('iPad: mini, Air 11" and Pro 13" (13" at both 1024 and 1032 wide), upright and on its side, get the fold lab\'s navigation (rail upright on mini and Air, sidebar from 1000px) with 44px tabs, and nothing sticks out of its card or the screen on any page (Light English; Dark, Pastel, Malay, Chinese on an Air both ways)',
       ipadMiss.filter((x) => !/dialog|AI thinking|Home:/.test(x)).length === 0, ipadMiss.filter((x) => !/dialog|AI thinking|Home:/.test(x)).slice(0, 8).join(' | '));
-    check('iPad: Home has two columns under 1280px wide with Today under the balance, beside the Add entry form (not below it), and the balance breakdown shows whole figures',
+    check('iPad: Home has two columns under 1280px wide with Today beside the balance (the form is a sheet now), and the balance breakdown shows whole figures',
       Object.keys(ipadInfo).length >= 5 && !ipadMiss.some((x) => /Home:/.test(x)), ipadMiss.filter((x) => /Home:/.test(x)).join(' | ') || JSON.stringify(ipadInfo));
     check('iPad: every sheet (details, claim, paywall, search, scan, statement, split, recurring split, wallet, move money, EA form, on-device AI) opens as a centred card that fits the screen, nothing outside it',
       !ipadMiss.some((x) => /dialog/.test(x)), ipadMiss.filter((x) => /dialog/.test(x)).slice(0, 8).join(' | '));
@@ -15847,12 +16362,21 @@ check('the brand catalogue makes no network calls at all',
     for (const lang of ['en', 'ms', 'zh']) {
       await I18N.set(lang);
       renderAll();
-      const scanR = document.getElementById('btn-scan').getBoundingClientRect();
-      const voiceR = document.getElementById('btn-voice').getBoundingClientRect();
+      // 2.0: Scan receipt and Talk are radial items round the bubble.
+      radialOpen();
+      await new Promise((r) => setTimeout(r, 450));
+      const rects = [...document.querySelectorAll('#radial .radial-item')].map((i) => i.getBoundingClientRect());
+      let overlap = 0;
+      for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) {
+        const a = rects[i], c = rects[j];
+        if (a.left < c.right - 1 && c.left < a.right - 1 && a.top < c.bottom - 1 && c.top < a.bottom - 1) overlap++;
+      }
       layout[lang] = {
         overflow: document.documentElement.scrollWidth > window.innerWidth + 1,
-        fits: voiceR.width > 0 && voiceR.right <= window.innerWidth + 1 && Math.abs(scanR.top - voiceR.top) < 4,
+        fits: overlap === 0 && rects.every((r) => r.width > 0 && r.left >= 0 && r.right <= window.innerWidth + 1 && r.top >= 0),
+        overlap,
       };
+      radialClose();
     }
     await I18N.set('en');
     renderAll();
@@ -16485,12 +17009,14 @@ check('the brand catalogue makes no network calls at all',
     const src = readFileSync(path.join(appDir, f), 'utf8');
     for (const m of src.matchAll(/kiraSvg\(\s*["'`]counting["'`]([^)]*)\)/g)) {
       const before = src.slice(Math.max(0, m.index - 600), m.index);
-      countingCalls.push({ f, ai: /ai:\s*true/.test(m[1]), inAiSheet: /aiThinkKira|ai-think/.test(before) });
+      countingCalls.push({ f, ai: /ai:\s*true/.test(m[1]), inAiSheet: /aiThinkKira|ai-think/.test(before),
+        // 2.0: the bubble's Kira counts too, only while aiThinkingNow() (withAiThinking has a call in flight).
+        inBubble: f === 'kira-bubble.js' && /mood === "ai"/.test(before) && /aiThinkingNow\(\)\) return "ai"/.test(src) });
     }
   }
-  check('Kira (1.71.0): the counting (sempoa) mood is drawn only by the AI thinking sheet, with { ai: true }',
-    countingCalls.length === 1 && countingCalls.every((c) => c.f === 'script.js' && c.ai && c.inAiSheet),
-    JSON.stringify(countingCalls));
+  check('Kira (1.71.0, 2.0): the counting (sempoa) mood is drawn only by the AI thinking sheet and the bubble while on-device AI works, with { ai: true }',
+    countingCalls.length === 2 && countingCalls.every((c) => c.ai && ((c.f === 'script.js' && c.inAiSheet) || c.inBubble))
+    && countingCalls.some((c) => c.inBubble), JSON.stringify(countingCalls));
 
   for (const reduced of [false, true]) {
     const kCtx = await b.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: reduced ? 'reduce' : 'no-preference' });
