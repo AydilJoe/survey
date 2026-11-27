@@ -1,4 +1,7 @@
 {
+  "1.83.1": [
+    "<strong>Tarikh penyata bank yang tepat</strong> — import penyata Maybank kini sentiasa membaca tahun penyata sebenar (cth. 31/10/26 sebagai 2026), dan entri dari tahun lain kini memaparkan tahun penuh dalam Semua entri dan semakan penyata."
+  ],
   "1.83.0": [
     "<strong>Skrin menunggu Kira semasa pembelian</strong> — Kira kini menemani anda sambil kedai aplikasi mengesahkan pembelian anda (ketik Kira sambil menunggu!), diikuti tarian dan tunduk terima kasih sebaik selesai.",
     "<strong>Kad Pro &amp; AI+ yang lebih kemas</strong> — Duitful Pro dan Duitful AI+ kini digabungkan dalam satu kad Tetapan yang ringkas, lengkap dengan tarikh aktif AI+."

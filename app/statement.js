@@ -265,12 +265,41 @@ function stmtPayee(desc) {
 }
 function stmtFindStatementDate(lines) {
   const text = lines.map((l) => l.text).join("\n");
-  let m = /(?:statement\s+date|tarikh\s+penyata)[\s\S]{0,80}?(\d{1,2})[\s/-]([A-Z]{3}|\d{1,2})[\s/-](\d{2,4})/i.exec(text);
-  if (!m) m = /\b(\d{1,2}) (JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC) (\d{2,4})\b/.exec(text);
-  if (!m) return null;
-  const mon = /^\d+$/.test(m[2]) ? Number(m[2]) : STMT_MONTHS[m[2].toUpperCase()];
-  const y = stmtYear2(m[3]);
-  return mon ? { y, m: mon, d: Number(m[1]), iso: stmtIso(y, mon, Number(m[1])) } : null;
+  const parseMatch = (m) => {
+    if (!m) return null;
+    const d = Number(m[1]);
+    const mon = /^\d+$/.test(m[2]) ? Number(m[2]) : STMT_MONTHS[m[2].toUpperCase()];
+    const y = stmtYear2(m[3]);
+    if (!(d >= 1 && d <= 31 && mon >= 1 && mon <= 12 && y >= 2000 && y <= 2099)) return null;
+    const iso = stmtIso(y, mon, d);
+    return iso ? { y, m: mon, d, iso } : null;
+  };
+  // 1. After "STATEMENT DATE" / "TARIKH PENYATA" (allow up to 200 chars in case
+  //    a multi-column PDF interleaves customer name/address between label and date).
+  //    Numeric months require "/" or "-" (never bare spaces) so random numbers
+  //    don't match as dates.
+  const labelRe = /(?:statement\s+date|tarikh\s+penyata)[\s\S]{0,200}?(?:\b(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})\b|\b(\d{1,2})[\s/-](JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[\s/-](\d{2,4})\b)/i;
+  let m = labelRe.exec(text);
+  if (m) {
+    const res = parseMatch(m[1] ? [m[0], m[1], m[2], m[3]] : [m[0], m[4], m[5], m[6]]);
+    if (res) return res;
+  }
+  // 2. Named-month date anywhere in the header (e.g. "31 OCT 2026").
+  m = /\b(\d{1,2}) (JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC) (\d{2,4})\b/i.exec(text);
+  if (m) {
+    const res = parseMatch(m);
+    if (res) return res;
+  }
+  // 3. Fallback: DD/MM/YY(YY) in the top header lines (before transaction table),
+  //    e.g. Maybank Islamic where "31/10/26" sits above "STATEMENT DATE".
+  const headerLines = [];
+  for (const l of lines.slice(0, 30)) {
+    const t = String(l.text || "");
+    if (/URUSNIAGA\s+AKAUN|ACCOUNT\s+TRANSACTIONS|BEGINNING\s+BALANCE/i.test(t)) break;
+    headerLines.push(t);
+  }
+  m = /\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/.exec(headerLines.join("\n"));
+  return parseMatch(m);
 }
 const STMT_AMT = "([\\d,]+\\.\\d{2})";
 
@@ -1072,7 +1101,11 @@ const stmtEl = (id) => document.getElementById(id);
 
 function stmtFmtDate(iso) {
   const d = new Date(`${iso}T00:00:00`);
-  return Number.isFinite(d.getTime()) ? d.toLocaleDateString((window.I18N && window.I18N.locale()) || "en-MY", { day: "numeric", month: "short" }) : "—";
+  if (!Number.isFinite(d.getTime())) return "—";
+  const opts = d.getFullYear() !== new Date().getFullYear()
+    ? { day: "numeric", month: "short", year: "numeric" }
+    : { day: "numeric", month: "short" };
+  return d.toLocaleDateString((window.I18N && window.I18N.locale()) || "en-MY", opts);
 }
 function stmtSay(msg) { const el = stmtEl("stmt-status"); if (el) { el.textContent = msg || ""; el.hidden = !msg; } }
 
