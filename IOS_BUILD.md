@@ -458,6 +458,63 @@ build.
 - [ ] **Sandbox purchase** of `duitful_pro` with a Sandbox Apple ID
       (App Store Connect → Users and Access → Sandbox Testers), then
       delete-and-reinstall and use **Restore purchase**
+- [ ] **Duitful AI+** monthly and yearly in Sandbox, Restore, cancel and a
+      Sandbox refund — the full purchase release checklist is in
+      `docs/plans/cloud-ai-subscription.md` (iPhone and Android columns)
+
+## In-app purchases: StoreKit 2
+
+Since 1.80.0 the app buys through **`capacitor-plugin-cdv-purchase`**, the
+Capacitor build of cordova-plugin-purchase: the same `CdvPurchase.store` API,
+but **StoreKit 2** on iOS (iOS 15+; the app's floor is 15.5). The Cordova
+build ran StoreKit 1, which never gives a signed transaction, so Duitful AI+
+could not be verified on iPhone. It is in `ios.includePlugins` and
+`android.includePlugins`; its pod (`CapacitorPluginCdvPurchase`) comes in
+with `npx cap sync`. Its JS (`www/vendor/cdv-purchase/store.js`) is copied
+by `npm run build:web` and loaded by `app/pro.js` in the native shells only.
+
+What StoreKit 2 changes, all handled in `app/pro.js` / `app/ai-cloud.js`:
+every launch and every Restore re-report the current entitlements (Lifetime
+Pro, the running AI+ period), so Pro is idempotent and the welcome /
+attribution only follow a genuinely new purchase; the AI+ transaction's own
+JWS goes to `/api/ai?op=verify-sub`; every transaction is finished; there is
+no app receipt; Restore is `AppStore.sync()`. A **promoted purchase** (Buy
+on the App Store page) arrives as a `PurchaseIntent`, which DuitfulKit keeps
+until the app buys it (`takePurchaseIntents`). Each purchase carries an
+anonymous `appAccountToken` (the UUID form of `state.purchaseId`, a random
+id in the vault).
+
+Server side, set `APPLE_IAP_KEY_ID`, `APPLE_IAP_ISSUER_ID` and
+`APPLE_IAP_PRIVATE_KEY` on Vercel (App Store Connect → Users and Access →
+Integrations → **In-App Purchase** → Generate; paste the whole `.p8`, a
+literal `\n` is fine) so `verify-sub` asks Apple for the live subscription
+state. Without them it still verifies the signed transaction alone.
+
+### StoreKit testing in Xcode (simulator, no Sandbox account)
+
+`native/storekit/Duitful.storekit` holds `duitful_pro` (non-consumable) and
+the **Duitful AI+** subscription group (`duitful_ai_yearly`,
+`duitful_ai_monthly`), storefront Malaysia. To use it on a Mac:
+
+1. `npm run cap:ios` (sync and open Xcode).
+2. File → **Add Files to "App"…** → pick `native/storekit/Duitful.storekit`,
+   **untick every target** (it is a test file, never shipped).
+3. Product → Scheme → **Edit Scheme…** → **Run** → **Options** →
+   **StoreKit Configuration** → `Duitful.storekit`.
+4. Run on a simulator. Buy / restore / refund / expire from Debug →
+   StoreKit → **Manage Transactions**; Editor → *Subscription Renewal Rate*
+   speeds up renewals.
+
+What it tests: the purchase sheets, Pro unlock, the no-second-welcome rule
+on relaunch, Restore, refunds while the app runs and AI+ re-reports. What it
+can't: the server check. Xcode signs these transactions itself
+(`environment: "Xcode"`, not Apple's root), so `verify-sub` answers
+`bad-environment` / `jws-untrusted-root` and AI+ stays off — test that part
+with a Sandbox account on TestFlight. It is not wired into the shared scheme
+by `scripts/patch-ios.mjs` on purpose: a scheme with a StoreKit
+configuration silently replaces Sandbox for every Run from Xcode, which
+would hide exactly the server path that matters. Pick it per machine, and
+set it back to **None** before testing Sandbox.
 - [ ] **Local notifications** (reminders) fire with the app closed
 - [ ] A `https://duitful.app/split#…` link tapped in WhatsApp — opens
       Duitful once Universal Links verify, opens Safari before that

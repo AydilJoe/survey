@@ -255,7 +255,7 @@ Replace the file contents (or append the missing keep rules) with the verbatim b
 # @codetrix-studio/capacitor-google-auth — needed when minifyEnabled true
 -keep class com.codetrixstudio.capacitor.** { *; }
 
-# Cordova + cordova-plugin-purchase
+# Cordova (any Cordova plugin) + the purchase plugin (capacitor-plugin-cdv-purchase since 1.80.0, cc.fovea.**)
 -keep class org.apache.cordova.** { *; }
 -keep class com.cordova.** { *; }
 -dontwarn com.cordova.**

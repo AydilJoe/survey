@@ -503,3 +503,64 @@ function kiraSyncToday() {
   slot.dataset.mood = mood;
   slot.innerHTML = mood ? kiraSvg(mood, { moment: true }) : "";
 }
+
+/* Purchase celebration: Kira dances around happily, bows with gratitude,
+   bursts confetti, and says "Thank you! Terima kasih!". Used on successful
+   Duitful AI+ purchases (and paired with Lifetime Pro's welcome sheet). */
+function kiraWithBowMarkup(extraCls) {
+  const base = kiraSvg("party", { cls: `kira-dance-bow${extraCls ? ` ${extraCls}` : ""}` });
+  // Cute ribbon bow perched at the top-right corner of Kira's paper.
+  const bow =
+    '<g class="kira-ribbon-bow" transform="translate(46 4) rotate(16)">' +
+      '<path d="M0 0c-5-4-9-2-9 2s4 5 9 1z" fill="var(--brand, #e07a5f)"/>' +
+      '<path d="M0 0c5-4 9-2 9 2s-4 5-9 1z" fill="var(--brand, #e07a5f)"/>' +
+      '<circle cx="0" cy="1.2" r="2.2" fill="var(--accent, #d46246)"/>' +
+    '</g>';
+  return base.replace("</svg>", `${bow}</svg>`);
+}
+
+function showKiraPurchaseThanks(opts) {
+  if (typeof document === "undefined") return;
+  const o = opts || {};
+  const t = typeof tr === "function" ? tr : (s) => s;
+  const esc = typeof escapeHtml === "function"
+    ? escapeHtml
+    : (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
+  const heading = o.title || t("Duitful AI+ is active.");
+  const sub = o.subtitle || t("Duitful AI+ is ready to help.");
+  const bubble = t("Thank you! Terima kasih!");
+  const cta = t("Let's go");
+
+  let dlg = document.getElementById("kira-thanks-dialog");
+  if (!dlg) {
+    dlg = document.createElement("dialog");
+    dlg.id = "kira-thanks-dialog";
+    dlg.className = "edit-dialog kira-thanks-dialog";
+    dlg.addEventListener("click", (e) => { if (e.target === dlg && dlg.open) dlg.close(); });
+    document.body.appendChild(dlg);
+  }
+  dlg.innerHTML =
+    '<div class="kira-thanks-body">' +
+      `<div class="kira-thanks-bubble">${esc(bubble)}</div>` +
+      `<div class="kira-thanks-stage" aria-hidden="true">${kiraWithBowMarkup()}</div>` +
+      `<h2 class="kira-thanks-title">${esc(heading)}</h2>` +
+      `<p class="kira-thanks-sub">${esc(sub)}</p>` +
+      `<button type="button" class="primary kira-thanks-btn">${esc(cta)}</button>` +
+    '</div>';
+  const btn = dlg.querySelector(".kira-thanks-btn");
+  if (btn) btn.addEventListener("click", () => { if (dlg.open) dlg.close(); });
+  if (typeof dlg.showModal === "function") {
+    if (!dlg.open) dlg.showModal();
+  } else {
+    dlg.setAttribute("open", "");
+  }
+  const stage = dlg.querySelector(".kira-thanks-stage");
+  kiraBurst(stage, 28);
+  setTimeout(() => { if (dlg.open) kiraBurst(stage, 20); }, 1550);
+}
+
+if (typeof window !== "undefined") {
+  window.kiraWithBowMarkup = kiraWithBowMarkup;
+  window.showKiraPurchaseThanks = showKiraPurchaseThanks;
+}
+

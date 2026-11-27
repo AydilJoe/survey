@@ -540,11 +540,57 @@ const AI_ANDROID_SKU = "duitful_ai";
 const AI_ALL_SKUS = new Set([AI_IOS_SKUS.monthly, AI_IOS_SKUS.yearly, AI_ANDROID_SKU]);
 
 let aiPurchaseSettler = null;
+// The AI+ SKU being bought right now ("" when nothing is).
+let aiPurchasePendingSku = "";
 function settleAiPurchase(result) {
   if (!aiPurchaseSettler) return;
   const fn = aiPurchaseSettler;
   aiPurchaseSettler = null;
+  aiPurchasePendingSku = "";
   fn(result);
+}
+
+// AI+ checks in flight, so Restore can wait for them before it answers.
+const aiVerifying = new Set();
+let aiVerifySent = 0;
+function aiVerifyIdle() {
+  return Promise.all(Array.from(aiVerifying)).then(() => undefined, () => undefined);
+}
+function aiVerifyCount() { return aiVerifySent; }
+
+// Google Play transactions in capacitor-plugin-cdv-purchase 13 carry the
+// Play purchaseToken on tx.purchaseId, tx.nativePurchase.purchaseToken and
+// tx.parentReceipt.purchaseToken — NOT on tx.purchaseToken (which only
+// exists on the Receipt object and in test fixtures).
+function aiPlayPurchaseToken(tx, receipt) {
+  const from = (o) => (o && typeof o === "object"
+    ? (o.purchaseToken
+      || o.purchaseId
+      || (o.nativePurchase && o.nativePurchase.purchaseToken)
+      || (o.parentReceipt && o.parentReceipt.purchaseToken)
+      || "")
+    : "");
+  return String(from(tx) || from(receipt) || "");
+}
+
+// Restore must re-send AI+ even when the plugin doesn't report it again: it
+// re-fires "approved" for a transaction at most once a minute, so a Restore
+// right after the launch re-report brings nothing new. Sends the newest AI+
+// transaction the store holds, if any.
+async function aiRestoreFromStore(sdk) {
+  try {
+    const txs = sdk && sdk.store && Array.isArray(sdk.store.localTransactions) ? sdk.store.localTransactions : [];
+    const ai = txs.filter((t) => t && Array.isArray(t.products) && t.products.some((p) => p && AI_ALL_SKUS.has(p.id))
+      && (t.jwsRepresentation || aiPlayPurchaseToken(t)));
+    if (!ai.length) return null;
+    const time = (t) => (t.purchaseDate instanceof Date
+      ? t.purchaseDate.getTime()
+      : (Number(t.purchaseDate) || Date.parse(t.purchaseDate) || 0));
+    ai.sort((a, b) => time(b) - time(a));
+    return await handleAiSubscriptionReceipt(ai[0], { restoring: true });
+  } catch (_) {
+    return null;
+  }
 }
 
 function aiReceiptProductIds(receipt) {
@@ -573,7 +619,9 @@ function isAiSubscriptionReceipt(receipt) {
   return aiReceiptProductIds(receipt).some((id) => AI_ALL_SKUS.has(id));
 }
 
-async function aiVerifyStoreReceipt(payload) {
+// `meta` is what this check was about (transaction id), remembered with the
+// token so the same StoreKit 2 re-report isn't sent again at every launch.
+async function aiVerifyStoreReceipt(payload, meta) {
   try {
     const r = await fetch(`${aiCloudApiBase()}?op=verify-sub`, {
       method: "POST",
@@ -590,6 +638,10 @@ async function aiVerifyStoreReceipt(payload) {
         ...(state.aiSub || {}),
         subToken: data.subToken,
         slotId: data.slotId,
+        lastTxId: String((meta && meta.txId) || ""),
+        verifiedAt: Date.now(),
+        // The server couldn't ask Apple for the live state: ask again soon.
+        recheckAt: data.recheck ? Date.now() + AI_RECHECK_MS : 0,
       };
       aiMergeStatusSnapshot(data.status);
     }
@@ -600,30 +652,90 @@ async function aiVerifyStoreReceipt(payload) {
   }
 }
 
-async function handleAiSubscriptionReceipt(receipt) {
-  const ids = aiReceiptProductIds(receipt);
+// StoreKit 2 re-reports the running AI+ period at every launch and on
+// Restore. A report is sent to the server when it is new (a purchase or a
+// renewal: not finished before), on Restore, when this vault has no token,
+// when the server asked for a re-check, when it is another transaction than
+// the one last sent, or when the last check is older than AI_REVERIFY_MS.
+const AI_REVERIFY_MS = 12 * 60 * 60 * 1000;
+const AI_RECHECK_MS = 60 * 60 * 1000;
+function aiNeedsVerify(tx, txId, opts) {
+  if (opts && opts.restoring) return true;
+  const sub = typeof state !== "undefined" && state ? state.aiSub : null;
+  if (!sub || !sub.subToken) return true;
+  if (!tx || tx.isAcknowledged !== true) return true;
+  if (Number(sub.recheckAt) > 0 && Date.now() >= Number(sub.recheckAt)) return true;
+  if (!txId || sub.lastTxId !== txId) return true;
+  return !(Number(sub.verifiedAt) > Date.now() - AI_REVERIFY_MS);
+}
+
+// The AI+ transaction out of whatever the store handed over: a transaction
+// (the normal case), or an older receipt-shaped object holding several.
+function aiPickTransaction(obj) {
+  if (!obj || typeof obj !== "object") return {};
+  const txs = (obj.sourceReceipt && Array.isArray(obj.sourceReceipt.transactions))
+    ? obj.sourceReceipt.transactions
+    : (Array.isArray(obj.transactions) ? obj.transactions : []);
+  const ai = txs.filter((t) => t && Array.isArray(t.products) && t.products.some((p) => p && AI_ALL_SKUS.has(p.id)));
+  return ai.length ? ai[ai.length - 1] : obj;
+}
+
+// Errors that mean "the store says this subscription has ended".
+const AI_ENDED_ERRORS = new Set(["sub-expired", "sub-revoked", "sub-inactive"]);
+
+async function handleAiSubscriptionReceipt(receipt, opts) {
+  const tx = aiPickTransaction(receipt);
+  const ids = aiReceiptProductIds(tx);
   const plan = ids.find((id) => AI_ALL_SKUS.has(id)) || AI_ANDROID_SKU;
-  const plat = (typeof nativePlatform === "function" && nativePlatform()) || (plan === AI_ANDROID_SKU ? "android" : "ios");
-  const txs = (receipt.sourceReceipt && Array.isArray(receipt.sourceReceipt.transactions))
-    ? receipt.sourceReceipt.transactions
-    : (Array.isArray(receipt.transactions) ? receipt.transactions : []);
-  const tx = txs[0] || receipt || {};
+  const plat = (typeof nativePlatform === "function" && nativePlatform() !== "web" && nativePlatform()) || (plan === AI_ANDROID_SKU ? "android" : "ios");
+  const playToken = aiPlayPurchaseToken(tx, receipt);
+  const txId = String(tx.transactionId || playToken || tx.id || "");
+  // This report answers the purchase on screen only if it is that product
+  // and not a re-report of something already finished.
+  const settles = !!aiPurchaseSettler && (!aiPurchasePendingSku || aiPurchasePendingSku === plan) && tx.isAcknowledged !== true;
+  const finish = () => {
+    try {
+      const f = typeof tx.finish === "function" ? tx.finish() : (receipt && typeof receipt.finish === "function" ? receipt.finish() : null);
+      if (f && typeof f.catch === "function") f.catch(() => {});
+    } catch (_) {}
+  };
+  if (!aiNeedsVerify(tx, txId, opts)) {
+    finish();
+    if (settles) settleAiPurchase({ ok: true, status: null });
+    return { ok: true, skipped: true };
+  }
   const payload = {
     platform: plat,
     plan,
-    signedTransactionInfo: tx.jwsRepresentation || tx.signedTransactionInfo || receipt.signedTransactionInfo || "",
-    purchaseToken: tx.purchaseToken || receipt.purchaseToken || "",
-    transactionId: tx.transactionId || tx.id || receipt.transactionId || receipt.id || "",
-    expiresAt: tx.expiryDate || receipt.expiryDate || undefined,
+    // iPhone: the transaction's StoreKit 2 signed JWS. Android: the token.
+    signedTransactionInfo: tx.jwsRepresentation || tx.signedTransactionInfo || "",
+    purchaseToken: playToken,
+    transactionId: tx.transactionId || tx.id || "",
+    expiresAt: tx.expiryDate || tx.expirationDate || undefined,
     slotId: (typeof state !== "undefined" && state && state.aiSub && state.aiSub.slotId) || "",
+    accountToken: typeof purchaseAccountToken === "function" ? purchaseAccountToken() : "",
     deviceLabel: plat === "ios" ? "iPhone" : "Android",
   };
-  const res = await aiVerifyStoreReceipt(payload);
-  if (typeof receipt.finish === "function") receipt.finish();
-  if (res && res.ok) {
-    settleAiPurchase({ ok: true, status: res.status });
-  } else {
-    settleAiPurchase({ ok: false, message: (res && res.error) || "verify-failed" });
+  const run = aiVerifyStoreReceipt(payload, { txId });
+  aiVerifySent += 1;
+  aiVerifying.add(run);
+  let res;
+  try { res = await run; } finally { aiVerifying.delete(run); }
+  // StoreKit 2 re-reports current entitlements at next launch so finishing on
+  // iOS is safe even on transient error. On Android, tx.finish() calls
+  // BillingClient.acknowledgePurchase() on-device: never acknowledge a Play
+  // purchase when verify-sub failed transiently (offline / 5xx), or Play
+  // won't auto-refund and won't re-deliver the unacknowledged purchase.
+  const ended = !!(res && !res.ok && AI_ENDED_ERRORS.has(res.error));
+  if ((res && res.ok) || ended || plat === "ios") finish();
+  if (ended) {
+    // The store says it ended (a refund, a lapse): take the server's view.
+    if (state && state.aiSub && state.aiSub.subToken) await aiFetchStatus();
+    else if (state && state.aiSub) { state.aiSub = { ...state.aiSub, active: false }; if (typeof save === "function") save(); renderAiCloudSettings(); }
+  }
+  if (settles) {
+    if (res && res.ok) settleAiPurchase({ ok: true, status: res.status });
+    else settleAiPurchase({ ok: false, message: (res && res.error) || "verify-failed" });
   }
   return res;
 }
@@ -714,6 +826,13 @@ async function purchaseAiSubscription(plan) {
   }
 
   const settlement = new Promise((resolve) => { aiPurchaseSettler = resolve; });
+  aiPurchasePendingSku = sku;
+  // A sheet that never answers (Ask to Buy) frees the paywall; the purchase
+  // still lands through approved later and is sent to the server then.
+  const timer = setTimeout(() => {
+    if (aiPurchaseSettler) settleAiPurchase({ ok: false, message: typeof tr === "function" ? tr("Verification timed out. Tap Restore if you completed the payment.") : "Verification timed out. Tap Restore if you completed the payment." });
+  }, 45000);
+  settlement.then(() => clearTimeout(timer));
   try {
     const err = await offer.order();
     if (err && err.isError) {
@@ -764,6 +883,7 @@ async function runAiPaywallPurchase(plan, btn) {
   if (res && res.ok) {
     closeAiPaywall();
     renderAiCloudSettings();
+    if (typeof showKiraPurchaseThanks === "function") showKiraPurchaseThanks();
     return;
   }
   if (res && !res.cancelled && errEl && res.message) {
@@ -813,6 +933,9 @@ if (typeof window !== "undefined") {
   window.aiVerifyStoreReceipt = aiVerifyStoreReceipt;
   window.handleAiSubscriptionReceipt = handleAiSubscriptionReceipt;
   window.settleAiPurchase = settleAiPurchase;
+  window.aiVerifyIdle = aiVerifyIdle;
+  window.aiVerifyCount = aiVerifyCount;
+  window.aiRestoreFromStore = aiRestoreFromStore;
   window.purchaseAiSubscription = purchaseAiSubscription;
   window.aiReconnectAfterBackupRestore = aiReconnectAfterBackupRestore;
   window.openAiPaywall = openAiPaywall;

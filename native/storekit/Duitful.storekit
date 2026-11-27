@@ -1,0 +1,108 @@
+{
+  "identifier" : "6D7B1F3A",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "19.90",
+      "familyShareable" : false,
+      "internalID" : "6740000001",
+      "localizations" : [
+        {
+          "description" : "Every debt, plan and goal, automatic backup. Pay once.",
+          "displayName" : "Duitful Pro",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "duitful_pro",
+      "referenceName" : "Duitful Pro (Lifetime)",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "MYS",
+    "_storeKitErrors" : [
+
+    ],
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21000001",
+      "localizations" : [
+
+      ],
+      "name" : "Duitful AI+",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "45.00",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6740000003",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Cloud reading for receipts, statements and more.",
+              "displayName" : "Duitful AI+ Yearly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "duitful_ai_yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Duitful AI+ Yearly",
+          "subscriptionGroupID" : "21000001",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4.90",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "6740000002",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Cloud reading for receipts, statements and more.",
+              "displayName" : "Duitful AI+ Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "duitful_ai_monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Duitful AI+ Monthly",
+          "subscriptionGroupID" : "21000001",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

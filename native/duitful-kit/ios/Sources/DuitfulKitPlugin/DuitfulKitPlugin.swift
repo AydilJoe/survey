@@ -35,6 +35,10 @@ import FoundationModels
 ///   aiStatus /       Apple's on-device Foundation Models (iOS 26, Apple
 ///   aiReadReceipt    Intelligence phones): a second opinion on a receipt the
 ///                    rule-based parser isn't sure of.
+///   takePurchaseIntents  StoreKit 2 PurchaseIntent (iOS 16.4+): a Buy tapped
+///                    on the App Store product page (a promoted in-app
+///                    purchase). Only the product id is kept, until the web
+///                    layer buys it through the purchase plugin.
 ///   speechAvailable/ "Talk to Kira" (1.80.0, DuitfulSpeech.swift): Apple's
 ///   speechStart /    Speech framework, on-device only (a language that can't
 ///   speechStop       be heard on this iPhone reports available:false). Partial
@@ -62,6 +66,7 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         CAPPluginMethod(name: "readSharedFile", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "takeSharedFiles", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "syncWidget", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "takePurchaseIntents", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "speechAvailable", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "speechStart", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "speechStop", returnType: CAPPluginReturnPromise),
@@ -222,6 +227,49 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         let items = defaults.array(forKey: Self.quickAddKey) ?? []
         defaults.removeObject(forKey: Self.quickAddKey)
         call.resolve(["items": items])
+    }
+
+    // MARK: - Promoted in-app purchases (StoreKit 2 PurchaseIntent)
+
+    /// Product ids from Buy taps on the App Store product page, kept until
+    /// the web layer takes them (pro.js drainPurchaseIntents), which buys them
+    /// through the purchase plugin like the paywall does. Main thread only.
+    private var pendingPurchaseIntents: [String] = []
+    private var purchaseIntentTask: Task<Void, Never>?
+
+    override public func load() {
+        if #available(iOS 16.4, *) {
+            watchPurchaseIntents()
+        }
+    }
+
+    deinit {
+        purchaseIntentTask?.cancel()
+    }
+
+    @available(iOS 16.4, *)
+    private func watchPurchaseIntents() {
+        guard purchaseIntentTask == nil else { return }
+        purchaseIntentTask = Task { [weak self] in
+            for await intent in PurchaseIntent.intents {
+                let productId = intent.product.id
+                await MainActor.run {
+                    guard let plugin = self else { return }
+                    if !plugin.pendingPurchaseIntents.contains(productId) {
+                        plugin.pendingPurchaseIntents.append(productId)
+                    }
+                    plugin.notifyListeners("purchaseIntent", data: ["productId": productId])
+                }
+            }
+        }
+    }
+
+    @objc func takePurchaseIntents(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            let ids = self.pendingPurchaseIntents
+            self.pendingPurchaseIntents = []
+            call.resolve(["productIds": ids])
+        }
     }
 
     // MARK: - Text recognition (Vision)

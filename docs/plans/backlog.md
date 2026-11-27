@@ -28,7 +28,7 @@ nothing saved without the user's tap.
   (worst-case API cost ~RM 1.44/mo; typical ~RM 0.22/mo).
 - **3-device pairing (no accounts):** subscribe via App Store / Google Play on
   mobile, unlock Web + up to 3 devices via a 1-tap 6-digit / QR pair code.
-- **Launch AI features (v1):**
+- **Launch AI features (v1 — shipped `1.74.0`–`1.81.0`):**
   1. **Universal Vision scanner** (receipts, PDF/scanned & unknown-layout bank
      statements, Borang EA, loan / PTPTN letters)
   2. **Voice & sentence entry** (*"dua belas ringgit nasi lemak"*,
@@ -37,6 +37,30 @@ nothing saved without the user's tap.
      *"MUHAMMAD ALI BIN ABU"* → *"Ali"*, tidy messy split-by-item receipt lines
      like *"2X TEH O AIS"*, and clean bank payee names like `PYMT*GRAB 8812 KL`
      → `Grab`)
+- **AI+ v2 improvements (backlog — all reuse `/api/ai`, same redaction & confirm-before-save rules):**
+  1. **Bank & e-wallet screenshot reader:** paste or share a MAE, DuitNow,
+     TnG eWallet, GrabPay, or SPayLater transfer screenshot to extract amount,
+     payee, date, and wallet.
+  2. **One-tap restaurant receipt → split bill:** extract line items from a
+     group receipt and split SST (6–8%) + 10% service charge proportionally
+     across friends.
+  3. **Smart category & wallet picker:** match messy merchant names to the
+     user's own category list and usual wallet (sending only redacted payee +
+     category names, never balances).
+  4. **LHDN tax-relief receipt detector:** flag receipts that qualify for
+     Malaysian tax relief (medical, books, sports, lifestyle, childcare,
+     broadband) for 1-tap tagging.
+  5. **EPF / ASB / Tabung Haji statement reader:** import annual statements or
+     dividend PDFs straight into Savings / Investments.
+  6. **BNPL & installment reader:** read SPayLater, Atome, or credit-card EPP
+     statements into **Debts** with remaining months and due dates.
+  7. **Kira monthly spending recap:** warm EN / BM / ZH summary built from
+     aggregated category totals only (never raw transactions or account data).
+  8. **Forgotten subscription spotter:** detect recurring charges during bank
+     statement import and offer to add them to Recurring Bills.
+  9. **Batch capture & 1-tap "Retry with AI+":** upload 3–5 receipts or
+     multiple statement months at once, and surface a quick fallback button
+     whenever on-device OCR/parsing has low confidence.
 
 ---
 

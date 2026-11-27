@@ -70,7 +70,7 @@ onto a phone and check the feature it powers:
 
 | plugin | check on the device |
 |---|---|
-| `cordova-plugin-purchase` | buy Pro with a licence-test account, then restore it |
+| `capacitor-plugin-cdv-purchase` | buy Pro and AI+ with a licence-test / Sandbox account, then restore them (the full purchase checklist is in `docs/plans/cloud-ai-subscription.md`) |
 | `@pantrist/capacitor-plugin-ml-kit-text-recognition` | scan a receipt |
 | `@capgo/capacitor-native-biometric` | unlock with fingerprint |
 | `@capgo/capacitor-social-login`, `@codetrix-studio/capacitor-google-auth` | restore from Google Drive |
