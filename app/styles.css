@@ -7521,9 +7521,11 @@ body.private .windfall-row-detail {
 .tax-entry:hover .tax-entry-go { transform: translateX(3px); color: var(--text); }
 body.private #tax-entry-figure { filter: blur(7px); user-select: none; }
 
-/* Page head: the year switcher sits with the title. */
+/* Page head: the year switcher sits with the title and wraps cleanly on narrow screens. */
+#tab-tax .subpage-head { flex-wrap: wrap; row-gap: 0.35rem; }
 #tab-tax .subpage-head .tax-year { margin-left: auto; }
-.tax-year { display: inline-flex; align-items: center; gap: 0.15rem; flex-shrink: 0; }
+#tab-tax .card-head { flex-wrap: wrap; row-gap: 0.4rem; }
+.tax-year { display: inline-flex; align-items: center; gap: 0.15rem; flex-shrink: 0; max-width: 100%; }
 #tax-year-label { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.06em; white-space: nowrap; font-variant-numeric: tabular-nums; padding: 0 0.15rem; }
 .tax-year-btn svg, .tax-pager svg, .tax-head-actions .icon-btn svg { width: 1rem; height: 1rem; display: block; }
 .tax-year-btn:disabled, .tax-pager button:disabled { opacity: 0.35; cursor: default; }
@@ -7531,11 +7533,11 @@ body.private #tax-entry-figure { filter: blur(7px); user-select: none; }
 /* Country tax pack selector + Global Tax Receipt Vault */
 .tax-pack-bar {
   display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.85rem; grid-column: 1 / -1; max-width: 100%;
 }
 .tax-pack-label { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
 .tax-pack-select {
-  flex: 1 1 11rem; min-width: 0; max-width: 100%;
+  flex: 1 1 10rem; width: 0; min-width: 0; max-width: 100%;
   min-height: 2.35rem; padding: 0.35rem 0.65rem;
   border-radius: var(--r-sm); border: 0.5px solid var(--border);
   background: var(--card); color: var(--text); font-size: 0.86rem;
@@ -7549,7 +7551,7 @@ body.private #tax-entry-figure { filter: blur(7px); user-select: none; }
 .tax-vault-card { display: flex; flex-direction: column; gap: 0.35rem; }
 .tax-vault-card .tax-hero-figure { margin-bottom: 0.15rem; }
 .tax-vault-count { margin: 0; font-weight: 500; color: var(--text); }
-.tax-vault-card .button-row { margin-top: 0.35rem; }
+.tax-vault-card .button-row { margin-top: 0.35rem; flex-wrap: wrap; }
 .tax-cap-banner {
   margin: 0 0 0.7rem; padding: 0.5rem 0.7rem; border-radius: var(--r-sm);
   background: var(--card-soft); border: 0.5px solid var(--line);
@@ -7749,6 +7751,7 @@ button.ghost.tax-chip.is-warn:hover { background: color-mix(in srgb, var(--warn)
 /* Wide screens: the refund leads across the page; tiles get room. */
 @media (min-width: 640px) {
   #tab-tax.tab-panel:is(.active, .is-leaving) > .tax-hero-card,
+  #tab-tax.tab-panel:is(.active, .is-leaving) > .tax-vault-card,
   #tab-tax.tab-panel:is(.active, .is-leaving) > .tax-optin { grid-column: 1 / -1; }
   .tax-hero-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 2rem; align-items: start; }
   .tax-hero-card > .label, .tax-hero-figure, .tax-split, .tax-hero-note, .tax-how { grid-column: 1; }

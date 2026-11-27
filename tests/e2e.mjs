@@ -19934,13 +19934,14 @@ check('the brand catalogue makes no network calls at all',
     for (const lang of ['en', 'ms', 'zh']) {
       if (window.I18N && window.I18N.set) await window.I18N.set(lang);
       renderAll();
-      out[lang] = document.documentElement.scrollWidth <= innerWidth + 1;
+      const sw = document.documentElement.scrollWidth;
+      out[lang] = { ok: sw <= innerWidth + 1, sw, iw: innerWidth };
     }
     if (window.I18N && window.I18N.set) await window.I18N.set('en');
     return out;
   });
   check('v1.89.0: #tab-tax with pack selector & Global Receipt Vault fits 360px cleanly in EN/MS/ZH',
-    fit.en && fit.ms && fit.zh, JSON.stringify(fit));
+    fit.en.ok && fit.ms.ok && fit.zh.ok, JSON.stringify(fit));
   check('v1.89.0: no page errors in Country-Aware Tax Packs suite', txErr.length === 0, JSON.stringify(txErr));
   await txCtx.close();
 }
