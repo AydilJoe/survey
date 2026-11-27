@@ -68,7 +68,7 @@ on:
       play_track:
         description: "Publish the Android bundle to Google Play"
         type: choice
-        default: production
+        default: beta
         options:
           - production
           - beta
@@ -307,7 +307,11 @@ jobs:
         id: play
         env:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          TRACK: ${{ github.event_name != 'workflow_dispatch' && 'production' || inputs.play_track }}
+          # Beta-only freeze until Duitful 2.0 goes live (owner, 27 Nov 2026):
+          # automatic runs publish to Play's open-testing (beta) track, never
+          # Production. Promote beta -> Production in Play Console on launch
+          # day, then set this back to 'production'.
+          TRACK: ${{ github.event_name != 'workflow_dispatch' && 'beta' || inputs.play_track }}
         run: |
           if [ "$TRACK" = "none" ]; then echo "Play upload not requested."; exit 0; fi
           if [ -z "$PLAY_SERVICE_ACCOUNT_JSON" ]; then

@@ -12737,8 +12737,12 @@ check('the brand catalogue makes no network calls at all',
   check('ios workflow: the secrets check covers every signed lane, and the build number is a timestamp that cannot run backwards',
     /Check signing secrets are present\n\s+if: inputs\.lane != 'build-only'/.test(ios)
     && /DUITFUL_BUILD_NUMBER=\$\(date -u \+%y%m%d\)/.test(ios) && !/DUITFUL_BUILD_NUMBER: \$\{\{ github\.run_number/.test(ios));
-  check('release workflow: a tag publishes the AAB to Play Production at 100%; by hand the track is a choice that includes none',
-    /TRACK: \$\{\{ github\.event_name != 'workflow_dispatch' && 'production' \|\| inputs\.play_track \}\}/.test(rel)
+  // Beta-only freeze until Duitful 2.0 (owner, 27 Nov 2026): automatic runs go
+  // to Play's beta track, never Production; restore 'production' on launch day.
+  check('release workflow: automatic runs publish the AAB to Play beta (2.0 freeze), never Production; by hand the track is a choice that includes none and defaults to beta',
+    /TRACK: \$\{\{ github\.event_name != 'workflow_dispatch' && 'beta' \|\| inputs\.play_track \}\}/.test(rel)
+    && !/github\.event_name != 'workflow_dispatch' && 'production'/.test(rel)
+    && /play_track:[\s\S]*?default: beta/.test(rel)
     && /upload_to_play_store/.test(rel) && /release_status:completed/.test(rel) && /- none/.test(rel)
     && /package_name:com\.aydiljoe\.duitful/.test(rel));
   check('release workflow: the Play key only reaches its own step, a missing key warns instead of failing, and the key is deleted',
