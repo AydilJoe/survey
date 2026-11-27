@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.85.0";
+const APP_VERSION = "1.86.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -8359,6 +8359,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.86.0": [
+    "<strong>Native haptics</strong> — Tapping and holding the Jelly Bubble now triggers native haptic feedback with escalating bubble pulses, a crisp pop, and a confirmation pulse when you save.",
+  ],
   "1.85.0": [
     "<strong>Debt payoff strategies (free for everyone)</strong> — Switch between Avalanche, Snowball, Cash flow, and Quick-win on the Debts tab to compare timelines, interest saved, and where a bonus or lump sum works hardest.",
     "<strong>Real-world loan rules</strong> — Fixed-rate car loans (Hire Purchase / AITAB) now model a settlement fund instead of partial extra payments that don't cut interest, 0% plans are skipped by Avalanche, and optional early-settlement penalties are factored in.",

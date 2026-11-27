@@ -9,6 +9,8 @@ import android.provider.OpenableColumns;
 import android.os.Build;
 import android.util.Base64;
 import android.util.Log;
+import android.view.HapticFeedbackConstants;
+import android.view.View;
 
 import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultLauncher;
@@ -573,6 +575,35 @@ public class DuitfulKitPlugin extends Plugin {
             ReviewInfo info = task.getResult();
             manager.launchReviewFlow(activity, info)
                 .addOnCompleteListener(flow -> call.resolve(new JSObject().put("asked", flow.isSuccessful())));
+        });
+    }
+
+    @PluginMethod
+    public void haptic(PluginCall call) {
+        final String style = (call.getString("style", "LIGHT")).toUpperCase(java.util.Locale.ROOT);
+        final Activity activity = getActivity();
+        if (activity == null) {
+            call.resolve(new JSObject().put("ok", false));
+            return;
+        }
+        activity.runOnUiThread(() -> {
+            View root = activity.getWindow() != null ? activity.getWindow().getDecorView() : null;
+            if (root == null) {
+                call.resolve(new JSObject().put("ok", false));
+                return;
+            }
+            int flag;
+            if ("HEAVY".equals(style) || "RIGID".equals(style)) {
+                flag = HapticFeedbackConstants.LONG_PRESS;
+            } else if ("SUCCESS".equals(style) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                flag = HapticFeedbackConstants.CONFIRM;
+            } else if ("MEDIUM".equals(style)) {
+                flag = HapticFeedbackConstants.VIRTUAL_KEY;
+            } else {
+                flag = HapticFeedbackConstants.CLOCK_TICK;
+            }
+            boolean ok = root.performHapticFeedback(flag);
+            call.resolve(new JSObject().put("ok", ok));
         });
     }
 }

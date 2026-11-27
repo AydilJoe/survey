@@ -70,6 +70,7 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         CAPPluginMethod(name: "speechAvailable", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "speechStart", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "speechStop", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "haptic", returnType: CAPPluginReturnPromise),
     ]
 
     /// Shared with the App Intents in AppDelegate.swift. Rename both or neither.
@@ -544,6 +545,52 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
                 SKStoreReviewController.requestReview(in: scene)
             }
             call.resolve(["asked": true])
+        }
+    }
+
+    // MARK: - Native Taptic Engine haptics
+
+    private var impactGenerators: [UIImpactFeedbackGenerator.FeedbackStyle: UIImpactFeedbackGenerator] = [:]
+    private var notificationGenerator: UINotificationFeedbackGenerator?
+    private var selectionGenerator: UISelectionFeedbackGenerator?
+
+    @objc func haptic(_ call: CAPPluginCall) {
+        let rawStyle = (call.getString("style") ?? "LIGHT").uppercased()
+        let rawIntensity = call.getDouble("intensity")
+        DispatchQueue.main.async {
+            switch rawStyle {
+            case "SUCCESS", "WARNING", "ERROR":
+                let gen = self.notificationGenerator ?? UINotificationFeedbackGenerator()
+                self.notificationGenerator = gen
+                gen.prepare()
+                let t: UINotificationFeedbackGenerator.FeedbackType =
+                    rawStyle == "WARNING" ? .warning : (rawStyle == "ERROR" ? .error : .success)
+                gen.notificationOccurred(t)
+            case "SELECTION":
+                let gen = self.selectionGenerator ?? UISelectionFeedbackGenerator()
+                self.selectionGenerator = gen
+                gen.prepare()
+                gen.selectionChanged()
+            default:
+                let style: UIImpactFeedbackGenerator.FeedbackStyle
+                switch rawStyle {
+                case "SOFT": style = .soft
+                case "MEDIUM": style = .medium
+                case "RIGID": style = .rigid
+                case "HEAVY": style = .heavy
+                default: style = .light
+                }
+                let gen = self.impactGenerators[style] ?? UIImpactFeedbackGenerator(style: style)
+                self.impactGenerators[style] = gen
+                gen.prepare()
+                if let intensity = rawIntensity, intensity.isFinite {
+                    let clamped = CGFloat(max(0.2, min(1.0, intensity)))
+                    gen.impactOccurred(intensity: clamped)
+                } else {
+                    gen.impactOccurred()
+                }
+            }
+            call.resolve(["ok": true])
         }
     }
 }

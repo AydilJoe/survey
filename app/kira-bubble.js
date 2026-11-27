@@ -178,16 +178,23 @@ function playPop() {
   } catch {}
 }
 
-function kiraHaptic(pattern, style) {
+function kiraHaptic(pattern, style, intensity) {
   if (!kiraHapticsEnabled()) return;
   try {
     if (pattern === 0) {
       if (navigator.vibrate) navigator.vibrate(0);
       return;
     }
+    const s = style || "LIGHT";
+    const kit = typeof duitfulKit === "function" ? duitfulKit("haptic") : null;
+    if (kit) {
+      const payload = typeof intensity === "number" ? { style: s, intensity } : { style: s };
+      kit.haptic(payload).catch(() => {});
+      return;
+    }
     const capHaptics = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics;
     if (capHaptics && typeof capHaptics.impact === "function") {
-      capHaptics.impact({ style: style || "LIGHT" }).catch(() => {});
+      capHaptics.impact({ style: s }).catch(() => {});
       return;
     }
     if (navigator.vibrate) navigator.vibrate(pattern);
@@ -199,7 +206,9 @@ function startBubbling() {
   let step = 0;
   const tick = () => {
     playBubbleBlip(step);
-    kiraHaptic(Math.min(10 + step * 4, 30), step < 3 ? "LIGHT" : "MEDIUM");
+    const style = step < 2 ? "SOFT" : step < 4 ? "LIGHT" : step < 6 ? "MEDIUM" : "RIGID";
+    const intensity = Math.min(0.45 + step * 0.09, 1.0);
+    kiraHaptic(Math.min(10 + step * 4, 30), style, intensity);
     step++;
     const nextDelay = Math.max(48, 82 - step * 6) + Math.floor(Math.random() * 14);
     bubblingTimer = setTimeout(tick, nextDelay);
@@ -216,7 +225,7 @@ function stopBubbling() {
 
 function kiraPlaySaveFeedback() {
   playBloop();
-  kiraHaptic([12, 40, 18], "MEDIUM");
+  kiraHaptic([12, 40, 18], "SUCCESS", 0.9);
 }
 
 function bubbleReducedMotion() {
@@ -731,7 +740,7 @@ function initBubble() {
     cancelHold();
     bubblePointerStarted = true;
     playBloop();
-    kiraHaptic(12, "LIGHT");
+    kiraHaptic(12, "LIGHT", 0.55);
     startBubbling();
     btn.classList.add("is-charging");
     const h = { id: e.pointerId, x: e.clientX, y: e.clientY, fired: false, timer: 0 };
@@ -744,7 +753,7 @@ function initBubble() {
       btn.classList.add("is-popped");
       spawnPopDroplets(btn);
       playPop();
-      kiraHaptic(38, "HEAVY");
+      kiraHaptic(38, "HEAVY", 1.0);
       radialClose();
       if (typeof openVoiceEntry === "function") openVoiceEntry("", { listen: true });
       setTimeout(() => btn.classList.remove("is-popped"), 340);
