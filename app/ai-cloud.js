@@ -397,6 +397,25 @@ function renderAiCloudSettings() {
   }
 
   const meter = document.getElementById("ai-cloud-meters");
+  const expiryEl = document.getElementById("ai-cloud-expiry");
+  const openBtn = document.getElementById("ai-plus-open-btn");
+  const t = typeof tr === "function" ? tr : (s) => s;
+  if (expiryEl) {
+    if (active && Number(sub.expiresAt) > 0) {
+      const d = new Date(Number(sub.expiresAt));
+      const dateStr = Number.isFinite(d.getTime())
+        ? d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
+        : "";
+      expiryEl.textContent = dateStr ? t("Until {date}", { date: dateStr }) : t("Active");
+      expiryEl.hidden = false;
+    } else {
+      expiryEl.textContent = "";
+      expiryEl.hidden = true;
+    }
+  }
+  if (openBtn) {
+    openBtn.textContent = active ? t("Manage AI+") : t("Get AI+");
+  }
   if (meter) {
     if (active) {
       const scansUsed = Number(sub.scansUsed) || 0;
@@ -405,12 +424,10 @@ function renderAiCloudSettings() {
       const textLimit = Number(sub.textLimit) || 1000;
       const devs = Number(sub.devicesCount) || 1;
       const maxDevs = Number(sub.maxDevices) || 3;
-      meter.textContent = `${scansUsed} of ${scansLimit} scans · ${textUsed} of ${textLimit} smart actions · ${devs} of ${maxDevs} devices`;
+      meter.textContent = `${scansUsed}/${scansLimit} scans · ${textUsed}/${textLimit} actions · ${devs}/${maxDevs} devices`;
       meter.hidden = false;
     } else {
-      meter.textContent = typeof tr === "function"
-        ? tr("Optional cloud AI subscription — tap Manage Duitful AI+ or pair with a 6-digit code.")
-        : "Optional cloud AI subscription — tap Manage Duitful AI+ or pair with a 6-digit code.";
+      meter.textContent = t("Cloud AI for receipts, voice & PDFs.");
       meter.hidden = false;
     }
   }
@@ -716,6 +733,9 @@ async function handleAiSubscriptionReceipt(receipt, opts) {
     accountToken: typeof purchaseAccountToken === "function" ? purchaseAccountToken() : "",
     deviceLabel: plat === "ios" ? "iPhone" : "Android",
   };
+  if (settles && typeof updateKiraPurchaseLoading === "function") {
+    updateKiraPurchaseLoading(typeof tr === "function" ? tr("Verifying your subscription…") : "Verifying your subscription…");
+  }
   const run = aiVerifyStoreReceipt(payload, { txId });
   aiVerifySent += 1;
   aiVerifying.add(run);
@@ -878,8 +898,16 @@ async function runAiPaywallPurchase(plan, btn) {
   const errEl = document.getElementById("ai-plus-err");
   if (errEl) { errEl.textContent = ""; errEl.hidden = true; }
   if (btn) btn.disabled = true;
-  const res = await purchaseAiSubscription(plan);
-  if (btn) btn.disabled = false;
+  if (typeof showKiraPurchaseLoading === "function") {
+    showKiraPurchaseLoading(typeof tr === "function" ? tr("Completing purchase…") : "Completing purchase…");
+  }
+  let res;
+  try {
+    res = await purchaseAiSubscription(plan);
+  } finally {
+    if (typeof hideKiraPurchaseLoading === "function") hideKiraPurchaseLoading();
+    if (btn) btn.disabled = false;
+  }
   if (res && res.ok) {
     closeAiPaywall();
     renderAiCloudSettings();

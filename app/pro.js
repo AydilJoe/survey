@@ -1607,9 +1607,11 @@ document.getElementById("paywall-buy")?.addEventListener("click", async () => {
   const originalLabel = buyBtn ? buyBtn.textContent : "Unlock Pro";
   if (buyBtn) { buyBtn.disabled = true; buyBtn.textContent = tr("Verifying…"); }
   if (status) { status.textContent = tr("Confirm the purchase in the store sheet…"); status.hidden = false; }
+  if (typeof showKiraPurchaseLoading === "function") showKiraPurchaseLoading(tr("Completing purchase…"));
   try {
     const sku = activePromo && nativePlatform() !== "ios" ? activePromo.sku : PRODUCT_ID;
     const outcome = await purchasePro(sku);
+    if (typeof hideKiraPurchaseLoading === "function") hideKiraPurchaseLoading();
     if (outcome.ok) {
       // Read the price before closePaywall() resets the applied promo.
       const paidLabel = activePromo ? activePromo.priceLabel : PRO_PRICE_LABEL;
@@ -1624,6 +1626,7 @@ document.getElementById("paywall-buy")?.addEventListener("click", async () => {
       status.hidden = false;
     }
   } finally {
+    if (typeof hideKiraPurchaseLoading === "function") hideKiraPurchaseLoading();
     if (buyBtn) { buyBtn.disabled = false; buyBtn.textContent = originalLabel; }
   }
 });
