@@ -577,9 +577,9 @@ function radialSide() {
 }
 
 /* n points spread evenly by length along the upper half of an ellipse
-   (from 160° round to 20°): the 4 Jelly bubbles sit evenly along the arc. */
+   (from 166° round to 14°): the 4 Jelly bubbles sit evenly along the arc. */
 function radialArc(n, rx, ry) {
-  const a0 = 160 * Math.PI / 180, a1 = 20 * Math.PI / 180, steps = 280;
+  const a0 = 166 * Math.PI / 180, a1 = 14 * Math.PI / 180, steps = 280;
   const pts = [];
   let len = 0, prev = null;
   for (let k = 0; k <= steps; k++) {
@@ -614,8 +614,8 @@ function radialLayout() {
   if (dlg) dlg.classList.toggle("is-side", side);
   const n = items.length;
   const arc = side ? null : radialArc(n,
-    Math.max(106, Math.min(132, cx - 48, vw - cx - 48)),
-    Math.max(112, Math.min(138, cy - 84)));
+    Math.max(114, Math.min(138, cx - 42, vw - cx - 42)),
+    Math.max(126, Math.min(156, cy - 84)));
   items.forEach((el, i) => {
     let x, y;
     if (!side) {

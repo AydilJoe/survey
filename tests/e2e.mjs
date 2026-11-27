@@ -8248,7 +8248,13 @@ check('and what was typed reaches the home screen calculation',
     document.querySelectorAll('dialog[open]').forEach((d) => d.close());
     const saved = { daily: state.dailyExpenses, streak: JSON.stringify(state.streak) };
     state.dailyExpenses = state.dailyExpenses.filter((e) => e.date !== todayISO());
-    state.streak = { ...coerceStreak(state.streak), enabled: true, noSpendDates: (coerceStreak(state.streak).noSpendDates || []).filter((d) => d !== todayISO()) };
+    const st = coerceStreak(state.streak);
+    state.streak = {
+      ...st,
+      enabled: true,
+      noSpendDates: (st.noSpendDates || []).filter((d) => d !== todayISO()),
+      activityDates: (st.activityDates || []).filter((d) => d !== todayISO()),
+    };
     renderAll();
     const inRadial = !!document.querySelector('#radial [data-radial="nospend"]');
     const btn = document.getElementById('btn-no-spend-today');
@@ -14943,12 +14949,12 @@ check('the brand catalogue makes no network calls at all',
   }));
   const en0 = await look();
   check('languages: a phone set to English opens in English, choice left on "Phone\'s language"',
-    en0.tab === 'Home' && en0.lang === 'en' && en0.add === 'Add entry' && en0.stored === null && !en0.hint, JSON.stringify(en0));
+    en0.tab === 'Home' && en0.lang === 'en' && en0.add === 'Save spend' && en0.stored === null && !en0.hint, JSON.stringify(en0));
 
   await pick('ms');
   const ms = await look();
   check('languages: picking Bahasa Melayu loads only ms on demand and repaints the page and what script.js draws, with no reload (tab, button, balance line, <html lang>)',
-    ms.tab === 'Utama' && ms.lang === 'ms' && ms.dir === 'ltr' && ms.add === 'Tambah catatan' && /^.*Hari \d+\/\d+/.test(ms.progress) && ms.hint && ms.stored === 'ms' && JSON.stringify(ms.loaded) === '["ms"]', JSON.stringify(ms));
+    ms.tab === 'Utama' && ms.lang === 'ms' && ms.dir === 'ltr' && ms.add === 'Simpan belanja' && /^.*Hari \d+\/\d+/.test(ms.progress) && ms.hint && ms.stored === 'ms' && JSON.stringify(ms.loaded) === '["ms"]', JSON.stringify(ms));
   const fills = await lp.evaluate(() => [
     tr('Day {d}/{n}', { d: 3, n: 30 }),
     trn(1, '{n} day left', '{n} days left'),
@@ -14986,7 +14992,7 @@ check('the brand catalogue makes no network calls at all',
   const zh = await look();
   const zhDate = await lp.evaluate(() => document.getElementById('greeting').textContent);
   check('languages: 中文 loads on demand and repaints too, and dates follow it (月 in the greeting)',
-    zh.tab === '首页' && zh.lang === 'zh-Hans' && zh.add === '添加记录' && /月/.test(zhDate) && zh.loaded.includes('zh'), JSON.stringify({ ...zh, zhDate }));
+    zh.tab === '首页' && zh.lang === 'zh-Hans' && zh.add === '保存消费' && /月/.test(zhDate) && zh.loaded.includes('zh'), JSON.stringify({ ...zh, zhDate }));
 
   await pick('auto');
   const back = await look();
