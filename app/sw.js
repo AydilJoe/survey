@@ -15,20 +15,20 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "h-1bd0c25f";
+const VERSION = "h-81390966";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=d97de80f",
-  "/app/script.js?v=0ee3c6db",
+  "/app/styles.css?v=2b100fc9",
+  "/app/script.js?v=04282833",
   // Languages: registry + boot loader run at startup; packs are precached so
   // switching languages still works offline, without parsing unused packs at boot.
-  "/app/i18n-langs.js?v=a0d9b809",
+  "/app/i18n-langs.js?v=7dfe9b4e",
   "/app/i18n-boot.js?v=e8f35f1d",
-  "/app/i18n-ms.js?v=77443b70",
-  "/app/i18n-zh.js?v=7512e768",
+  "/app/i18n-ms.js?v=565307b0",
+  "/app/i18n-zh.js?v=e3a53776",
   "/app/i18n.js?v=e94f1821",
   "/app/drive-config.js?v=9aaf242d",
   "/app/drive-sync.js?v=08041907",
@@ -50,7 +50,7 @@ const SHELL = [
   "/app/vendor/pdfjs/pdf.worker.min.js?v=38cde531",
   "/app/brands.js?v=73d9f7dc",
   "/app/search.js?v=1723d81e",
-  "/app/csv.js?v=ca8caf4e",
+  "/app/csv.js?v=e1a8ce53",
   "/app/reports.js?v=6b3b772b",
   "/app/onboarding.js?v=dd4ac4be",
   "/app/kira-seasons.js?v=84d7b80b",

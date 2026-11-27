@@ -27,6 +27,7 @@ function toCSV() {
     // charged to a card (it is not cash); debt_id / saving_id are a payment's
     // debt / goal; source is "statement" for statement imports.
     "entry_id", "card_debt_id", "card_debt", "debt_id", "saving_id", "source",
+    "extra_effect", "lock_in_pct",
   ];
   const rows = [HEADER];
   const W = HEADER.length;
@@ -107,6 +108,8 @@ function toCSV() {
     row[HEADER.indexOf("term_months")] = isInst ? (d.termMonths ?? "") : "";
     row[HEADER.indexOf("brand")] = d.brand || "";
     row[HEADER.indexOf("brand_color")] = d.color || "";
+    row[HEADER.indexOf("extra_effect")] = d.extraEffect || "";
+    row[HEADER.indexOf("lock_in_pct")] = d.lockInPenaltyPct ? String(d.lockInPenaltyPct) : "";
     row[IE] = d.id || "";
     rows.push(row);
   }
@@ -256,6 +259,9 @@ function toCSV() {
   }
   if (state.walletLast) rows.push(blank(["setting", "walletLast", state.walletLast]));
   rows.push(blank(["setting", "extraMonthly", state.extraMonthly || 0]));
+  if (state.payoffStrategy && state.payoffStrategy !== "avalanche") {
+    rows.push(blank(["setting", "payoffStrategy", state.payoffStrategy]));
+  }
   // Shariah / zakat preferences. Each is its own `setting` row so an older
   // build that doesn't know these keys just skips them.
   {
@@ -421,6 +427,7 @@ function fromCSV(text) {
   // 1.63.1 columns; absent from older files, which import as before.
   const iEntryId = idx("entry_id"), iCardDebtId = idx("card_debt_id"), iCardDebt = idx("card_debt");
   const iDebtId = idx("debt_id"), iSavingId = idx("saving_id"), iSource = idx("source");
+  const iExtraEffect = idx("extra_effect"), iLockInPct = idx("lock_in_pct");
   const cellAt = (row, i) => (i >= 0 ? String(row[i] ?? "").trim() : "");
   // A row's own id is kept when it looks like one and is not taken yet in
   // its list, so links between rows (card charges, payments, split bills,
@@ -552,6 +559,12 @@ function fromCSV(text) {
       const rowDueDay = iDueDay >= 0 ? parseDay(row[iDueDay]) : null;
       const rowKind = iKind >= 0 ? (row[iKind] || "").trim().toLowerCase() : "";
       const rowMonthsLeft = iMonthsLeft >= 0 ? Number(row[iMonthsLeft]) : NaN;
+      const rowExtraEff = cellAt(row, iExtraEffect).toLowerCase();
+      const rowLockPen = iLockInPct >= 0 ? Number(row[iLockInPct]) : NaN;
+      const rowExtraFields = {
+        ...(typeof DEBT_EXTRA_EFFECTS !== "undefined" && DEBT_EXTRA_EFFECTS.includes(rowExtraEff) ? { extraEffect: rowExtraEff } : {}),
+        ...(Number.isFinite(rowLockPen) && rowLockPen > 0 ? { lockInPenaltyPct: Math.min(20, +rowLockPen.toFixed(2)) } : {}),
+      };
       if (rowKind === "islamic") {
         const principal = iPrincipal >= 0 ? Number(row[iPrincipal]) : NaN;
         const totalProfit = iTotalProfit >= 0 ? Number(row[iTotalProfit]) : NaN;
@@ -568,6 +581,7 @@ function fromCSV(text) {
           principal: Number.isFinite(principal) ? principal : 0,
           totalProfit: Number.isFinite(totalProfit) ? totalProfit : 0,
           tenureMonths: Number.isFinite(tenureMonths) ? tenureMonths : 0,
+          ...rowExtraFields,
         }));
       } else if (rowKind === "installment") {
         const inst = Number.isFinite(minPayment) ? minPayment : 0;
@@ -590,9 +604,10 @@ function fromCSV(text) {
           // progress. coerceDebt discards anything else malformed.
           ...(Number.isFinite(rowTerm) && rowTerm >= months ? { termMonths: rowTerm } : {}),
           ...readDebtBrand(row, name),
+          ...rowExtraFields,
         }));
       } else {
-        next.debts.push({
+        next.debts.push(coerceDebt({
           id: rowId(row, "debts"),
           name,
           balance: Number.isFinite(balance) ? balance : 0,
@@ -600,7 +615,8 @@ function fromCSV(text) {
           minPayment: Number.isFinite(minPayment) ? minPayment : 0,
           dueDay: rowDueDay != null ? rowDueDay : rowDay,
           kind: "standard",
-        });
+          ...rowExtraFields,
+        }));
       }
     } else if (type === "daily") {
       if (!Number.isFinite(amount)) continue;
@@ -798,6 +814,9 @@ function fromCSV(text) {
       });
     } else if (type === "setting" && name.toLowerCase() === "extramonthly") {
       if (Number.isFinite(amount)) next.extraMonthly = amount;
+    } else if (type === "setting" && name.toLowerCase() === "payoffstrategy") {
+      const rawStrat = iAmount >= 0 ? (row[iAmount] || "").toString().trim().toLowerCase() : "";
+      next.payoffStrategy = typeof normalizePayoffStrategy === "function" ? normalizePayoffStrategy(rawStrat) : "avalanche";
     } else if (type === "setting" && ZAKAT_SETTING_KEYS.has(name.toLowerCase())) {
       // Shariah settings arrive as one row per key. Values ride in the
       // `amount` column for numbers and the `name`-adjacent amount cell as a

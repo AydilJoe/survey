@@ -6920,14 +6920,110 @@ body.private .pending-match-sub {
 /* Three buttons (the purchase-fix offer) stack, the offer on top. */
 .whats-new-actions:has(#whats-new-pro:not([hidden])) { flex-direction: column-reverse; }
 
-/* The avalanche target, stated above the clearing order. */
+/* The payoff target, strategy switcher, comparison note, and windfall checker. */
+.payoff-strategy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.15rem 0 0.7rem;
+}
+.payoff-strategy .pill {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.42rem 0.65rem;
+  font-size: 0.8rem;
+  text-align: center;
+  white-space: nowrap;
+}
 .payoff-target {
-  margin: -0.25rem 0 0.75rem;
+  margin: -0.1rem 0 0.45rem;
   font-size: 0.88rem;
   line-height: 1.45;
   color: var(--ink2, var(--muted));
 }
 .payoff-target strong { color: var(--text); }
+.payoff-compare {
+  margin: 0 0 0.65rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.payoff-effect-tag {
+  color: var(--muted);
+  font-weight: 500;
+}
+.payoff-windfall {
+  margin-top: 0.85rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--line);
+}
+.payoff-windfall > summary {
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.25rem 0;
+}
+.payoff-windfall > summary::-webkit-details-marker { display: none; }
+.payoff-windfall > summary::after {
+  content: "▾";
+  font-size: 0.85rem;
+  color: var(--muted);
+  transition: transform 0.16s ease;
+}
+.payoff-windfall[open] > summary::after { transform: rotate(180deg); }
+.payoff-windfall .field { margin-top: 0.55rem; }
+.windfall-list {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.windfall-row {
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--card-soft, var(--stage));
+}
+.windfall-row.is-best {
+  border-color: color-mix(in srgb, var(--gain) 45%, var(--line));
+  background: color-mix(in srgb, var(--gain) 8%, var(--card));
+}
+.windfall-row.is-muted { opacity: 0.72; }
+.windfall-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.86rem;
+}
+.windfall-best-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--gain) 16%, transparent);
+  color: var(--gain);
+  white-space: nowrap;
+}
+.windfall-row-detail {
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+body.private .payoff-compare,
+body.private .windfall-row-detail {
+  filter: blur(7px);
+  user-select: none;
+  pointer-events: none;
+}
 
 /* ---------- v1.37 Add entry hierarchy ----------
    One primary action per card: "Add entry" spans the card at the bottom.
