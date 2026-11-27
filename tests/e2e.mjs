@@ -1349,6 +1349,9 @@ check('one out record with three open people at 23.50 each',
 check('the share dialog opens on the first person with a real QR',
   composed.shareOpen === true && /Ali/.test(composed.shareTitle) && composed.qr === 1,
   JSON.stringify({ open: composed.shareOpen, title: composed.shareTitle, qr: composed.qr }));
+// 1.82.0: "What leaves your phone" sits inside "More options".
+await page.click('#split-share-body details.split-share-more > summary');
+await page.waitForTimeout(150);
 check('the share preview always states what leaves the device',
   /RM\s*23\.50/.test(await page.locator('.split-preview-body').innerText())
   && /no transfer details/.test(await page.locator('.split-preview-body').innerText()),
@@ -16181,6 +16184,295 @@ check('the brand catalogue makes no network calls at all',
     JSON.stringify(fit));
   check('Talk to Kira (1.80.0): no page errors', tErr.length === 0, JSON.stringify(tErr));
   await tCtx.close();
+}
+
+// ── 1.82.0: sheets clear the iPhone safe area, Voice hears Malaysian words,
+//    a simpler split request sheet ─────────────────────────────────────────
+{
+  const read = (f) => readFileSync(path.join(REPO_ROOT, f), 'utf8');
+  const javaKit = read('native/duitful-kit/android/DuitfulKitPlugin.java');
+  const javaSpeech = read('native/duitful-kit/android/DuitfulKitSpeech.java');
+  const swiftKit = read('native/duitful-kit/ios/Sources/DuitfulKitPlugin/DuitfulKitPlugin.swift');
+  const swiftSpeech = read('native/duitful-kit/ios/Sources/DuitfulKitPlugin/DuitfulSpeech.swift');
+  const css = read('app/styles.css');
+  check('1.82.0: speechStart passes hints — iPhone sets contextualStrings, Android sets EXTRA_BIASING_STRINGS only for the on-device recogniser on API 33+',
+    swiftKit.includes('call.getArray("hints")') && swiftKit.includes('hints: hints')
+    && swiftSpeech.includes('req.contextualStrings = hints') && swiftSpeech.includes('static func cleanHints')
+    && javaKit.includes('speechHints(call)') && javaKit.includes('call.getArray("hints")')
+    && /onDevice && hints != null[\s\S]{0,160}SDK_INT >= Build\.VERSION_CODES\.TIRAMISU\)\s*\{\s*intent\.putStringArrayListExtra\(RecognizerIntent\.EXTRA_BIASING_STRINGS, hints\)/.test(javaSpeech));
+  check('1.82.0: viewport-fit=cover and one safe-area rule for every modal sheet (--sat / --sab, keyboard rules included)',
+    /viewport-fit=cover/.test(read('app/index.html'))
+    && /--sat: env\(safe-area-inset-top, 0px\)/.test(css)
+    && /:where\(dialog\.edit-dialog:modal:not\(\.scan-dialog\)\) \{\s*top: calc\(var\(--sat\) \+ 8px\);/.test(css)
+    && /html\.kb-open dialog:modal \{\s*top: calc\(var\(--kb-top, 0px\) \+ var\(--sat\)\);/.test(css));
+
+  const fCtx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  const fp = await fCtx.newPage();
+  const fErr = [];
+  fp.on('pageerror', (e) => fErr.push(e.message));
+  await fp.goto(`${BASE}/app/index.html`);
+  await fp.waitForTimeout(500);
+  await fp.click('#btn-start-open');
+  await fp.waitForTimeout(1500);
+  await fp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  // A 47px status bar and a 34px home indicator, as on an iPhone.
+  await fp.addStyleTag({ content: ':root { --sat: 47px !important; --sab: 34px !important; }' });
+  const shotDir = process.env.DUITFUL_FIX181_SHOTS || '';
+  const shot = async (name, el) => {
+    if (!shotDir) return;
+    try {
+      await fp.evaluate(() => {
+        let bar = document.getElementById('__fake-notch');
+        if (!bar) { bar = document.createElement('div'); bar.id = '__fake-notch'; document.body.appendChild(bar); }
+        bar.style.cssText = 'position:fixed;left:0;right:0;top:0;height:47px;background:rgba(0,0,0,.55);z-index:2147483647;pointer-events:none;color:#fff;font:600 15px system-ui;display:flex;align-items:center;padding-left:28px';
+        bar.textContent = '9:41';
+        // A modal dialog sits in the top layer; mirror the bar inside it.
+        for (const d of document.querySelectorAll('dialog[open]')) {
+          if (d.querySelector('.__notch')) continue;
+          const n = bar.cloneNode(true); n.removeAttribute('id'); n.className = '__notch'; d.appendChild(n);
+        }
+      });
+      await fp.screenshot({ path: path.join(shotDir, name) });
+      await fp.evaluate(() => document.querySelectorAll('.__notch').forEach((n) => n.remove()));
+    } catch {}
+  };
+  const edges = (sel) => fp.evaluate((s) => {
+    const d = document.querySelector(s);
+    if (!d || !d.open) return null;
+    const r = d.getBoundingClientRect();
+    const h2 = d.querySelector('h2');
+    const hr = h2 ? h2.getBoundingClientRect() : null;
+    return { top: Math.round(r.top), bottom: Math.round(r.bottom), h2: hr ? Math.round(hr.top) : null, vh: innerHeight, scroll: d.scrollHeight > d.clientHeight + 1 ? getComputedStyle(d).overflowY : 'fits' };
+  }, sel);
+  const clear = (e) => !!e && e.top >= 47 + 8 - 1 && e.bottom <= e.vh - 34 - 8 + 1 && (e.h2 == null || e.h2 >= 47);
+
+  // Voice: the stand-in kit records the hints and answers what the iPhone heard.
+  await fp.evaluate(() => {
+    state.wallets = [{ id: 'w-mae', name: 'MAE', type: 'ewallet', opening: 0 }];
+    state.split.me = '';
+    state.split.out = state.split.out || [];
+    state.split.out.push({ id: 'old-1', kind: 'split', title: 'Futsal', date: todayISO(), total: 30, people: [
+      { id: 'pp1', name: 'Siti Aminah', amount: 15, status: 'open', repayments: [] },
+      { id: 'pp2', name: 'Paid Pal', amount: 15, status: 'paid', repayments: [] },
+    ] });
+    renderAll();
+    const sp = window.__sp = { calls: [], fns: [], res: null };
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: { DuitfulKit: {
+      speechAvailable: async () => ({ available: true, onDevice: true }),
+      speechStart: (a) => { sp.calls.push(['start', a]); return new Promise((res) => { sp.res = res; }); },
+      speechStop: async () => { const r = sp.res; sp.res = null; if (r) setTimeout(() => r({ text: 'RM 40 ringgit Nazi split half with Ali' }), 20); return { ok: true }; },
+      addListener: async (ev, fn) => { sp.fns.push(fn); return { remove() {} }; },
+    } } };
+  });
+  await fp.evaluate(async () => { openVoiceEntry(''); await new Promise((r) => setTimeout(r, 200)); });
+  const voiceTop = await edges('#voice-dialog');
+  await fp.click('#voice-mic-btn');
+  await fp.waitForTimeout(100);
+  await fp.click('#voice-mic-btn');
+  await fp.waitForTimeout(300);
+  const heard = await fp.evaluate(() => {
+    const start = __sp.calls.find((c) => c[0] === 'start');
+    const hints = (start && start[1] && start[1].hints) || [];
+    return {
+      input: document.getElementById('voice-input').value,
+      spend: document.getElementById('voice-preview-spend').textContent,
+      split: document.getElementById('voice-preview-split').textContent,
+      hints,
+      kiraTop: Math.round(document.getElementById('voice-kira').getBoundingClientRect().top),
+    };
+  });
+  await shot('voice-sheet-nasi.png');
+  // html.kb-open (keyboard up) keeps the sheet under the status bar too.
+  // The keyboard rules still win over the safe-area rule: the sheet moves to
+  // the top of what is visible and shrinks to it.
+  const kb = await fp.evaluate(() => {
+    const h = document.documentElement;
+    h.style.setProperty('--kb-top', '0px');
+    h.style.setProperty('--kb-vh', '400px');
+    h.classList.add('kb-open');
+    const d = document.getElementById('voice-dialog');
+    const r = d.getBoundingClientRect();
+    const out = { top: Math.round(r.top), h: Math.round(r.height), bottom: getComputedStyle(d).bottom, maxH: getComputedStyle(d).maxHeight };
+    h.classList.remove('kb-open');
+    h.style.removeProperty('--kb-top');
+    h.style.removeProperty('--kb-vh');
+    return out;
+  });
+  const kbTop = kb.top;
+  // Typed text is never "corrected".
+  await fp.fill('#voice-input', 'RM 5 Nazi');
+  await fp.waitForTimeout(60);
+  const typed = await fp.evaluate(() => document.getElementById('voice-preview-spend').textContent);
+  await fp.evaluate(() => document.getElementById('voice-dialog').close());
+
+  const map = await fp.evaluate(() => {
+    const cases = {
+      'RM 12 Nazi lemak': 'RM 12 nasi lemak',
+      'nasty lemak RM 8': 'nasi lemak RM 8',
+      'nasi lemma 6 ringgit': 'nasi lemak 6 ringgit',
+      'roti channel RM 3': 'roti canai RM 3',
+      'Roti Chennai RM 3': 'roti canai RM 3',
+      'teh tarek 2.50': 'teh tarik 2.50',
+      'grab car RM 15': 'Grab RM 15',
+      'RM 50 touch and go reload': "RM 50 Touch 'n Go reload",
+      'touch n go RM 20': "Touch 'n Go RM 20",
+      'duit now RM 10 to Ali': 'DuitNow RM 10 to Ali',
+      'may bank fee RM 1': 'Maybank fee RM 1',
+      'nazism RM 1': 'nazism RM 1',
+      'my RM 5 pay': 'my RM 5 pay',
+    };
+    const out = {};
+    for (const [k, v] of Object.entries(cases)) { const got = voiceCorrectHeard(k); if (got !== v) out[k] = got; }
+    const p = parseVoiceSentence('RM 40 ringgit nasi');
+    const words = ['roti', 'teh', 'kopi', 'makan', 'mamak', 'nasi'].map((w) => parseVoiceSentence('RM 5 ' + w).category);
+    const myr = parseVoiceSentence('MYR 12 kopi sen');
+    return { wrong: out, p: { a: p.amount, n: p.note, c: p.category }, words, myr: myr.note };
+  });
+  check('1.82.0: Voice sends speech hints — Malaysian spend words, categories, wallets and only the first names of people still owing',
+    ['nasi lemak', 'roti canai', "Touch 'n Go", 'ringgit', 'sen', 'tol', 'Food', 'MAE', 'Siti'].every((w) => heard.hints.includes(w))
+    && !heard.hints.includes('Siti Aminah') && !heard.hints.includes('Paid') && heard.hints.length <= 100,
+    JSON.stringify(heard.hints));
+  check('1.82.0: "RM 40 ringgit Nazi split half with Ali" from the recogniser previews as RM 40.00 · Food · Nasi, Ali RM 20.00',
+    heard.input === 'RM 40 ringgit nasi split half with Ali'
+    && /^RM\s*40\.00 · Food · Nasi$/.test(heard.spend) && /Ali \(RM\s*20\.00\)/.test(heard.split) && !/ringgit/i.test(heard.spend),
+    JSON.stringify(heard));
+  check('1.82.0: the correction map fixes each known sound-alike, whole words only, and never typed text',
+    Object.keys(map.wrong).length === 0 && /Nazi/.test(typed), JSON.stringify({ wrong: map.wrong, typed }));
+  check('1.82.0: currency words never reach the note; nasi / roti / teh / kopi / makan / mamak are Food',
+    map.p.a === 40 && map.p.n === 'Nasi' && map.p.c === 'Food' && map.words.every((c) => c === 'Food') && map.myr === 'Kopi',
+    JSON.stringify(map));
+  check('1.82.0: the Voice sheet, its title and Kira sit below a 47px status bar (also with the keyboard up)',
+    clear(voiceTop) && heard.kiraTop >= 47 && kbTop >= 47 && kbTop <= 47 + 16 && kb.h <= 400 - 47,
+    JSON.stringify({ voiceTop, kira: heard.kiraTop, kb }));
+
+  // A spend form sheet.
+  const dailyId = await fp.evaluate(() => {
+    const id = uid();
+    state.dailyExpenses.push({ id, date: todayISO(), amount: 12, category: 'Food', note: 'Lunch', kind: 'expense', createdAt: Date.now() });
+    renderAll();
+    openDailyEditDialog(id);
+    return id;
+  });
+  await fp.waitForTimeout(250);
+  const dailyTop = await edges('#daily-edit-dialog');
+  await shot('spend-form.png');
+  await fp.evaluate(() => document.getElementById('daily-edit-dialog').close());
+  check('1.82.0: the spend form sheet sits between the status bar and the home indicator',
+    !!dailyId && clear(dailyTop), JSON.stringify(dailyTop));
+
+  // Split request: the name is asked once, then remembered.
+  await fp.evaluate(() => {
+    window.__shared = [];
+    Object.defineProperty(navigator, 'share', { configurable: true, value: async (d) => { window.__shared.push(d); } });
+  });
+  await fp.evaluate(async () => {
+    openVoiceEntry('RM 40 nasi split half with Ali');
+    await new Promise((r) => setTimeout(r, 120));
+    voiceSaveConfirmed();
+    await new Promise((r) => setTimeout(r, 500));
+  });
+  const first = await fp.evaluate(() => {
+    const body = document.getElementById('split-share-body');
+    const more = body.querySelector('details.split-share-more');
+    return {
+      open: document.getElementById('split-share-dialog').open,
+      field: !!document.getElementById('split-share-me'),
+      qrHidden: document.getElementById('split-share-qr').hidden,
+      qrSvg: body.querySelectorAll('.split-qr-svg').length,
+      moreOpen: more && more.open,
+      summary: more && more.querySelector('summary').textContent.trim(),
+      inMore: !!(more && more.querySelector('#split-share-payto') && more.querySelector('.split-payto-link') && more.querySelector('.split-preview') && more.querySelector('[data-action="split-copy-code"]')),
+      primary: body.querySelector('.split-share-actions .primary')?.textContent.trim(),
+      quick: [...body.querySelectorAll('.split-share-quick button')].map((x) => x.dataset.action),
+    };
+  });
+  const shareTop1 = await edges('#split-share-dialog');
+  await shot('split-name-unsaved.png');
+  await fp.fill('#split-share-me', 'Aydil');
+  await fp.evaluate(() => document.getElementById('split-share-me').dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+  await fp.waitForTimeout(250);
+  const typedName = await fp.evaluate(() => ({ me: state.split.me, stillField: !!document.getElementById('split-share-me') }));
+  await fp.click('[data-action="split-share-close"]');
+  await fp.waitForTimeout(150);
+  const recId = await fp.evaluate(() => state.split.out[state.split.out.length - 1].id);
+  await fp.evaluate(async (id) => { await splitOpenShare(id, 0); }, recId);
+  await fp.waitForTimeout(300);
+  const again = await fp.evaluate(() => ({
+    field: !!document.getElementById('split-share-me'),
+    as: document.querySelector('#split-share-body .split-share-as')?.textContent.replace(/\s+/g, ' ').trim(),
+  }));
+  await shot('split-name-saved.png');
+  await fp.click('[data-action="split-share-qr"]');
+  await fp.waitForTimeout(200);
+  const qr = await fp.evaluate(() => {
+    const box = document.getElementById('split-share-qr');
+    const svg = box.querySelector('.split-qr-svg');
+    return { hidden: box.hidden, h: svg ? Math.round(svg.getBoundingClientRect().height) : 0, btn: document.querySelector('[data-action="split-share-qr"]').textContent.trim(), expanded: document.querySelector('[data-action="split-share-qr"]').getAttribute('aria-expanded') };
+  });
+  await shot('split-qr-shown.png');
+  await fp.click('[data-action="split-share-qr"]');
+  await fp.waitForTimeout(150);
+  await fp.click('#split-share-body details.split-share-more > summary');
+  await fp.waitForTimeout(150);
+  await fp.click('#split-share-payto');
+  await fp.waitForTimeout(250);
+  const moreKept = await fp.evaluate(() => document.querySelector('#split-share-body details.split-share-more').open);
+  await fp.evaluate(() => { const d = document.getElementById('split-share-dialog'); d.scrollTop = d.scrollHeight; });
+  await shot('split-more-open.png');
+  await fp.evaluate(() => { document.getElementById('split-share-dialog').scrollTop = 0; });
+  // Taller than the screen: QR and More options open on a 600px-high phone.
+  await fp.click('[data-action="split-share-qr"]');
+  await fp.waitForTimeout(150);
+  await fp.setViewportSize({ width: 390, height: 600 });
+  await fp.waitForTimeout(200);
+  const shareTop2 = await edges('#split-share-dialog');
+  await fp.click('[data-action="split-share-qr"]');
+  await fp.setViewportSize({ width: 390, height: 844 });
+  await fp.waitForTimeout(150);
+  await fp.click('#split-share-body .split-share-actions .primary');
+  await fp.waitForTimeout(250);
+  const sent = await fp.evaluate(() => ({ text: (__shared[__shared.length - 1] || {}).text || '', link: splitShareLink(splitShare.code) }));
+  check('1.82.0: split request asks your name only while it isn\'t saved (kept for that sheet), then shows "As {name} · change"',
+    first.open && first.field && typedName.me === 'Aydil' && typedName.stillField && !again.field && /^As Aydil · change$/.test(again.as || ''),
+    JSON.stringify({ first, typedName, again }));
+  check('1.82.0: the QR waits behind "Show QR" (in the DOM, hidden until tapped)',
+    first.qrHidden && first.qrSvg === 1 && first.quick.join() === 'split-share-qr,split-copy-link'
+    && !qr.hidden && qr.h > 100 && qr.btn === 'Hide QR' && qr.expanded === 'true', JSON.stringify({ first, qr }));
+  check('1.82.0: "More options" is collapsed and holds transfer details, How to pay me, What leaves your phone and Copy code; it stays open across a re-render',
+    first.moreOpen === false && first.summary === 'More options' && first.inMore && moreKept, JSON.stringify({ first, moreKept }));
+  check('1.82.0: the primary send still shares the same link',
+    /Share link/.test(first.primary || '') && sent.link && sent.text.includes(sent.link), JSON.stringify(sent));
+  check('1.82.0: the split request sheet sits below the status bar and scrolls inside when taller than the screen',
+    clear(shareTop1) && clear(shareTop2) && shareTop2.scroll === 'auto', JSON.stringify({ shareTop1, shareTop2 }));
+
+  // 360px in English, Malay and Chinese: nothing sticks out of the sheet.
+  await fp.setViewportSize({ width: 360, height: 780 });
+  const fit = {};
+  for (const lang of ['en', 'ms', 'zh']) {
+    fit[lang] = await fp.evaluate(async ([l, id]) => {
+      await I18N.set(l);
+      await splitOpenShare(id, 0);
+      const dlg = document.getElementById('split-share-dialog');
+      dlg.querySelector('details.split-share-more').open = true;
+      await new Promise((r) => setTimeout(r, 100));
+      const d = dlg.getBoundingClientRect();
+      const out = [];
+      for (const el of dlg.querySelectorAll('#split-share-body *')) {
+        const r = el.getBoundingClientRect();
+        if (!r.width || el.closest('[hidden]')) continue;
+        if (r.left < d.left - 1 || r.right > d.right + 1) out.push((el.className || el.tagName) + ' ' + (el.textContent || '').slice(0, 30));
+      }
+      const words = [document.querySelector('[data-action="split-share-qr"]').textContent.trim(), dlg.querySelector('details.split-share-more summary').textContent.trim()];
+      return { out: out.slice(0, 5), words };
+    }, [lang, recId]);
+  }
+  await fp.evaluate(() => I18N.set('en'));
+  check('1.82.0: the split request sheet fits at 360px in EN / MS / ZH and its new words are translated',
+    ['en', 'ms', 'zh'].every((l) => fit[l].out.length === 0)
+    && fit.ms.words.join('|') === 'Tunjuk QR|Pilihan lain' && fit.zh.words.join('|') === '显示二维码|更多选项',
+    JSON.stringify(fit));
+  check('1.82.0: no page errors', fErr.length === 0, JSON.stringify(fErr));
+  await fCtx.close();
 }
 
 // ── Kira, the receipt mascot (v1.71.0) ────────────────────────────────────

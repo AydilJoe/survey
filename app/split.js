@@ -2783,7 +2783,13 @@ async function splitOpenShare(recordId, index, opts) {
   const people = rec.people.filter((p) => p.status !== "cancelled");
   if (!people.length) return;
   const i = Math.max(0, Math.min(people.length - 1, Number(index) || 0));
-  splitShare = { mode: "req", recordId, index: i, code: "", remind: !!(opts && opts.remind) };
+  // askMe: the name is asked only while it isn't saved yet, and the field
+  // stays for the rest of this sheet so typing it never moves the buttons.
+  // showQr: the QR waits behind "Show QR" (1.82.0).
+  splitShare = {
+    mode: "req", recordId, index: i, code: "", remind: !!(opts && opts.remind),
+    askMe: !splitText(splitState().me, SPLIT_NAME_MAX), showQr: false,
+  };
   splitShowDialog(splitShareDialogEl());
   await splitRenderShare();
 }
@@ -2885,6 +2891,8 @@ async function splitRenderPaidShare() {
 
 async function splitRenderRequestShare() {
   const body = document.getElementById("split-share-body");
+  const wasMore = body && body.querySelector(".split-share-more");
+  if (wasMore && splitShare) splitShare.moreOpen = wasMore.open;
   const titleEl = document.getElementById("split-share-title");
   if (!body || !splitShare) return;
   const rec = splitOutList().find((r) => r.id === splitShare.recordId);
@@ -2937,20 +2945,24 @@ async function splitRenderRequestShare() {
        </div>`
     : "";
 
-  const nameField = splitText(s.me, SPLIT_NAME_MAX)
-    ? ""
-    : `<label class="field">
+  const myName = splitText(s.me, SPLIT_NAME_MAX);
+  // Asked once: the field while the name isn't saved (and for the rest of
+  // that sheet), then one quiet "As {name} · change" line.
+  const nameField = splitShare.askMe || !myName
+    ? `<label class="field">
          <span>Your name (so they know who's asking)</span>
-         <input type="text" id="split-share-me" placeholder="e.g. Aydil" maxlength="${SPLIT_NAME_MAX}" />
-       </label>`;
+         <input type="text" id="split-share-me" placeholder="e.g. Aydil" maxlength="${SPLIT_NAME_MAX}" value="${escapeHtml(myName)}" />
+       </label>`
+    : `<p class="hint split-share-as">${tr("As {name}", { name: escapeHtml(myName) })} · <button type="button" class="hint-link" data-action="split-share-me-edit">${tr("change")}</button></p>`;
 
-  // The send button first; the QR, transfer details, photo and code under
-  // "More". Opening a share used to mean scrolling past all of it to find
-  // the one button everyone needs.
+  // One send button first. The QR waits behind "Show QR"; transfer details,
+  // the receipt photo, what leaves the phone and the code fold into one
+  // "More options" (1.82.0).
   const payLabel = s.payTo.length
     ? trn(s.payTo.length, "How to pay me — edit ({n} row)", "How to pay me — edit ({n} rows)")
     // Without this the link tells them what they owe but not where to send it.
     : "Add your DuitNow or bank, so they can pay from the link";
+  const showQr = !!splitShare.showQr;
   body.innerHTML = `
     <p class="hint split-share-sub">${escapeHtml(subParts.join(" · "))}</p>
     ${nameField}
@@ -2964,22 +2976,28 @@ async function splitRenderRequestShare() {
            <button type="button" class="ghost" data-action="split-share-link">${tr("Send {name}'s only", { name: escapeHtml(person.name) })}</button>`
         : `<button type="button" class="primary" data-action="split-share-link">Share link (WhatsApp, anything)</button>`}
     </div>
-    <div class="split-preview">
-      <p class="split-preview-label">What leaves your phone</p>
-      <p class="split-preview-body">${escapeHtml(previewParts.join(" · "))}</p>
+    <div class="button-row split-share-quick">
+      <button type="button" class="ghost" data-action="split-share-qr" aria-expanded="${showQr ? "true" : "false"}" aria-controls="split-share-qr">${showQr ? tr("Hide QR") : tr("Show QR")}</button>
+      <button type="button" class="ghost" data-action="split-copy-link">${tr("Copy link")}</button>
     </div>
-    <details class="split-share-more"${payRows.length ? "" : " open"}>
-      <summary>${tr(rec.relay ? "QR code, transfer details, receipt photo" : "QR code, transfer details")}</summary>
+    <div id="split-share-qr" class="split-share-qr"${showQr ? "" : " hidden"}>
       ${qrHtml
         ? `<div class="split-qr-panel">${qrHtml}</div>
            <p class="hint split-qr-note">${tr("{name} scans this with Duitful — or any camera, it opens the request page.", { name: escapeHtml(person.name) })}</p>`
         : `<p class="hint">This request is too long for a QR code — use the link or the code below.</p>`}
+    </div>
+    <details class="split-share-more">
+      <summary>${tr("More options")}</summary>
       <label class="field toggle-field">
         <input type="checkbox" id="split-share-payto"${s.payToEnabled ? " checked" : ""} />
         <span>Include my transfer details</span>
       </label>
       <button type="button" class="hint-link split-payto-link" data-action="split-payto-open">${payLabel}</button>
       ${photoRow}
+      <div class="split-preview">
+        <p class="split-preview-label">What leaves your phone</p>
+        <p class="split-preview-body">${escapeHtml(previewParts.join(" · "))}</p>
+      </div>
       <button type="button" class="ghost" data-action="split-copy-code">Copy code</button>
     </details>
     <div class="form-actions">
@@ -2988,6 +3006,7 @@ async function splitRenderRequestShare() {
         <button type="button" class="ghost" data-action="split-share-close">Done</button>
       </div>
     </div>`;
+  if (splitShare.moreOpen) { const more = body.querySelector(".split-share-more"); if (more) more.open = true; }
   splitTr(body);
 }
 
@@ -3702,6 +3721,17 @@ document.addEventListener("click", (e) => {
     renderSplit();
   } else if (action === "split-share-all") {
     splitDoShareAll();
+  } else if (action === "split-share-qr") {
+    if (splitShare) { splitShare.showQr = !splitShare.showQr; splitRenderShare(); }
+  } else if (action === "split-copy-link") {
+    if (splitShare && splitShare.code) {
+      splitCopyText(splitShareLink(splitShare.code)).then((ok) => toast(ok ? tr("Link copied") : tr("Couldn't copy the link")));
+    }
+  } else if (action === "split-share-me-edit") {
+    if (splitShare) {
+      splitShare.askMe = true;
+      splitRenderShare().then(() => { try { document.getElementById("split-share-me")?.focus(); } catch {} });
+    }
   } else if (action === "split-copy-code") {
     if (splitShare && splitShare.code) {
       splitCopyText(splitShare.code).then((ok) => toast(ok ? tr("Request code copied") : tr("Couldn't copy the code")));
