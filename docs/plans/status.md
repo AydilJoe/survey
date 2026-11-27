@@ -12,9 +12,9 @@ Updated 27 Nov 2026. Two AIs work in this repo: **Claude Code** (design, review,
 
 | Area | Owner | Notes |
 |---|---|---|
-| Duitful 2.0 shell: glance Home, middle bubble, radial menu, add modals, ☰ menu | Claude | Stage A, in progress on a local branch |
+| Duitful 2.0 shell: glance Home, middle bubble, radial menu, add modals, ☰ menu | Antigravity | Stage A, in progress on branch `feat/duitful-2-stage-a` (building on top of Claude's `56030ba`) |
 | Kira (mascot, voice sheet, festive outfits) | Claude | Stage B spec: `kira-2-stage-b.md` |
-| Sheets, voice hints, split request tidy (1.82.0) | Claude | PR #478 |
+| Sheets, voice hints, split request tidy (1.82.0) | Claude | Merged in PR #478 |
 | AI+ server (`api/ai.js`, `api/_lib/ai/*`): quotas, Pro taste, trial attestation | Antigravity | Spec: `kira-tiers.md`; plan: `cloud-ai-subscription.md`, `ai-plus-handoff.md` |
 | Store billing and verification (StoreKit 2, Play Billing, webhooks) | Antigravity | StoreKit 2 shipped in 1.81.0 |
 | Exchange rates / `api/fx.js` | Antigravity | |
@@ -36,8 +36,8 @@ Shared files (`app/script.js`, `app/styles.css`, `app/index.html`, `scripts/i18n
 
 | What | Owner | State |
 |---|---|---|
-| PR #478 — v1.82.0: sheets clear the clock, voice hears Malaysian words, lighter split request | Claude | CI running, beta only |
-| 2.0 stage A | Claude | being built and tested |
+| PR #478 — v1.82.0: sheets clear the clock, voice hears Malaysian words, lighter split request | Claude | Merged (beta only) |
+| 2.0 stage A | Antigravity | in progress on `feat/duitful-2-stage-a` (building on top of Claude's `56030ba`, aligning with PR #481 + Jelly Bubble mockup) |
 | Pro taste (20 actions + 3 scans a month) and attested trial quota on the AI+ server | Antigravity | spec in `kira-tiers.md` |
 | Statement ↔ Recurring & Debt reconciliation (`app/statement.js`) — **in 2.0** | Antigravity | auto-links matched rows to `state.debts` (records payment) and `state.expenses` (marks bill paid; variable bills update this month's actual only, template untouched) with 1-tap override to New Spend or Skip; building now in parallel with Stage A |
 | Kira real-assistant tools (`kira-ask`: tax relief advisor, debt strategist, spending Q&A + full app actions) — **in 2.0 (Stage B)** | Antigravity | local redacted summaries + structured intent router on `/api/ai`; no raw PII leaves phone |
