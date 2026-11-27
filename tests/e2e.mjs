@@ -8103,8 +8103,10 @@ check('and what was typed reaches the home screen calculation',
     const trial = read();
     state.proTrialStartedAt = 0; state.pro = true;
     const pro = read();
-    state.pro = false; state.aiSub = { active: true, expiresAt: Date.now() + 864e5, periodKey: '2026-11', textUsed: 6, textLimit: 1000 };
+    state.pro = false; state.aiSub = { active: true, expiresAt: Date.now() + 864e5, periodKey: new Date().toISOString().slice(0, 7), textUsed: 6, textLimit: 1000 };
     const aiplus = read();
+    state.aiSub = { active: true, expiresAt: Date.now() + 864e5, periodKey: '2025-01', textUsed: 6, textLimit: 1000 };
+    const stale = read();
     // On-device AI working: the sempoa, and only then.
     const tok = aiThinkStart(5000);
     const counting = !!document.querySelector('#kira-bubble svg.kira--counting .sempoa');
@@ -8112,15 +8114,15 @@ check('and what was typed reaches the home screen calculation',
     const after = !!document.querySelector('#kira-bubble svg.kira--proud');
     state.pro = saved.pro; state.proTrialStartedAt = saved.trial; state.aiSub = saved.sub; state.dailyExpenses = saved.daily; state.streak = saved.streak;
     renderAll();
-    return { free, trial, pro, aiplus, counting, after };
+    return { free, trial, pro, aiplus, stale, counting, after };
   });
   check('2.0 bubble: a big + named "Add" without Kira+, 4th radial bubble is "Docs", and Home keeps its own Today Kira',
     faces.free.tier === 'free' && faces.free.plus && !faces.free.kira && faces.free.label === 'Add' && faces.free.hubLabel === 'Docs' && faces.free.todayKira && !faces.free.meter, JSON.stringify(faces.free));
   check('2.0 bubble: Kira (proud) named "Kira: add or ask" for the trial, lifetime Pro and AI+; 4th radial bubble is "Kira"; one Kira on Home, so the Today Kira steps aside',
     [faces.trial, faces.pro, faces.aiplus].every((f) => f.kira && !f.plus && f.label === 'Kira: add or ask' && f.hubLabel === 'Kira' && !f.todayKira)
     && faces.trial.tier === 'trial' && faces.pro.tier === 'pro_taste' && faces.aiplus.tier === 'aiplus', JSON.stringify(faces));
-  check('2.0 bubble: the meter shows only when the server\'s figure is known (AI+), never a guess',
-    !faces.trial.meter && !faces.pro.meter && /994 of 1,?000 left/.test(faces.aiplus.meter), JSON.stringify([faces.pro.meter, faces.aiplus.meter]));
+  check('2.0 bubble: the meter shows only when the server\'s figure is known (AI+ current month), never a guess or stale month',
+    !faces.trial.meter && !faces.pro.meter && !faces.stale.meter && /994 of 1,?000 left/.test(faces.aiplus.meter), JSON.stringify([faces.pro.meter, faces.stale.meter, faces.aiplus.meter]));
   check('2.0 bubble: Kira counts on the sempoa while on-device AI works, then goes back to proud',
     faces.counting && faces.after, JSON.stringify(faces));
 
@@ -8212,7 +8214,7 @@ check('and what was typed reaches the home screen calculation',
       voiceVisible: !!document.querySelector('#kira-hub-dialog #btn-voice') && !document.querySelector('#kira-hub-dialog #btn-voice').hidden,
     };
     closeKiraHub();
-    state.aiSub = { active: true, expiresAt: Date.now() + 864e5, periodKey: '2026-11', textUsed: 6, textLimit: 1000 };
+    state.aiSub = { active: true, expiresAt: Date.now() + 864e5, periodKey: new Date().toISOString().slice(0, 7), textUsed: 6, textLimit: 1000 };
     openKiraHub();
     const paid = {
       title: document.getElementById('kira-hub-title').textContent.trim(),
@@ -8407,39 +8409,40 @@ check('and what was typed reaches the home screen calculation',
     && menu.search.calls === 1 && !menu.search.menu && menu.tour.dlg === 'guide-dialog' && menu.news.dlg === 'whats-new-dialog' && menu.slash && menu.ctrlK, JSON.stringify(menu));
 
   // 7b) Settings toggles: Bubble & save sounds and Haptics default ON and persist via localStorage across reload.
-  const prefsBefore = await S(() => {
-    const s = document.getElementById('pref-bubble-sound');
-    const h = document.getElementById('pref-haptics');
-    return { soundChecked: !!s?.checked, hapticsChecked: !!h?.checked, soundOn: kiraSoundEnabled(), hapticsOn: kiraHapticsEnabled() };
-  });
-  await S(() => {
-    const s = document.getElementById('pref-bubble-sound');
-    const h = document.getElementById('pref-haptics');
-    s.checked = false; s.dispatchEvent(new Event('change'));
-    h.checked = false; h.dispatchEvent(new Event('change'));
-  });
-  const prefsOff = await S(() => ({
-    soundLS: localStorage.getItem('duitful.soundOff'),
-    hapticsLS: localStorage.getItem('duitful.hapticsOff'),
-    soundOn: kiraSoundEnabled(),
-    hapticsOn: kiraHapticsEnabled(),
-  }));
-  const pPrefs = await page.context().newPage();
-  await pPrefs.goto(`${BASE}/app/index.html`);
-  await pPrefs.waitForTimeout(400);
-  const prefsReload = await pPrefs.evaluate(() => ({
-    soundChecked: !!document.getElementById('pref-bubble-sound')?.checked,
-    hapticsChecked: !!document.getElementById('pref-haptics')?.checked,
-    soundOn: kiraSoundEnabled(),
-    hapticsOn: kiraHapticsEnabled(),
-  }));
-  await pPrefs.close();
-  await S(() => {
-    const s = document.getElementById('pref-bubble-sound');
-    const h = document.getElementById('pref-haptics');
-    s.checked = true; s.dispatchEvent(new Event('change'));
-    h.checked = true; h.dispatchEvent(new Event('change'));
-  });
+  let prefsBefore, prefsOff, prefsReload;
+  const ctxPrefs = await b.newContext({ viewport: { width: 390, height: 844 } });
+  try {
+    const pPrefs = await ctxPrefs.newPage();
+    await pPrefs.goto(`${BASE}/app/index.html`, { waitUntil: 'domcontentloaded' });
+    await pPrefs.waitForFunction(() => typeof window.kiraSoundEnabled === 'function' && !!document.getElementById('pref-bubble-sound'));
+    prefsBefore = await pPrefs.evaluate(() => {
+      const s = document.getElementById('pref-bubble-sound');
+      const h = document.getElementById('pref-haptics');
+      return { soundChecked: !!s?.checked, hapticsChecked: !!h?.checked, soundOn: kiraSoundEnabled(), hapticsOn: kiraHapticsEnabled() };
+    });
+    await pPrefs.evaluate(() => {
+      const s = document.getElementById('pref-bubble-sound');
+      const h = document.getElementById('pref-haptics');
+      s.checked = false; s.dispatchEvent(new Event('change'));
+      h.checked = false; h.dispatchEvent(new Event('change'));
+    });
+    prefsOff = await pPrefs.evaluate(() => ({
+      soundLS: localStorage.getItem('duitful.soundOff'),
+      hapticsLS: localStorage.getItem('duitful.hapticsOff'),
+      soundOn: kiraSoundEnabled(),
+      hapticsOn: kiraHapticsEnabled(),
+    }));
+    await pPrefs.reload({ waitUntil: 'domcontentloaded' });
+    await pPrefs.waitForFunction(() => typeof window.kiraSoundEnabled === 'function' && !!document.getElementById('pref-bubble-sound'));
+    prefsReload = await pPrefs.evaluate(() => ({
+      soundChecked: !!document.getElementById('pref-bubble-sound')?.checked,
+      hapticsChecked: !!document.getElementById('pref-haptics')?.checked,
+      soundOn: kiraSoundEnabled(),
+      hapticsOn: kiraHapticsEnabled(),
+    }));
+  } finally {
+    await ctxPrefs.close();
+  }
   check('2.0 Settings: Bubble & save sounds and Haptics default ON and persist OFF across reload via localStorage',
     prefsBefore.soundChecked && prefsBefore.hapticsChecked && prefsBefore.soundOn && prefsBefore.hapticsOn
     && prefsOff.soundLS === '1' && prefsOff.hapticsLS === '1' && !prefsOff.soundOn && !prefsOff.hapticsOn

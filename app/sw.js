@@ -15,7 +15,7 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "h-e630602b";
+const VERSION = "h-03ab5177";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
@@ -63,7 +63,7 @@ const SHELL = [
   "/app/ai-cloud.js?v=cb3a5ae0",
   "/app/pro.js?v=6810a131",
   "/app/ocr.js?v=d135377e",
-  "/app/kira-bubble.js?v=ef842958",
+  "/app/kira-bubble.js?v=8c5aff63",
   "/app/analytics.js?v=01a6bc4a",
   "/app/theme-boot.js?v=68fa9ffd",
   // Brand marks: tiny (0.3–3 KB each) and drawn on the Debts tab, so they are

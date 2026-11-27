@@ -269,7 +269,9 @@ function kiraQuota() {
   if (kiraTier() !== "aiplus") return null;
   const s = state.aiSub || {};
   const limit = Number(s.textLimit) || 0;
-  if (!s.periodKey || !limit) return null;
+  const now = new Date();
+  const curPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+  if (!s.periodKey || s.periodKey !== curPeriod || !limit) return null;
   const used = Math.max(0, Number(s.textUsed) || 0);
   const scansLimit = Number(s.scansLimit) || 0;
   const scansUsed = Math.max(0, Number(s.scansUsed) || 0);
@@ -708,7 +710,7 @@ let bubbleHold = null;
 let bubbleHoldFiredAt = 0;
 let bubblePointerStarted = false;
 
-function cancelHold() {
+function cancelHold(keepPointer) {
   const h = bubbleHold;
   if (h) clearTimeout(h.timer);
   stopBubbling();
@@ -716,6 +718,7 @@ function cancelHold() {
   const btn = bubbleEl("kira-bubble");
   if (btn) btn.classList.remove("is-charging");
   bubbleHold = null;
+  if (!keepPointer) bubblePointerStarted = false;
 }
 
 function initBubble() {
@@ -764,21 +767,23 @@ function initBubble() {
   const release = (e) => {
     const h = bubbleHold;
     if (!h || e.pointerId !== h.id) return;
+    if (h.fired) bubbleHoldFiredAt = Date.now();
     // Do NOT call voiceStopListening() after POP so #voice-dialog stays listening hands-free.
-    cancelHold();
+    cancelHold(e.type === "pointerup");
   };
   document.addEventListener("pointerup", release, { capture: true, passive: true });
   document.addEventListener("pointercancel", release, { capture: true, passive: true });
+  window.addEventListener("blur", () => cancelHold());
   btn.addEventListener("contextmenu", (e) => e.preventDefault());
 
-  btn.addEventListener("click", () => {
+  btn.addEventListener("click", (e) => {
     // The click that ends a hold-to-pop is not a tap.
     if (Date.now() - bubbleHoldFiredAt < 900) {
       bubbleHoldFiredAt = 0;
       bubblePointerStarted = false;
       return;
     }
-    if (!bubblePointerStarted) {
+    if (!bubblePointerStarted || e.detail === 0) {
       playBloop();
       kiraHaptic(10, "LIGHT");
     }
