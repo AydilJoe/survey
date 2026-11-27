@@ -10730,3 +10730,298 @@ html[data-theme="pastel"] {
     animation: kira-dance-bow 3.1s cubic-bezier(0.34, 1.3, 0.64, 1) infinite;
   }
 }
+
+/* ---------- 2.0 (stage A): the bubble, the radial actions, sheets, ☰ ----------
+   The middle bubble (kira-bubble.js) is the one way to add or ask: a raised
+   circle in the middle of the bottom bar, the first item of the side rail /
+   sidebar on wider screens (FoldLab.navFor). Face: Kira on her paper with a
+   brand outline (Pro, trial, AI+), else a big + on the interactive colour.
+   Settings leaves the bar below the sidebar; ☰ in the header reaches it. */
+:root {
+  --bubble-size: 4rem;
+  --bubble-lift: 1.4rem;
+}
+.kira-bubble {
+  appearance: none;
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
+  width: var(--bubble-size);
+  height: var(--bubble-size);
+  margin: 0 0.15rem;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: var(--primary);
+  color: var(--card);
+  cursor: pointer;
+  box-shadow: 0 0 0 4px var(--stage), 0 8px 20px -6px color-mix(in srgb, var(--text) 45%, transparent);
+  transition: transform 0.18s var(--ease-out, ease), box-shadow 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+.kira-bubble:hover { box-shadow: 0 0 0 4px var(--stage), 0 10px 24px -6px color-mix(in srgb, var(--text) 55%, transparent); }
+.kira-bubble:active { transform: scale(0.94); }
+.kira-bubble:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+.kira-bubble.is-kira {
+  background: var(--card-soft);
+  border-color: var(--brand);
+  color: var(--text);
+}
+.kira-bubble[aria-expanded="true"] { visibility: hidden; }
+.kira-bubble-face { display: grid; place-items: center; width: 100%; height: 100%; pointer-events: none; }
+.kira-bubble-face .bubble-plus { width: 1.9rem; height: 1.9rem; }
+.kira-bubble-face svg.kira { width: 2.85rem; height: 2.85rem; overflow: visible; }
+
+/* Phones: the bar has four tabs and the raised bubble between them. */
+@media (max-width: 999px) {
+  .tabs { align-items: flex-end; overflow: visible; }
+  .tabs .kira-bubble { margin-top: calc(-1 * var(--bubble-lift)); margin-bottom: 0.1rem; align-self: center; }
+  .tab.tab-wide-only { display: none !important; }
+  main { padding-bottom: calc(var(--tabbar-h) + var(--bubble-lift) + 1.5rem); }
+}
+/* Side rail and sidebar: the bubble heads the column. */
+@media (min-width: 600px) and (max-width: 999px),
+       (min-width: 440px) and (max-width: 599px) and (max-height: 719px) {
+  :root { --bubble-size: 3.5rem; }
+  .tabs { align-items: stretch; }
+  .tabs .kira-bubble { order: -1; margin: 0.15rem auto 0.6rem; align-self: center; }
+  main { padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px)); }
+}
+@media (min-width: 1000px) {
+  :root { --bubble-size: 3.5rem; }
+  .tabs::before { order: -2; }
+  .tabs .kira-bubble { order: -1; margin: 0.25rem 0 0.75rem 0.4rem; align-self: flex-start; }
+}
+
+/* The radial actions: a full-screen, see-through dialog over a dim backdrop.
+   Each item is placed by radialLayout (--x, --y: its dot's centre) and
+   springs out from the bubble (--dx, --dy); --i staggers them. */
+.radial-dialog {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: hidden;
+  color: var(--text);
+}
+.radial-dialog::backdrop { background: rgba(42, 36, 32, 0.55); }
+.radial { position: absolute; inset: 0; margin: 0; }
+.radial-item {
+  --t: translate(-50%, -1.625rem);
+  appearance: none;
+  position: fixed;
+  left: var(--x, 50%);
+  top: var(--y, 50%);
+  width: max-content;
+  max-width: 6.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transform: var(--t);
+  opacity: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.radial-dot {
+  width: 3.25rem;
+  height: 3.25rem;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--text);
+  border: 0.5px solid var(--line);
+  box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--text) 50%, transparent);
+}
+.radial-dot svg { width: 1.4rem; height: 1.4rem; }
+.radial-item[data-radial="spend"] .radial-dot { background: var(--primary); color: var(--card); border-color: transparent; }
+.radial-label {
+  max-width: 100%;
+  padding: 0.12rem 0.45rem;
+  border-radius: var(--r-pill);
+  background: var(--card);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: anywhere;
+  box-shadow: 0 2px 6px -3px color-mix(in srgb, var(--text) 40%, transparent);
+}
+.radial-item:focus { outline: none; }
+.radial-item:focus-visible .radial-dot { outline: 3px solid var(--brand); outline-offset: 3px; }
+.radial-item:active .radial-dot { transform: scale(0.94); }
+.radial-dialog.is-side .radial-item {
+  --t: translate(-1.625rem, -50%);
+  width: auto;
+  flex-direction: row;
+  gap: 0.5rem;
+}
+.radial-dialog.is-side .radial-label { white-space: nowrap; font-size: 0.8rem; padding: 0.2rem 0.6rem; }
+.radial-dialog.is-in .radial-item { opacity: 1; }
+.radial-close {
+  appearance: none;
+  position: fixed;
+  left: var(--x, 50%);
+  top: var(--y, 90%);
+  width: var(--s, 4rem);
+  height: var(--s, 4rem);
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid var(--card);
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: 0 8px 20px -6px color-mix(in srgb, var(--text) 45%, transparent);
+}
+.radial-close svg { width: 1.5rem; height: 1.5rem; }
+.radial-close:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+.radial-meter {
+  position: fixed;
+  left: var(--x, 50%);
+  top: var(--y, 1rem);
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--r-pill);
+  background: var(--card);
+  color: var(--muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+.radial-dialog.is-side .radial-meter { transform: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .radial-item {
+    transform: var(--t) translate(var(--dx, 0px), var(--dy, 0px)) scale(0.3);
+    transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.16s ease;
+    transition-delay: calc(var(--i, 0) * 22ms);
+  }
+  .radial-dialog.is-in .radial-item { transform: var(--t); }
+  .radial-dialog[open]::backdrop { animation: backdrop-in 0.2s ease-out; }
+  .radial-close svg { transition: transform 0.3s var(--ease-out, ease); }
+  .radial-dialog:not(.is-in) .radial-close svg { transform: rotate(-45deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .radial-item { transition: opacity 0.15s ease; }
+}
+
+/* Add entry: the old Home form, as a sheet. */
+.add-dialog { max-width: 460px; }
+.add-dialog .add-sheet { padding: 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.add-dialog .add-sheet .card-head { display: flex; align-items: center; gap: 0.5rem; margin: 0; }
+.add-dialog .add-sheet .card-head h2 { margin: 0; flex: 1; }
+.add-dialog-close { flex: none; }
+.add-dialog .add-sheet form { padding: 0; }
+
+/* ☰ menu */
+.menu-dialog { max-width: 380px; }
+.menu-dialog .card-head { display: flex; align-items: center; justify-content: space-between; }
+.menu-dialog .card-head h2 { margin: 0; }
+.menu-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.menu-list li + li { border-top: 0.5px solid var(--line); }
+.menu-item[hidden] { display: none; }
+.menu-item {
+  appearance: none;
+  width: 100%;
+  min-height: 3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.55rem 0.35rem;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--r-sm);
+}
+.menu-item:hover { background: var(--card-soft); }
+.menu-item svg { width: 1.2rem; height: 1.2rem; flex: none; color: var(--muted); }
+.menu-item > span { flex: 1; min-width: 0; }
+.menu-kbd {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  padding: 0.05rem 0.4rem;
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-xs);
+}
+@media (hover: none) { .menu-kbd { display: none; } }
+
+/* "Settings moved here": once, beside ☰. */
+.menu-hint {
+  position: absolute;
+  top: var(--top, 4rem);
+  right: var(--right, 1rem);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: min(20rem, calc(100vw - 2rem));
+  padding: 0.5rem 0.5rem 0.5rem 0.6rem;
+  border-radius: var(--r-md);
+  background: var(--card);
+  border: 0.5px solid var(--line);
+  box-shadow: var(--shadow), 0 10px 30px -12px color-mix(in srgb, var(--text) 40%, transparent);
+}
+.menu-hint[hidden] { display: none; }
+.menu-hint::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  right: var(--arrow, 1.5rem);
+  width: 12px;
+  height: 12px;
+  background: var(--card);
+  border-left: 0.5px solid var(--line);
+  border-top: 0.5px solid var(--line);
+  transform: translateX(50%) rotate(45deg);
+}
+.menu-hint-kira { flex: none; width: 2.4rem; height: 2.4rem; display: grid; place-items: center; }
+.menu-hint-kira[hidden] { display: none; }
+.menu-hint-kira svg.kira { width: 2.4rem; height: 2.4rem; }
+.menu-hint-text { margin: 0; flex: 1; font-size: 0.88rem; font-weight: 600; }
+.menu-hint-ok { flex: none; min-height: 40px; }
+@media (prefers-reduced-motion: no-preference) {
+  .menu-hint:not([hidden]) { animation: dialog-rise 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+}
+
+/* Glance Home: top spending this month. */
+.home-cats-list { list-style: none; margin: 0.25rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.home-cat { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.25rem 0.75rem; align-items: baseline; }
+.home-cat-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-cat-amount { font-variant-numeric: tabular-nums; font-weight: 600; }
+.home-cat-bar { grid-column: 1 / -1; height: 6px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--primary) 10%, transparent); overflow: hidden; }
+.home-cat-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
+.home-cats .today-links { margin-top: 0.5rem; }
+.up-more { cursor: pointer; }
+/* The sheet is narrower than the old card on a small phone: the three tabs
+   stack icon over label so a long word ("Bayar hutang", "Tabung") stays in. */
+.add-dialog .quick-add .type-pills { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.add-dialog .quick-add .pill { min-width: 0; text-align: center; overflow-wrap: anywhere; }
+@media (max-width: 420px) {
+  .add-dialog .quick-add .pill { flex-direction: column; gap: 0.2rem; padding: 0.55rem 0.3rem; font-size: 0.82rem; line-height: 1.2; }
+}

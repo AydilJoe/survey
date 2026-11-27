@@ -15,20 +15,20 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "h-bc01aadb";
+const VERSION = "h-3c940f7f";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=b580348c",
-  "/app/script.js?v=9daea334",
+  "/app/styles.css?v=df31c0cc",
+  "/app/script.js?v=ad399bd1",
   // Languages: registry + boot loader run at startup; packs are precached so
   // switching languages still works offline, without parsing unused packs at boot.
-  "/app/i18n-langs.js?v=dbf20b12",
+  "/app/i18n-langs.js?v=60aa97d4",
   "/app/i18n-boot.js?v=e8f35f1d",
-  "/app/i18n-ms.js?v=7f73555b",
-  "/app/i18n-zh.js?v=18947831",
+  "/app/i18n-ms.js?v=4d72cbc9",
+  "/app/i18n-zh.js?v=790f3ee9",
   "/app/i18n.js?v=e94f1821",
   "/app/drive-config.js?v=9aaf242d",
   "/app/drive-sync.js?v=08041907",
@@ -49,20 +49,21 @@ const SHELL = [
   "/app/vendor/pdfjs/pdf.min.js?v=978fd1b2",
   "/app/vendor/pdfjs/pdf.worker.min.js?v=38cde531",
   "/app/brands.js?v=73d9f7dc",
-  "/app/search.js?v=f1248d18",
+  "/app/search.js?v=1723d81e",
   "/app/csv.js?v=ca8caf4e",
   "/app/reports.js?v=6b3b772b",
-  "/app/onboarding.js?v=15cab168",
+  "/app/onboarding.js?v=dd4ac4be",
   "/app/kira-seasons.js?v=84d7b80b",
-  "/app/kira.js?v=1480e717",
+  "/app/kira.js?v=326b16a1",
   "/app/streak.js?v=ce95b7ab",
-  "/app/voice.js?v=42943d7b",
+  "/app/voice.js?v=276f5906",
   "/app/cloud.js?v=fcd02ad8",
   "/app/capture.js?v=3af549e5",
   "/app/ai-redact.js?v=e6257012",
   "/app/ai-cloud.js?v=0debcf4f",
   "/app/pro.js?v=885ede50",
-  "/app/ocr.js?v=0fe4028c",
+  "/app/ocr.js?v=d135377e",
+  "/app/kira-bubble.js?v=50f90bb5",
   "/app/analytics.js?v=01a6bc4a",
   "/app/theme-boot.js?v=68fa9ffd",
   // Brand marks: tiny (0.3–3 KB each) and drawn on the Debts tab, so they are

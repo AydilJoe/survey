@@ -74,6 +74,7 @@ export const APP_MANIFEST = {
     "ai-cloud.js",
     "pro.js",
     "ocr.js",
+    "kira-bubble.js",
     "script.js",
   ],
   // Not loaded in app/index.html at boot — fetched on demand (or by CSS /

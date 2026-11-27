@@ -656,5 +656,17 @@
   "Listening…": "正在聆听…",
   "Stop listening": "停止聆听",
   "Start voice input": "开始语音输入",
-  "Allow the microphone in Settings to talk to Kira.": "请在设置中允许使用麦克风，才能和 Kira 说话。"
+  "Allow the microphone in Settings to talk to Kira.": "请在设置中允许使用麦克风，才能和 Kira 说话。",
+  "Menu": "菜单",
+  "Add or ask": "添加或提问",
+  "Talk": "说话",
+  "Help & tour": "帮助与导览",
+  "Settings moved here": "设置移到这里了",
+  "Top spending": "最大开销",
+  "Kira: add or ask": "Kira：添加或提问",
+  "Kira this month: {n} of {m} left": "本月 Kira：还剩 {n}/{m} 次",
+  "next: {name} today": "下一笔：{name}，今天",
+  "next: {name} in {n} day": "下一笔：{name}，{n} 天后",
+  "next: {name} in {n} days": "下一笔：{name}，{n} 天后",
+  "+{n} more coming up": "还有 {n} 项即将到期"
 }

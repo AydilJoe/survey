@@ -537,6 +537,8 @@
       if (el && el.dataset.tone !== "warn") voiceStatus("");
     }
     voiceKiraSync();
+    // The bubble's Kira listens too (kira-bubble.js).
+    if (typeof kiraBubbleSync === "function") kiraBubbleSync();
   }
 
   // Stop the mic. { cancel: true } (Cancel, closing the sheet) drops what
@@ -811,7 +813,7 @@
      that takes the pointer) held for VOICE_HOLD_MS opens the Voice sheet
      already listening; letting go stops and shows the preview. A shorter tap
      is just Kira's giggle (kiraTap in kira.js). Kira stays aria-hidden: the
-     Voice button beside Scan receipt is the accessible way in. */
+     bubble's Talk (#btn-voice) is the accessible way in. */
   const VOICE_HOLD_MS = 350;
   const VOICE_HOLD_SLOP = 12;
   let voiceHold = null;

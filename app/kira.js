@@ -497,7 +497,10 @@ function kiraSyncToday() {
   // the Today line keeps its words and leaves Kira out.
   const heroNote = document.getElementById("hero-kira-note");
   const greet = document.getElementById("kira-greet");
-  const quiet = (!!heroNote && !heroNote.hidden) || (!!greet && !greet.hidden);
+  // 2.0: the bubble counts too. While it shows Kira, Home's Today line keeps
+  // its words and leaves Kira to the bubble.
+  const bubble = document.body.classList.contains("bubble-kira");
+  const quiet = bubble || (!!heroNote && !heroNote.hidden) || (!!greet && !greet.hidden);
   const mood = !show || quiet ? "" : sleepy ? "sleepy" : "happy";
   if (slot.dataset.mood === mood) return;
   slot.dataset.mood = mood;

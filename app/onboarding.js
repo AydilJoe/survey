@@ -132,7 +132,8 @@ const GUIDE_STEPS = [
         <li><strong>Save</strong> — a deposit into a savings goal.</li>
       </ul>`,
     tab: "dashboard",
-    target: ".quick-add .type-pills",
+    // 2.0: everything you add starts at the middle bubble.
+    target: "#kira-bubble",
   },
   {
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 011-1h3l1.5-2h5L16 4h3a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V7z"/><circle cx="12" cy="13" r="4"/></svg>`,
@@ -141,7 +142,7 @@ const GUIDE_STEPS = [
     body: () => `<p>Tap <strong>Scan receipt</strong> to take a photo (or pick one from your gallery). Duitful reads the total on-device — the image never leaves your phone.</p>
       <p>Free includes 5 scans a month; Pro scans without a limit, and so does the optional ${TRIAL_DAYS}-day trial.</p>`,
     tab: "dashboard",
-    target: "#btn-scan",
+    target: "#kira-bubble",
   },
   {
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>`,

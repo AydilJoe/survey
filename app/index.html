@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=b580348c" />
+    <link rel="stylesheet" href="styles.css?v=df31c0cc" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -216,8 +216,10 @@
           </div>
           <p class="subtitle" id="greeting">Loading…</p>
         </div>
-        <button id="btn-search" class="header-search" type="button" aria-label="Search" aria-haspopup="dialog" aria-keyshortcuts="/ Control+K Meta+K" title="Search (/)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>
+        <!-- ☰: Search, Settings, Reports, Tax, help and What's new (2.0). The
+             search shortcuts (/ and Ctrl/⌘+K) still open search directly. -->
+        <button id="btn-menu" class="header-search header-menu" type="button" aria-label="Menu" aria-haspopup="dialog" aria-controls="menu-dialog" aria-expanded="false" title="Menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         </button>
         <button id="btn-privacy" class="privacy-toggle" type="button" aria-label="Hide amounts" aria-pressed="false" title="Hide amounts — percentages and progress stay visible, so a screenshot is still shareable">
           <span id="privacy-icon" aria-hidden="true"></span>
@@ -229,11 +231,17 @@
       <button class="tab active" data-tab="dashboard" role="tab" id="tabbtn-dashboard" aria-selected="true" aria-controls="tab-dashboard"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a2 2 0 01-2 2h-4v-6H9v6H5a2 2 0 01-2-2v-9z"/></svg></span><span>Home</span></button>
       <button class="tab" data-tab="flow" role="tab" id="tabbtn-flow" aria-selected="false" aria-controls="tab-flow" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span><span>Monthly</span></button>
       <button class="tab" data-tab="daily" data-parent-tab="dashboard" role="tab" id="tabbtn-daily" hidden aria-selected="false" aria-controls="tab-daily" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span><span>Daily</span></button>
+      <!-- The middle bubble (2.0, kira-bubble.js): Kira for Pro, the trial and
+           AI+, a big + otherwise. A tap opens the radial actions, a hold
+           talks. Not a tab: it opens things, it never selects a page. -->
+      <button type="button" class="kira-bubble" id="kira-bubble" aria-label="Add" aria-haspopup="menu" aria-expanded="false" aria-controls="radial-dialog">
+        <span class="kira-bubble-face" id="kira-bubble-face" aria-hidden="true"></span>
+      </button>
       <button class="tab" data-tab="debts" role="tab" id="tabbtn-debts" aria-selected="false" aria-controls="tab-debts" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span><span>Debts</span></button>
       <button class="tab" data-tab="savings" role="tab" id="tabbtn-savings" aria-selected="false" aria-controls="tab-savings" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg></span><span>Savings</span></button>
       <button class="tab" data-tab="reports" data-parent-tab="dashboard" role="tab" id="tabbtn-reports" hidden aria-selected="false" aria-controls="tab-reports" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-5"/></svg></span><span>Reports</span></button>
       <button class="tab" data-tab="tax" data-parent-tab="dashboard" role="tab" id="tabbtn-tax" hidden aria-selected="false" aria-controls="tab-tax" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2z"/><path d="M9 8.5h6M9 12h6M9 15.5h3"/></svg></span><span>Tax</span></button>
-      <button class="tab" data-tab="data" role="tab" id="tabbtn-data" aria-selected="false" aria-controls="tab-data" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span><span>Settings</span></button>
+      <button class="tab tab-wide-only" data-tab="data" role="tab" id="tabbtn-data" aria-selected="false" aria-controls="tab-data" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span><span>Settings</span></button>
     </nav>
 
     <main>
@@ -276,38 +284,6 @@
             <button type="button" class="primary" id="update-banner-cta">Update now</button>
           </div>
         </div>
-        <!-- Day 3 on the phone app: the first time Duitful asks to notify.
-             Asked here, with a reason, instead of by Android on top of the
-             first-run setup. Saying yes asks which day each thing is due,
-             because a reminder with no date never fires. -->
-        <section id="reminder-ask" class="card reminder-ask" hidden aria-labelledby="reminder-ask-title">
-          <div class="reminder-ask-head">
-            <span class="reminder-ask-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 004 0"/></svg></span>
-            <h2 id="reminder-ask-title">Want a nudge on the day payments are due?</h2>
-          </div>
-          <div id="reminder-ask-offer">
-            <p class="reminder-ask-body">A 9am reminder on each due date.</p>
-            <div class="reminder-ask-actions">
-              <button type="button" class="primary" id="reminder-ask-yes">Turn on reminders</button>
-              <button type="button" class="ghost" id="reminder-ask-no">Not now</button>
-            </div>
-          </div>
-          <form id="reminder-ask-dates" hidden>
-            <p class="reminder-ask-body">Which day of the month is each one due? Leave blank to skip.</p>
-            <div class="reminder-ask-rows" id="reminder-ask-rows"></div>
-            <div class="reminder-ask-actions">
-              <button type="submit" class="primary">Save due dates</button>
-              <button type="button" class="ghost" id="reminder-ask-later">Later</button>
-            </div>
-          </form>
-          <div id="reminder-ask-blocked" hidden>
-            <p class="reminder-ask-body">Notifications are off for Duitful. Turn them on in your phone's Settings → Apps → Duitful → Notifications, then tap Allow notifications in Settings → Reminders here.</p>
-            <div class="reminder-ask-actions">
-              <button type="button" class="ghost" id="reminder-ask-ok">OK</button>
-            </div>
-          </div>
-        </section>
-
         <!-- Festive Kira (kira.js): one greeting line per season, once per
              device, dismissible. Its own card, never on the figures. -->
         <section id="kira-greet" class="card kira-greet" hidden aria-label="Greeting">
@@ -315,86 +291,6 @@
           <p class="kira-greet-text" id="kira-greet-text" translate="no"></p>
           <button type="button" class="ghost icon-btn kira-greet-close" id="kira-greet-close" aria-label="Dismiss">✕</button>
         </section>
-
-        <!-- Tax discovery: one quiet card for people not tracking tax yet —
-             once when it arrives, again in November and before e-Filing.
-             Never a modal. Filled by tax.js / renderTaxHome(). -->
-        <section id="tax-intro" class="card tax-intro" hidden aria-labelledby="tax-intro-title">
-          <div class="tax-intro-head">
-            <span class="tax-intro-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2z"/><path d="M9 8.5h6M9 12h6M9 15.5h3"/></svg></span>
-            <h2 id="tax-intro-title"></h2>
-          </div>
-          <p class="tax-intro-body" id="tax-intro-body"></p>
-          <div class="tax-intro-actions">
-            <button type="button" class="primary" id="tax-intro-go">See what I can claim</button>
-            <button type="button" class="ghost" id="tax-intro-no">Not now</button>
-          </div>
-        </section>
-
-        <!-- One-time hello when on-device AI is found. tax-intro styling. -->
-        <section id="ai-intro" class="card ai-intro" hidden aria-labelledby="ai-intro-title">
-          <div class="ai-intro-head">
-            <span class="ai-intro-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 5L19 9.5l-5.5 1.5L12 16l-1.5-5.5L5 9.5 10.5 8z"/></svg></span>
-            <h2 id="ai-intro-title">Your phone&rsquo;s AI is ready</h2>
-            <button type="button" class="ghost icon-btn" id="ai-intro-close" aria-label="Dismiss">✕</button>
-          </div>
-          <p class="hint" id="ai-intro-body">Duitful uses this on-device AI to read tricky receipts and bank alerts, privately. Nothing leaves your phone.</p>
-        </section>
-
-        <!-- Recurring splits due this month (split-recurring.js): one line per
-             bill, one tap sends everyone's request. -->
-        <section id="rs-home" class="card ai-intro rs-home" hidden aria-labelledby="rs-home-title">
-          <div class="ai-intro-head">
-            <span class="ai-intro-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></span>
-            <h2 id="rs-home-title">Split this month</h2>
-          </div>
-          <div id="rs-home-list" class="rs-home-list"></div>
-        </section>
-
-        <!-- Android only: ask for notification access once, with the disclosure
-             Google Play wants before Android's own screen. renderCaptureIntro. -->
-        <section id="stmt-nudge" class="card ai-intro" hidden aria-labelledby="stmt-nudge-title">
-          <div class="ai-intro-head">
-            <span class="ai-intro-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></span>
-            <h2 id="stmt-nudge-title" translate="no"></h2>
-          </div>
-          <p class="hint" id="stmt-nudge-body" translate="no"></p>
-          <div class="button-row capture-intro-actions">
-            <button type="button" class="ghost" id="stmt-nudge-later">Not now</button>
-            <button type="button" class="primary" id="stmt-nudge-import">Import</button>
-          </div>
-        </section>
-
-        <section id="capture-intro" class="card ai-intro" hidden aria-labelledby="capture-intro-title">
-          <div class="ai-intro-head">
-            <span class="ai-intro-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>
-            <h2 id="capture-intro-title">Log spends from bank alerts</h2>
-          </div>
-          <p class="hint">Duitful can read alerts from your bank and e-wallet apps that show an amount, and turn them into entries for you to check. It skips OTPs and other apps. Everything stays on this phone.</p>
-          <p class="hint">Android will ask to let Duitful read notifications.</p>
-          <div class="button-row capture-intro-actions">
-            <button type="button" class="ghost" id="capture-intro-later">Not now</button>
-            <button type="button" class="primary" id="capture-intro-allow">Allow access</button>
-          </div>
-        </section>
-
-        <div id="pending-card" class="card pending-card" hidden>
-          <div class="card-head">
-            <h2>Pending transactions</h2>
-            <span class="mini-stats" id="pending-sub"></span>
-          </div>
-          <ul id="pending-list" class="pending-list"></ul>
-          <p class="hint">Spotted from bank / e-wallet notifications. Review before they're added.</p>
-          <p class="capture-share" data-capture-share-wrap hidden><button type="button" class="pending-quiet" data-capture-share>Not picked up? Share the wording</button></p>
-        </div>
-
-        <div id="upcoming-card" class="card upcoming-card" hidden>
-          <div class="card-head">
-            <h2>Upcoming</h2>
-            <span class="mini-stats" id="upcoming-sub"></span>
-          </div>
-          <ul id="upcoming-list" class="upcoming-list"></ul>
-        </div>
 
         <div id="empty-welcome" class="empty-welcome card" hidden>
           <div class="empty-welcome-glyph" aria-hidden="true">
@@ -470,104 +366,14 @@
           </div>
         </div>
 
-        <div class="card quick-add">
+        <div id="pending-card" class="card pending-card" hidden>
           <div class="card-head">
-            <h2>Add entry</h2>
-            <span class="mini-stats" hidden><span id="stat-daily-today">RM 0.00</span> today · <span id="stat-daily-week">RM 0.00</span> past 7d</span>
+            <h2>Pending transactions</h2>
+            <span class="mini-stats" id="pending-sub"></span>
           </div>
-          <div class="type-pills" role="radiogroup" aria-label="Spend type">
-            <button type="button" class="pill active" data-type="expense" role="radio" aria-checked="true"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="8" cy="8" r="1.5"/></svg></span>Spend</button>
-            <button type="button" class="pill" data-type="debt" role="radio" aria-checked="false"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span>Pay debt</button>
-            <button type="button" class="pill" data-type="saving" role="radio" aria-checked="false" data-i18n="Save (money)"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4C12 4 4 10 4 20c6-2 10-6 12-10"/><path d="M4 20c6 0 12-4 16-12"/></svg></span>Save</button>
-          </div>
-
-          <div class="scan-row">
-            <button type="button" id="btn-scan" class="scan-btn">
-              <span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 011-1h3l1.5-2h5L16 4h3a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V7z"/><circle cx="12" cy="13" r="4"/></svg></span>
-              Scan receipt
-            </button>
-            <button type="button" id="btn-voice" class="ghost voice-btn" aria-label="Voice or quick sentence">
-              <span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg></span>
-              Voice
-            </button>
-            <input type="file" id="scan-input" accept="image/*" hidden />
-          </div>
-          <form id="form-daily" class="daily-form">
-            <input type="hidden" id="daily-type" name="type" value="expense" />
-            <label class="field big">
-              <span>Amount (<span class="cur-code">MYR</span>)</span>
-              <div class="fx-row">
-                <input type="number" name="amount" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="0.00" required />
-                <select class="currency-picker" name="currency" data-currency-picker></select>
-              </div>
-              <span class="fx-preview" data-fx-preview hidden></span>
-              <span class="fx-upsell" data-fx-upsell hidden>
-                Multi-currency entry is a Pro feature.
-                <a data-action="open-paywall">Unlock for <span data-pro-price>RM 19.90</span> →</a>
-              </span>
-            </label>
-            <div class="quick-amounts" id="quick-amounts">
-              <button type="button" data-quick="5">+5</button>
-              <button type="button" data-quick="10">+10</button>
-              <button type="button" data-quick="20">+20</button>
-              <button type="button" data-quick="50">+50</button>
-              <button type="button" data-quick="100">+100</button>
-            </div>
-            <div class="recent-chips" id="recent-chips" hidden>
-              <span class="recent-chips-label">Recent</span>
-              <div class="recent-chips-row" id="recent-chips-row"></div>
-            </div>
-            <button type="button" class="hero-breakdown-toggle daily-more-toggle" id="daily-more-toggle" aria-expanded="false" aria-controls="daily-more">
-              <span class="chev" aria-hidden="true">▾</span>
-              <span id="daily-more-toggle-label">More details</span>
-            </button>
-            <div id="daily-more" hidden>
-            <div class="grid-2">
-              <label class="field">
-                <span>Date</span>
-                <input type="date" name="date" required />
-              </label>
-              <label class="field" id="target-select-field" hidden>
-                <span id="target-select-label">Target</span>
-                <select id="daily-target" name="target"></select>
-              </label>
-              <label class="field" id="daily-category-field">
-                <span>Category</span>
-                <input type="text" name="category" list="category-options" placeholder="Food, Transport…" />
-                <datalist id="category-options"></datalist>
-              </label>
-              <label class="field" id="daily-card-field" hidden>
-                <span>Paid with</span>
-                <select id="daily-card" name="card">
-                  <option value="">Cash / debit</option>
-                </select>
-              </label>
-            </div>
-            <label class="field" data-wallet-field hidden>
-              <span>Wallet</span>
-              <select name="wallet" data-wallet-picker id="daily-wallet"></select>
-            </label>
-            <label class="field" id="daily-pool-field" hidden>
-              <span>Budget pool</span>
-              <select name="budgetPool" data-budget-pool>
-                <option value="">(none)</option>
-              </select>
-              <span class="pool-preview" data-pool-preview hidden></span>
-            </label>
-            <label class="field">
-              <span>Note (optional)</span>
-              <input type="text" name="note" placeholder="Lunch at mamak" />
-            </label>
-            <!-- Splitting lives here now: on the card's face it out-ranked
-                 "Add entry". Search ("split") and the Debts tab reach it too,
-                 and it still carries whatever is already typed above. -->
-            <div class="button-row split-entry-row">
-              <button type="button" class="ghost" id="btn-split-quick" data-action="split-compose" data-split-prefill="daily-form"><span aria-hidden="true">⇆</span> Split / Request money</button>
-              <button type="button" class="ghost" data-action="split-ingest">Add a request</button>
-            </div>
-            </div>
-            <button type="submit" class="primary big">Add entry</button>
-          </form>
+          <ul id="pending-list" class="pending-list"></ul>
+          <p class="hint">Spotted from bank / e-wallet notifications. Review before they're added.</p>
+          <p class="capture-share" data-capture-share-wrap hidden><button type="button" class="pending-quiet" data-capture-share>Not picked up? Share the wording</button></p>
         </div>
 
         <!-- Today, at a glance. The full log and the reports live one tap
@@ -600,10 +406,121 @@
           </div>
           <div class="today-links">
             <button type="button" class="ghost" data-go-tab="daily">All entries</button>
-            <button type="button" class="ghost" data-go-tab="reports">Reports</button>
-            <button type="button" class="ghost" data-go-tab="savings" id="today-wallets-link" hidden>Wallets</button>
-            <button type="button" class="ghost" data-go-tab="tax" id="today-tax-link">Tax</button>
           </div>
+        </section>
+
+        <div id="upcoming-card" class="card upcoming-card" hidden>
+          <div class="card-head">
+            <h2>Upcoming</h2>
+            <span class="mini-stats" id="upcoming-sub"></span>
+          </div>
+          <ul id="upcoming-list" class="upcoming-list"></ul>
+        </div>
+
+        <!-- Top spending this month (2.0, renderHomeCats): three bars, tap for Reports. -->
+        <section id="home-cats" class="card home-cats" hidden aria-labelledby="home-cats-title">
+          <div class="card-head">
+            <h2 id="home-cats-title">Top spending</h2>
+            <span class="mini-stats" id="home-cats-sub"></span>
+          </div>
+          <ul class="home-cats-list" id="home-cats-list"></ul>
+          <div class="today-links">
+            <button type="button" class="ghost" data-go-tab="reports">Reports</button>
+          </div>
+        </section>
+
+        <!-- Recurring splits due this month (split-recurring.js): one line per
+             bill, one tap sends everyone's request. -->
+        <section id="rs-home" class="card ai-intro rs-home" hidden aria-labelledby="rs-home-title">
+          <div class="ai-intro-head">
+            <span class="ai-intro-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></span>
+            <h2 id="rs-home-title">Split this month</h2>
+          </div>
+          <div id="rs-home-list" class="rs-home-list"></div>
+        </section>
+
+        <!-- Android only: ask for notification access once, with the disclosure
+             Google Play wants before Android's own screen. renderCaptureIntro. -->
+        <section id="stmt-nudge" class="card ai-intro" hidden aria-labelledby="stmt-nudge-title">
+          <div class="ai-intro-head">
+            <span class="ai-intro-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></span>
+            <h2 id="stmt-nudge-title" translate="no"></h2>
+          </div>
+          <p class="hint" id="stmt-nudge-body" translate="no"></p>
+          <div class="button-row capture-intro-actions">
+            <button type="button" class="ghost" id="stmt-nudge-later">Not now</button>
+            <button type="button" class="primary" id="stmt-nudge-import">Import</button>
+          </div>
+        </section>
+
+        <!-- Day 3 on the phone app: the first time Duitful asks to notify.
+             Asked here, with a reason, instead of by Android on top of the
+             first-run setup. Saying yes asks which day each thing is due,
+             because a reminder with no date never fires. -->
+        <section id="reminder-ask" class="card reminder-ask" hidden aria-labelledby="reminder-ask-title">
+          <div class="reminder-ask-head">
+            <span class="reminder-ask-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 004 0"/></svg></span>
+            <h2 id="reminder-ask-title">Want a nudge on the day payments are due?</h2>
+          </div>
+          <div id="reminder-ask-offer">
+            <p class="reminder-ask-body">A 9am reminder on each due date.</p>
+            <div class="reminder-ask-actions">
+              <button type="button" class="primary" id="reminder-ask-yes">Turn on reminders</button>
+              <button type="button" class="ghost" id="reminder-ask-no">Not now</button>
+            </div>
+          </div>
+          <form id="reminder-ask-dates" hidden>
+            <p class="reminder-ask-body">Which day of the month is each one due? Leave blank to skip.</p>
+            <div class="reminder-ask-rows" id="reminder-ask-rows"></div>
+            <div class="reminder-ask-actions">
+              <button type="submit" class="primary">Save due dates</button>
+              <button type="button" class="ghost" id="reminder-ask-later">Later</button>
+            </div>
+          </form>
+          <div id="reminder-ask-blocked" hidden>
+            <p class="reminder-ask-body">Notifications are off for Duitful. Turn them on in your phone's Settings → Apps → Duitful → Notifications, then tap Allow notifications in Settings → Reminders here.</p>
+            <div class="reminder-ask-actions">
+              <button type="button" class="ghost" id="reminder-ask-ok">OK</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="capture-intro" class="card ai-intro" hidden aria-labelledby="capture-intro-title">
+          <div class="ai-intro-head">
+            <span class="ai-intro-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>
+            <h2 id="capture-intro-title">Log spends from bank alerts</h2>
+          </div>
+          <p class="hint">Duitful can read alerts from your bank and e-wallet apps that show an amount, and turn them into entries for you to check. It skips OTPs and other apps. Everything stays on this phone.</p>
+          <p class="hint">Android will ask to let Duitful read notifications.</p>
+          <div class="button-row capture-intro-actions">
+            <button type="button" class="ghost" id="capture-intro-later">Not now</button>
+            <button type="button" class="primary" id="capture-intro-allow">Allow access</button>
+          </div>
+        </section>
+
+        <!-- Tax discovery: one quiet card for people not tracking tax yet —
+             once when it arrives, again in November and before e-Filing.
+             Never a modal. Filled by tax.js / renderTaxHome(). -->
+        <section id="tax-intro" class="card tax-intro" hidden aria-labelledby="tax-intro-title">
+          <div class="tax-intro-head">
+            <span class="tax-intro-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2z"/><path d="M9 8.5h6M9 12h6M9 15.5h3"/></svg></span>
+            <h2 id="tax-intro-title"></h2>
+          </div>
+          <p class="tax-intro-body" id="tax-intro-body"></p>
+          <div class="tax-intro-actions">
+            <button type="button" class="primary" id="tax-intro-go">See what I can claim</button>
+            <button type="button" class="ghost" id="tax-intro-no">Not now</button>
+          </div>
+        </section>
+
+        <!-- One-time hello when on-device AI is found. tax-intro styling. -->
+        <section id="ai-intro" class="card ai-intro" hidden aria-labelledby="ai-intro-title">
+          <div class="ai-intro-head">
+            <span class="ai-intro-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 5L19 9.5l-5.5 1.5L12 16l-1.5-5.5L5 9.5 10.5 8z"/></svg></span>
+            <h2 id="ai-intro-title">Your phone&rsquo;s AI is ready</h2>
+            <button type="button" class="ghost icon-btn" id="ai-intro-close" aria-label="Dismiss">✕</button>
+          </div>
+          <p class="hint" id="ai-intro-body">Duitful uses this on-device AI to read tricky receipts and bank alerts, privately. Nothing leaves your phone.</p>
         </section>
       </section>
 
@@ -2101,6 +2018,148 @@
     </dialog>
 
     <!-- Daily check-in streak sheet (streak.js). -->
+    <!-- The bubble's radial actions (2.0, kira-bubble.js): a fan of round
+         buttons over the bubble. Escape, Back or a tap outside closes it; the
+         arrow keys move round the fan. Scan receipt and Talk keep the ids the
+         scan (ocr.js) and voice (voice.js) flows bind to. -->
+    <dialog id="radial-dialog" class="radial-dialog" aria-labelledby="radial-title">
+      <h2 id="radial-title" class="sr-only">Add or ask</h2>
+      <div class="radial" id="radial" role="menu" aria-labelledby="radial-title">
+        <button type="button" role="menuitem" class="radial-item" id="btn-scan" data-radial="scan" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V5a1 1 0 011-1h3l1.5-2h5L16 4h3a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V7z"/><circle cx="12" cy="13" r="4"/></svg></span><span class="radial-label">Scan receipt</span></button>
+        <button type="button" role="menuitem" class="radial-item" data-radial="debt" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span><span class="radial-label">Pay debt</span></button>
+        <button type="button" role="menuitem" class="radial-item" data-radial="saving" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 4C12 4 4 10 4 20c6-2 10-6 12-10"/><path d="M4 20c6 0 12-4 16-12"/></svg></span><span class="radial-label" data-i18n="Save (money)">Save</span></button>
+        <button type="button" role="menuitem" class="radial-item" data-radial="spend" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="8" cy="8" r="1.5"/></svg></span><span class="radial-label">Spend</span></button>
+        <button type="button" role="menuitem" class="radial-item" data-radial="split" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></span><span class="radial-label">Split a bill</span></button>
+        <button type="button" role="menuitem" class="radial-item" data-radial="nospend" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg></span><span class="radial-label">No spend today</span></button>
+        <button type="button" role="menuitem" class="radial-item" id="btn-voice" data-radial="talk" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg></span><span class="radial-label">Talk</span></button>
+      </div>
+      <p class="radial-meter" id="radial-meter" hidden></p>
+      <button type="button" class="radial-close" id="radial-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </dialog>
+    <input type="file" id="scan-input" accept="image/*" hidden />
+
+    <!-- ☰ menu (2.0): what used to sit in the tab bar and Home's links. -->
+    <dialog id="menu-dialog" class="edit-dialog menu-dialog" aria-labelledby="menu-title">
+      <form method="dialog">
+        <div class="card-head">
+          <h2 id="menu-title">Menu</h2>
+          <button type="submit" class="ghost icon-btn" aria-label="Close">✕</button>
+        </div>
+        <ul class="menu-list" role="list">
+          <li><button type="button" class="menu-item" id="btn-search" aria-haspopup="dialog" aria-keyshortcuts="/ Control+K Meta+K"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Search</span><kbd class="menu-kbd" aria-hidden="true">/</kbd></button></li>
+          <li><button type="button" class="menu-item" data-go-tab="data" id="menu-settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>Settings</span></button></li>
+          <li><button type="button" class="menu-item" data-go-tab="daily"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg><span>All entries</span></button></li>
+          <li><button type="button" class="menu-item" data-go-tab="reports"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-5"/></svg><span>Reports</span></button></li>
+          <li><button type="button" class="menu-item" data-go-tab="tax" id="today-tax-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2z"/><path d="M9 8.5h6M9 12h6M9 15.5h3"/></svg><span>Tax</span></button></li>
+          <li><button type="button" class="menu-item" data-go-tab="savings" id="today-wallets-link" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M16 12h2M3 9h18"/></svg><span>Wallets</span></button></li>
+          <li><button type="button" class="menu-item" id="menu-tour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 015 .5c0 1.7-2.5 2-2.5 3.5M12 17h.01"/></svg><span>Help &amp; tour</span></button></li>
+          <li><button type="button" class="menu-item" id="menu-whats-new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.2 5.3L20 9l-4.4 3.8L17 18.5 12 15.6 7 18.5l1.4-5.7L4 9l5.8-.7z"/></svg><span>What's new</span></button></li>
+        </ul>
+      </form>
+    </dialog>
+
+    <!-- Once, after the 2.0 update, for people who had used Duitful before:
+         Kira points at ☰ (kira-bubble.js, localStorage duitful.menuHint). -->
+    <div class="menu-hint" id="menu-hint" role="status" hidden>
+      <span class="menu-hint-kira" id="menu-hint-kira" aria-hidden="true"></span>
+      <p class="menu-hint-text">Settings moved here</p>
+      <button type="button" class="ghost menu-hint-ok" id="menu-hint-ok">OK</button>
+    </div>
+
+    <!-- Add entry (2.0): the Spend / Pay debt / Save form as a sheet, opened by
+         the bubble's radial actions, quick actions and links (openAddEntry). -->
+    <dialog id="add-dialog" class="edit-dialog add-dialog" aria-labelledby="add-dialog-title">
+          <div class="quick-add add-sheet">
+            <div class="card-head">
+              <h2 id="add-dialog-title">Add entry</h2>
+              <button type="button" class="ghost icon-btn add-dialog-close" id="add-dialog-close" aria-label="Close">✕</button>
+              <span class="mini-stats" hidden><span id="stat-daily-today">RM 0.00</span> today · <span id="stat-daily-week">RM 0.00</span> past 7d</span>
+            </div>
+            <div class="type-pills" role="radiogroup" aria-label="Spend type">
+              <button type="button" class="pill active" data-type="expense" role="radio" aria-checked="true"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="8" cy="8" r="1.5"/></svg></span>Spend</button>
+              <button type="button" class="pill" data-type="debt" role="radio" aria-checked="false"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span>Pay debt</button>
+              <button type="button" class="pill" data-type="saving" role="radio" aria-checked="false" data-i18n="Save (money)"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4C12 4 4 10 4 20c6-2 10-6 12-10"/><path d="M4 20c6 0 12-4 16-12"/></svg></span>Save</button>
+            </div>
+
+            <form id="form-daily" class="daily-form">
+              <input type="hidden" id="daily-type" name="type" value="expense" />
+              <label class="field big">
+                <span>Amount (<span class="cur-code">MYR</span>)</span>
+                <div class="fx-row">
+                  <input type="number" name="amount" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="0.00" required />
+                  <select class="currency-picker" name="currency" data-currency-picker></select>
+                </div>
+                <span class="fx-preview" data-fx-preview hidden></span>
+                <span class="fx-upsell" data-fx-upsell hidden>
+                  Multi-currency entry is a Pro feature.
+                  <a data-action="open-paywall">Unlock for <span data-pro-price>RM 19.90</span> →</a>
+                </span>
+              </label>
+              <div class="quick-amounts" id="quick-amounts">
+                <button type="button" data-quick="5">+5</button>
+                <button type="button" data-quick="10">+10</button>
+                <button type="button" data-quick="20">+20</button>
+                <button type="button" data-quick="50">+50</button>
+                <button type="button" data-quick="100">+100</button>
+              </div>
+              <div class="recent-chips" id="recent-chips" hidden>
+                <span class="recent-chips-label">Recent</span>
+                <div class="recent-chips-row" id="recent-chips-row"></div>
+              </div>
+              <button type="button" class="hero-breakdown-toggle daily-more-toggle" id="daily-more-toggle" aria-expanded="false" aria-controls="daily-more">
+                <span class="chev" aria-hidden="true">▾</span>
+                <span id="daily-more-toggle-label">More details</span>
+              </button>
+              <div id="daily-more" hidden>
+              <div class="grid-2">
+                <label class="field">
+                  <span>Date</span>
+                  <input type="date" name="date" required />
+                </label>
+                <label class="field" id="target-select-field" hidden>
+                  <span id="target-select-label">Target</span>
+                  <select id="daily-target" name="target"></select>
+                </label>
+                <label class="field" id="daily-category-field">
+                  <span>Category</span>
+                  <input type="text" name="category" list="category-options" placeholder="Food, Transport…" />
+                  <datalist id="category-options"></datalist>
+                </label>
+                <label class="field" id="daily-card-field" hidden>
+                  <span>Paid with</span>
+                  <select id="daily-card" name="card">
+                    <option value="">Cash / debit</option>
+                  </select>
+                </label>
+              </div>
+              <label class="field" data-wallet-field hidden>
+                <span>Wallet</span>
+                <select name="wallet" data-wallet-picker id="daily-wallet"></select>
+              </label>
+              <label class="field" id="daily-pool-field" hidden>
+                <span>Budget pool</span>
+                <select name="budgetPool" data-budget-pool>
+                  <option value="">(none)</option>
+                </select>
+                <span class="pool-preview" data-pool-preview hidden></span>
+              </label>
+              <label class="field">
+                <span>Note (optional)</span>
+                <input type="text" name="note" placeholder="Lunch at mamak" />
+              </label>
+              <!-- Splitting lives here now: on the card's face it out-ranked
+                   "Add entry". Search ("split") and the Debts tab reach it too,
+                   and it still carries whatever is already typed above. -->
+              <div class="button-row split-entry-row">
+                <button type="button" class="ghost" id="btn-split-quick" data-action="split-compose" data-split-prefill="daily-form"><span aria-hidden="true">⇆</span> Split / Request money</button>
+                <button type="button" class="ghost" data-action="split-ingest">Add a request</button>
+              </div>
+              </div>
+              <button type="submit" class="primary big">Add entry</button>
+            </form>
+          </div>
+    </dialog>
+
     <dialog id="streak-dialog" class="edit-dialog streak-dialog" aria-labelledby="streak-dialog-title">
       <form method="dialog">
         <div class="streak-hero" id="streak-hero">
@@ -3609,7 +3668,7 @@
 
     <!-- Languages first: i18n-boot.js loads only the active pack (0 KB for English)
          synchronously before i18n.js walks the static markup. -->
-    <script src="i18n-langs.js?v=dbf20b12"></script>
+    <script src="i18n-langs.js?v=60aa97d4"></script>
     <script src="i18n-boot.js?v=e8f35f1d"></script>
     <script src="i18n.js?v=e94f1821"></script>
     <script src="drive-config.js?v=9aaf242d"></script>
@@ -3633,20 +3692,21 @@
     <script src="wallets.js?v=39628be9"></script>
     <script src="recap.js?v=e4c2c931"></script>
     <script src="brands.js?v=73d9f7dc"></script>
-    <script src="search.js?v=f1248d18"></script>
+    <script src="search.js?v=1723d81e"></script>
     <script src="csv.js?v=ca8caf4e"></script>
     <script src="reports.js?v=6b3b772b"></script>
-    <script src="onboarding.js?v=15cab168"></script>
+    <script src="onboarding.js?v=dd4ac4be"></script>
     <script src="kira-seasons.js?v=84d7b80b"></script>
-    <script src="kira.js?v=1480e717"></script>
+    <script src="kira.js?v=326b16a1"></script>
     <script src="streak.js?v=ce95b7ab"></script>
-    <script src="voice.js?v=42943d7b"></script>
+    <script src="voice.js?v=276f5906"></script>
     <script src="cloud.js?v=fcd02ad8"></script>
     <script src="capture.js?v=3af549e5"></script>
     <script src="ai-redact.js?v=e6257012"></script>
     <script src="ai-cloud.js?v=0debcf4f"></script>
     <script src="pro.js?v=885ede50"></script>
-    <script src="ocr.js?v=0fe4028c"></script>
-    <script src="script.js?v=9daea334"></script>
+    <script src="ocr.js?v=d135377e"></script>
+    <script src="kira-bubble.js?v=50f90bb5"></script>
+    <script src="script.js?v=ad399bd1"></script>
   </body>
 </html>

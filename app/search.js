@@ -329,6 +329,7 @@ function searchStartEntry(type, amount) {
     const input = document.querySelector('#form-daily input[name="amount"]');
     if (!input) return;
     if (amount) input.value = String(amount);
+    if (typeof openAddEntry === "function") { openAddEntry(null); return; }
     input.closest(".card")?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" });
     input.focus({ preventScroll: true });
   });

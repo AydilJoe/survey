@@ -2411,15 +2411,13 @@ function renderEmptyWelcome() {
     (state.dailyExpenses?.length || 0) +
     (state.debts?.length || 0) +
     (state.savings?.length || 0);
-  // One way in, not two: a new user gets the Add entry card itself at the
-  // top, titled for the first spend, instead of a welcome card above it.
-  card.hidden = true;
+  // 2.0: Home has no form. A new user gets one welcome card whose button
+  // opens the Add entry sheet (titled for the first spend), the same sheet
+  // as the bubble's Spend.
   const fresh = hasData === 0;
-  const quick = document.querySelector("#tab-dashboard .card.quick-add");
-  const hero = document.querySelector("#tab-dashboard .hero-card");
-  if (quick && hero) {
-    if (fresh && hero.previousElementSibling !== quick) hero.before(quick);
-    else if (!fresh && hero.nextElementSibling !== quick) hero.after(quick);
+  card.hidden = !fresh;
+  const quick = document.querySelector("#add-dialog .quick-add");
+  if (quick) {
     const h = quick.querySelector(".card-head h2");
     if (h) h.textContent = fresh ? tr("Log your first spend") : tr("Add entry");
     quick.classList.toggle("is-first", fresh);
@@ -3113,7 +3111,12 @@ function renderDashboard() {
         } else {
           etaPart = tr("all paid off");
         }
-        metaEl.textContent = `${trn(n, "{n} debt", "{n} debts")} · ${etaPart}`;
+        // 2.0: and the next payment due, from the same list as Upcoming.
+        const next = upcomingReminders(31).find((it) => it.kind === "debt" && it.delta >= 0);
+        const nextPart = !next ? "" : ` · ${next.delta === 0
+          ? tr("next: {name} today", { name: next.name })
+          : trn(next.delta, "next: {name} in {n} day", "next: {name} in {n} days", { name: next.name })}`;
+        metaEl.textContent = `${trn(n, "{n} debt", "{n} debts")} · ${etaPart}${nextPart}`;
       }
     }
   }
@@ -3510,6 +3513,8 @@ function bindShariahControls() {
 bindShariahControls();
 
 function renderAll() {
+  // The bubble first: Home's Today Kira steps aside while the bubble is Kira.
+  if (typeof kiraBubbleSync === "function") kiraBubbleSync();
   renderDebtLetter();
   resetEndingBalanceCache();
   resetEffectiveLimitCache();
@@ -3568,6 +3573,8 @@ function renderAll() {
   checkMilestones();
   checkReviewMoments();
   syncWidgetSummary();
+  renderHomeCats();
+  if (typeof menuHintMaybe === "function") setTimeout(menuHintMaybe, 900);
 }
 
 /* ---------- a debt reaches zero ----------
@@ -4143,6 +4150,7 @@ function aiUntilForeground() {
 }
 
 function syncAiThinkingUi() {
+  if (typeof kiraBubbleSync === "function") kiraBubbleSync();
   const badge = document.getElementById("ai-badge");
   const live = document.getElementById("ai-live");
   const b = aiBatch;
@@ -4873,7 +4881,8 @@ function editPending(id) {
   save();
   renderAll();
   document.querySelector(".tab[data-tab='dashboard']")?.click();
-  amountInput?.focus();
+  if (typeof openAddEntry === "function") openAddEntry(null);
+  else amountInput?.focus();
 }
 function dismissPending(id) {
   state.pendingTxns = (state.pendingTxns || []).filter((x) => x.id !== id);
@@ -4937,6 +4946,7 @@ function upcomingReminders(daysAhead) {
   return items;
 }
 
+const UPCOMING_HOME_MAX = 3;
 function renderUpcoming() {
   const card = document.getElementById("upcoming-card");
   const listEl = document.getElementById("upcoming-list");
@@ -4944,8 +4954,12 @@ function renderUpcoming() {
   if (!card || !listEl) return;
   const prefs = state.reminders || { enabled: true, daysAhead: 3 };
   if (!prefs.enabled) { card.hidden = true; return; }
-  const items = upcomingReminders(prefs.daysAhead || 3);
-  if (items.length === 0) { card.hidden = true; return; }
+  const all = upcomingReminders(prefs.daysAhead || 3);
+  if (all.length === 0) { card.hidden = true; return; }
+  // 2.0 glance Home: three at most — what is coming up first, then what is
+  // late — in date order, and a count of the rest.
+  const pick = new Set([...all.filter((i) => i.delta >= 0), ...all.filter((i) => i.delta < 0)].slice(0, UPCOMING_HOME_MAX));
+  const items = all.filter((i) => pick.has(i));
   card.hidden = false;
   if (sub) sub.textContent = trn(prefs.daysAhead || 3, "Next {n} day", "Next {n} days");
 
@@ -4979,7 +4993,48 @@ function renderUpcoming() {
         ? `<button type="button" class="ghost up-remind" data-action="split-remind" data-id="${escapeHtml(it.id)}">${tr("Remind")}</button>`
         : ""}
     </li>
-  `).join("");
+  `).join("") + (all.length > items.length
+    ? `<li class="today-more up-more" data-go-tab="flow">${tr("+{n} more coming up", { n: all.length - items.length })}</li>`
+    : "");
+}
+
+/* 2.0 glance Home: this month's three biggest spending categories as bars
+   (each against the month's spending), one tap from Reports. Spending only:
+   debt payments and savings deposits are not spending. */
+const HOME_CATS_MAX = 3;
+function homeCatsData(month) {
+  const m = month || currentMonthISO();
+  const buckets = new Map();
+  let total = 0;
+  for (const e of state.dailyExpenses || []) {
+    if ((e.kind || "expense") !== "expense" || !e.date || !e.date.startsWith(m)) continue;
+    const a = Number(e.amount) || 0;
+    if (a <= 0) continue;
+    const cat = (e.category || "").trim() || "Others";
+    buckets.set(cat, (buckets.get(cat) || 0) + a);
+    total += a;
+  }
+  const top = [...buckets.entries()].map(([name, amount]) => ({ name, amount }))
+    .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name)).slice(0, HOME_CATS_MAX);
+  return { total, top, count: buckets.size };
+}
+function renderHomeCats() {
+  const card = document.getElementById("home-cats");
+  const list = document.getElementById("home-cats-list");
+  if (!card || !list || !state) return;
+  const d = homeCatsData();
+  if (!d.top.length || d.total <= 0) { card.hidden = true; list.innerHTML = ""; return; }
+  card.hidden = false;
+  const sub = document.getElementById("home-cats-sub");
+  if (sub) sub.innerHTML = tr("{a} this month", { a: amt(fmtMoney(d.total)) });
+  list.innerHTML = d.top.map((c) => {
+    const pct = Math.max(2, Math.round((c.amount / d.total) * 100));
+    return `<li class="home-cat">
+      <span class="home-cat-name" translate="no">${escapeHtml(c.name)}</span>
+      <span class="home-cat-amount">${amt(fmtMoney(c.amount))}</span>
+      <span class="home-cat-bar" aria-hidden="true"><span style="width:${pct}%"></span></span>
+    </li>`;
+  }).join("");
 }
 
 /* Browser notifications — only for items due today, once per day */
@@ -5702,17 +5757,17 @@ function runQuickAction(name, text) {
     case "saving": {
       const kind = name === "debt" ? "debt" : name === "saving" ? "saving" : "expense";
       document.getElementById("tabbtn-dashboard")?.click();
+      // 2.0: the same Add entry sheet the bubble's Spend / Pay debt / Save open.
+      if (typeof openAddEntry === "function") { openAddEntry(kind); break; }
       try { setDailyType(kind); } catch {}
-      // The add-entry amount field has a name, not an id — the previous
-      // version reached for getElementById("amount") and so had never
-      // actually focused anything.
       const amount = document.querySelector("#form-daily input[name='amount']");
       if (amount) { try { amount.focus(); } catch {} }
       break;
     }
     case "scan":
       document.getElementById("tabbtn-dashboard")?.click();
-      document.getElementById("btn-scan-receipt")?.click();
+      // The radial's Scan receipt (ocr.js binds #btn-scan).
+      document.getElementById("btn-scan")?.click();
       break;
     case "review":
       // "2 to review" on the persistent notification: drain, then the cards.
@@ -6454,6 +6509,8 @@ $("#form-daily").addEventListener("submit", (e) => {
   renderAll();
   const amountLabel = fmtMoney(amount);
   if (movesBalance) flyAmountToBalance(flightFrom, amountLabel, netBefore, lastHeroNet);
+  // Added: the sheet goes, so the toast and the balance it moved are in view.
+  if (typeof closeAddEntry === "function") closeAddEntry();
   // A scanned photo is held for exactly one submit; whatever type this was,
   // it is spent now so it can't attach to a later, unrelated expense.
   const scanReceipt = typeof taxTakeScanReceipt === "function" ? taxTakeScanReceipt() : null;
@@ -6498,6 +6555,7 @@ document.querySelectorAll(".quick-amounts button").forEach((btn) => {
 // since that's the universal first-entry pattern.
 document.getElementById("empty-welcome-cta")?.addEventListener("click", () => {
   setDailyType("expense");
+  if (typeof openAddEntry === "function") { openAddEntry("expense"); return; }
   const amountInput = document.querySelector("#form-daily input[name='amount']");
   if (amountInput) {
     amountInput.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -7230,6 +7288,7 @@ document.addEventListener("click", (e) => {
     if (!debt) return;
     document.querySelector('.tab[data-tab="dashboard"]')?.click();
     setDailyType("debt");
+    if (typeof openAddEntry === "function") openAddEntry(null, { focus: false });
     const targetSel = document.getElementById("daily-target");
     if (targetSel) targetSel.value = `debt:${id}`;
     const amountInput = document.querySelector('#form-daily input[name="amount"]');
