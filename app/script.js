@@ -7101,12 +7101,14 @@ function syncSearchRows() {
 }
 
 /* go-to-tab buttons in empty states */
+function switchTab(tabName) {
+  const tabBtn = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  if (tabBtn) tabBtn.click();
+}
 document.addEventListener("click", (e) => {
   const btn = e.target instanceof HTMLElement ? e.target.closest("[data-go-tab]") : null;
   if (!btn) return;
-  const tabName = btn.getAttribute("data-go-tab");
-  const tabBtn = document.querySelector(`.tab[data-tab="${tabName}"]`);
-  if (tabBtn) tabBtn.click();
+  switchTab(btn.getAttribute("data-go-tab"));
 });
 
 function setDebtKind(kind) {
