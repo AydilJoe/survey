@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.83.1";
+const APP_VERSION = "1.84.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -7958,6 +7958,10 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.84.0": [
+    "<strong>Jelly Bubble &amp; 4-action radial</strong> — Tap the centre bubble for Scan, Money out (Spend, Split, Pay debt), Income, and Kira or Docs, or hold to pop straight into Voice with rising bubble sounds and haptics.",
+    "<strong>Glance Home &amp; ☰ menu</strong> — Home stays focused on your balance and today's spending; Settings, Reports, Tax, and Kira &amp; Docs live cleanly in the menu, with separate Sound and Haptics toggles.",
+  ],
   "1.83.1": [
     "<strong>Accurate statement years</strong> — Maybank PDF and AI+ statement imports now reliably read the printed statement year (e.g. 31/10/26 as 2026), and entries from another year now show the full year in All entries and statement review.",
   ],
