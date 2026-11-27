@@ -126,6 +126,17 @@ const PLIST_KEYS = [
     "NSFaceIDUsageDescription",
     "Unlock Duitful with Face ID — your passcode stays the only key",
   ],
+  // Talk to Kira (1.80.0, DuitfulSpeech in the DuitfulKit pod). Without
+  // both, iOS kills the app the first time the mic is tapped. Recognition
+  // is on-device only (requiresOnDeviceRecognition), so the copy can say so.
+  [
+    "NSMicrophoneUsageDescription",
+    "Duitful listens only while you hold the mic, to fill in a spend. Speech is turned into text on this iPhone.",
+  ],
+  [
+    "NSSpeechRecognitionUsageDescription",
+    "Duitful listens only while you hold the mic, to fill in a spend. Speech is turned into text on this iPhone.",
+  ],
 ];
 
 let plist = readFileSync(INFO_PLIST, "utf8");

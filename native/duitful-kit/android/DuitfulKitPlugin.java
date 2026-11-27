@@ -1,5 +1,6 @@
 package com.aydiljoe.duitful.plugins;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.database.Cursor;
@@ -16,10 +17,13 @@ import androidx.activity.result.contract.ActivityResultContracts;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanner;
 import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions;
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanning;
@@ -52,6 +56,12 @@ import java.util.concurrent.Executors;
  *   aiReadReceipt    opinion on a receipt the rule-based parser isn't sure of.
  *   aiReadAlert      The same model labelling a bank notification the capture
  *                    rules couldn't place (direction, counterparty, category).
+ *   speechAvailable/ Android's SpeechRecognizer for "Talk to Kira" (1.80.0,
+ *   speechStart /    DuitfulKitSpeech): on-device on Android 12+ when the
+ *   speechStop       phone has it, else the phone's recognition service with
+ *                    EXTRA_PREFER_OFFLINE. Partial text is the "speechPartial"
+ *                    event; speechStart resolves {text}. RECORD_AUDIO is
+ *                    asked (alias "microphone") only when the mic is used.
  *
  * Nothing here talks to a Duitful server. The scanner and Gemini Nano run on
  * the phone; Entity Extraction downloads its language model from Google once,
@@ -64,15 +74,22 @@ import java.util.concurrent.Executors;
  * SDK_INT >= 26 check. On Android 7 the methods report "unsupported" and the
  * web layer carries on with its own parser.
  */
-@CapacitorPlugin(name = "DuitfulKit")
+@CapacitorPlugin(
+    name = "DuitfulKit",
+    permissions = {
+        @Permission(strings = { Manifest.permission.RECORD_AUDIO }, alias = DuitfulKitPlugin.MIC)
+    }
+)
 public class DuitfulKitPlugin extends Plugin {
 
     private static final int MIN_SDK_FOR_ML = Build.VERSION_CODES.O; // 26
     static final String TAG = "DuitfulKit";
+    static final String MIC = "microphone";
 
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private ActivityResultLauncher<IntentSenderRequest> scanLauncher;
     private PluginCall pendingScan;
+    private DuitfulKitSpeech speech;
 
     /** Files shared to Duitful, waiting for the app (unlocked) to take them. */
     private final List<Uri> shared = new ArrayList<>();
@@ -446,6 +463,75 @@ public class DuitfulKitPlugin extends Plugin {
         } catch (Exception e) {
             call.reject(String.valueOf(e.getMessage()), "WIDGET");
         }
+    }
+
+    /* ---------- Talk to Kira: speech to text ----------
+       {lang} is a BCP-47 tag from the app (en-MY, ms-MY, zh-CN). Nothing is
+       recorded: the recogniser hands back text and the audio is gone. */
+
+    /** {available, onDevice}: is there a recogniser, and is one on the phone. */
+    @PluginMethod
+    public void speechAvailable(PluginCall call) {
+        boolean onDevice = DuitfulKitSpeech.onDeviceAvailable(getContext());
+        boolean any = DuitfulKitSpeech.available(getContext());
+        call.resolve(new JSObject().put("available", any).put("onDevice", onDevice));
+    }
+
+    /** Listens until speechStop, silence or 30 s; resolves {text} ("" if nothing was heard). */
+    @PluginMethod
+    public void speechStart(PluginCall call) {
+        if (getPermissionState(MIC) != PermissionState.GRANTED) {
+            requestPermissionForAlias(MIC, call, "speechPermissionAnswered");
+            return;
+        }
+        beginSpeech(call);
+    }
+
+    @PermissionCallback
+    private void speechPermissionAnswered(PluginCall call) {
+        if (getPermissionState(MIC) == PermissionState.GRANTED) {
+            beginSpeech(call);
+        } else {
+            call.reject("Microphone permission denied", "DENIED");
+        }
+    }
+
+    private void beginSpeech(final PluginCall call) {
+        if (!DuitfulKitSpeech.available(getContext())) {
+            call.reject("No speech recogniser on this phone", "UNAVAILABLE");
+            return;
+        }
+        if (speech == null) speech = new DuitfulKitSpeech(getContext());
+        speech.start(call.getString("lang", "en-MY"), new DuitfulKitSpeech.Callback() {
+            @Override
+            public void partial(String text) {
+                notifyListeners("speechPartial", new JSObject().put("text", text));
+            }
+
+            @Override
+            public void done(String text) {
+                call.resolve(new JSObject().put("text", text));
+            }
+
+            @Override
+            public void error(String code, String message) {
+                call.reject(message, code);
+            }
+        });
+    }
+
+    /** Let go of Kira / tap the mic: the pending speechStart resolves with what was heard. */
+    @PluginMethod
+    public void speechStop(PluginCall call) {
+        if (speech != null) speech.stop();
+        call.resolve(new JSObject().put("ok", true));
+    }
+
+    @Override
+    protected void handleOnPause() {
+        // Never listen in the background.
+        if (speech != null) speech.stop();
+        super.handleOnPause();
     }
 
     @PluginMethod

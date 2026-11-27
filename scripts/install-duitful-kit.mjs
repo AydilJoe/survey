@@ -10,6 +10,8 @@
 //   5. Add share / open-with intent filters to MainActivity: a PDF or
 //      photos shared from a bank app, Mail or Files land in Duitful
 //      (DuitfulKitPlugin.takeSharedFiles). PDFs and images only.
+//   7. Add RECORD_AUDIO and a <queries> entry for the speech recognition
+//      service (Talk to Kira, DuitfulKitSpeech).
 //   4. Add <uses-sdk tools:overrideLibrary=…> for the two libraries that
 //      declare minSdk 26 while the app supports 24. The plugin only touches
 //      them after an SDK_INT >= 26 check (see DuitfulKitPlugin.java), which
@@ -37,6 +39,7 @@ const APP_GRADLE = resolve(ANDROID, "app/build.gradle");
 export const SOURCES = [
   "DuitfulKitPlugin.java", "DuitfulKitTextReader.java", "DuitfulKitEntities.java", "DuitfulKitAi.java",
   "DuitfulRelayCrypto.java", "DuitfulRelayWatch.java", "DuitfulRelayWorker.java",
+  "DuitfulKitSpeech.java",
 ];
 
 // Pinned, and checked by the e2e suite against this list.
@@ -61,6 +64,12 @@ export const OVERRIDE_LIBRARIES = [
   "com.google.mlkit.genai.prompt",
   "com.google.mlkit.genai.common",
 ];
+// "Talk to Kira" (1.80.0, DuitfulKitSpeech): the microphone, asked at run
+// time only when the person taps the mic or holds Kira, and visibility of the
+// phone's speech recognition service (Android 11+ hides it otherwise, and
+// SpeechRecognizer.isRecognitionAvailable then says false).
+export const PERMISSIONS = ["android.permission.RECORD_AUDIO"];
+export const SPEECH_QUERY = "android.speech.RecognitionService";
 const MARK = "duitful-kit";
 const SHARE_MARK = "duitful:share-in";
 export const SHARE_FILTERS = `
@@ -225,6 +234,35 @@ function install() {
       );
       writeFileSync(MANIFEST, m);
       console.log("✓ added ML Kit OCR Play Services pre-download meta-data to AndroidManifest.xml");
+    }
+  }
+
+  // 7. Talk to Kira: RECORD_AUDIO and the speech service query.
+  {
+    let m = readFileSync(MANIFEST, "utf8");
+    const before = m;
+    for (const perm of PERMISSIONS) {
+      if (m.includes(`android:name="${perm}"`)) continue;
+      const appIdx = m.indexOf("<application");
+      if (appIdx === -1) fail("<application> not found in AndroidManifest.xml");
+      const lineStart = m.lastIndexOf("\n", appIdx) + 1;
+      const indent = m.slice(lineStart, appIdx);
+      m = m.slice(0, lineStart) + `${indent}<uses-permission android:name="${perm}" /> <!-- ${MARK}: Talk to Kira -->\n` + m.slice(lineStart);
+    }
+    if (!m.includes(SPEECH_QUERY)) {
+      const appIdx = m.indexOf("<application");
+      const lineStart = m.lastIndexOf("\n", appIdx) + 1;
+      const indent = m.slice(lineStart, appIdx);
+      m = m.slice(0, lineStart)
+        + `${indent}<!-- ${MARK}: Talk to Kira asks the phone's speech recognition service -->\n`
+        + `${indent}<queries>\n${indent}    <intent>\n${indent}        <action android:name="${SPEECH_QUERY}" />\n${indent}    </intent>\n${indent}</queries>\n`
+        + m.slice(lineStart);
+    }
+    if (m !== before) {
+      writeFileSync(MANIFEST, m);
+      console.log("✓ added RECORD_AUDIO and the speech service query (Talk to Kira)");
+    } else {
+      console.log("• AndroidManifest.xml already allows Talk to Kira");
     }
   }
 }

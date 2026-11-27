@@ -27,7 +27,7 @@ Pod::Spec.new do |s|
   # binary, so the app's own PrivacyInfo.xcprivacy (patch-ios.mjs, 3c) keeps
   # covering its UserDefaults use, and DuitfulRelayWatch links as before.
   s.static_framework = true
-  s.frameworks = 'Vision', 'VisionKit', 'PhotosUI', 'BackgroundTasks', 'CryptoKit', 'UserNotifications', 'Security'
+  s.frameworks = 'Vision', 'VisionKit', 'PhotosUI', 'BackgroundTasks', 'CryptoKit', 'UserNotifications', 'Security', 'Speech', 'AVFoundation'
   # iOS 26+. Weak, so the app still launches on iOS 15–18.
   s.weak_frameworks = 'FoundationModels'
   s.swift_version = '5.9'
