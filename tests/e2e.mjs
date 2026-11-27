@@ -19695,9 +19695,9 @@ check('the brand catalogue makes no network calls at all',
     && JSON.stringify(parsed.noteFirst) === JSON.stringify(['12|Food|Nasi lemak', '5|Food|Teh tarik', '2|Food|Roti canai'])
     && JSON.stringify(parsed.zh) === JSON.stringify(['12|Food|鸡饭', '5|Food|咖啡']),
     JSON.stringify(parsed));
-  check('v1.89.0: split requests, income, "12 ringgit 50 sen" and a bare quantity stay one entry',
+  check('v1.89.0: an exact split request, "12 ringgit 50 sen" and a bare quantity stay one entry; two incomes are two income rows',
     !parsed.splitOne.items && parsed.splitOne.amount === 40 && parsed.splitOne.split && parsed.splitOne.split.people.length === 1
-    && !parsed.income.items && parsed.income.entryKind === 'income'
+    && parsed.income.items && parsed.income.items.map((i) => i.entryKind + i.amount).join(',') === 'income3000,income500'
     && JSON.stringify(parsed.sen) === JSON.stringify(['12.5|Food|Nasi lemak'])
     && parsed.qty.length === 1 && parsed.qty[0].startsWith('5|'),
     JSON.stringify(parsed));
