@@ -2779,4 +2779,6 @@
   "Greeting": "Ucapan",
   "Festive Kira": "Kira Perayaan",
   "Kira dresses up for Malaysian holidays.": "Kira berpakaian sempena perayaan di Malaysia.",
+  "Thank you! Terima kasih!": "Terima kasih banyak!",
+  "Duitful AI+ is ready to help.": "Duitful AI+ sedia membantu.",
 };

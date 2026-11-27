@@ -623,13 +623,16 @@ function ensureProCelebrateBlock(dlg, paidLabel) {
   if (!head) return;
   const block = document.createElement("div");
   block.className = "pro-celebrate";
-  block.innerHTML = `
-    <div class="pro-seal" aria-hidden="true">
+  const kiraMark = typeof kiraWithBowMarkup === "function"
+    ? `<div class="pro-kira-thanks" aria-hidden="true">${kiraWithBowMarkup()}</div>`
+    : `<div class="pro-seal" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
            stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M20 6L9 17l-5-5"/>
       </svg>
-    </div>
+    </div>`;
+  block.innerHTML = `
+    ${kiraMark}
     <h2>${escapeHtml(tr("Duitful Pro — yours."))}</h2>
     <p class="pro-celebrate-sub">${escapeHtml(tr("Terima kasih. That's the last time we'll ask you for money."))}</p>
     <ul class="pro-unlocked">
@@ -1226,7 +1229,8 @@ async function drainPurchaseIntents() {
         const out = await purchaseAiSubscription(id === AI_IOS_SKUS.yearly ? "yearly" : "monthly");
         if (out && out.ok) {
           if (typeof renderAiCloudSettings === "function") renderAiCloudSettings();
-          notify(tr("Duitful AI+ is active."));
+          if (typeof showKiraPurchaseThanks === "function") showKiraPurchaseThanks();
+          else notify(tr("Duitful AI+ is active."));
         } else if (out && !out.cancelled && out.message) {
           notify(out.message);
         }

@@ -883,6 +883,7 @@ async function runAiPaywallPurchase(plan, btn) {
   if (res && res.ok) {
     closeAiPaywall();
     renderAiCloudSettings();
+    if (typeof showKiraPurchaseThanks === "function") showKiraPurchaseThanks();
     return;
   }
   if (res && !res.cancelled && errEl && res.message) {
