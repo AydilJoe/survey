@@ -5712,7 +5712,7 @@ function storedPromoCode() {
    Nothing here is a Pro gate and nothing writes outside the vault: a quick
    action is a launch intent, not data. */
 
-const QUICK_ACTIONS = new Set(["spend", "scan", "split", "debt", "saving", "review", "no-spend", "voice"]);
+const QUICK_ACTIONS = new Set(["spend", "scan", "split", "debt", "saving", "review", "no-spend", "voice", "income"]);
 // Held until the app is genuinely usable. Survives the whole unlock flow.
 let pendingQuickAction = null;
 let pendingQuickActionText = "";
@@ -5782,6 +5782,10 @@ function runQuickAction(name, text) {
       // the button keeps the quick action on exactly the production path
       // (including the prefill from anything already typed).
       document.getElementById("btn-split-quick")?.click();
+      break;
+    case "income":
+      document.getElementById("tabbtn-dashboard")?.click();
+      if (typeof openAddIncome === "function") openAddIncome();
       break;
     case "no-spend":
       document.getElementById("tabbtn-dashboard")?.click();

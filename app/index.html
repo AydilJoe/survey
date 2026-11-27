@@ -2030,7 +2030,7 @@
         <button type="button" role="menuitem" class="radial-item" data-radial="saving" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 4C12 4 4 10 4 20c6-2 10-6 12-10"/><path d="M4 20c6 0 12-4 16-12"/></svg></span><span class="radial-label" data-i18n="Save (money)">Save</span></button>
         <button type="button" role="menuitem" class="radial-item" data-radial="spend" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="8" cy="8" r="1.5"/></svg></span><span class="radial-label">Spend</span></button>
         <button type="button" role="menuitem" class="radial-item" data-radial="split" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></span><span class="radial-label">Split a bill</span></button>
-        <button type="button" role="menuitem" class="radial-item" data-radial="nospend" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg></span><span class="radial-label">No spend today</span></button>
+        <button type="button" role="menuitem" class="radial-item" data-radial="income" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span><span class="radial-label">Add income</span></button>
         <button type="button" role="menuitem" class="radial-item" id="btn-voice" data-radial="talk" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg></span><span class="radial-label">Talk</span></button>
       </div>
       <p class="radial-meter" id="radial-meter" hidden></p>
@@ -2065,6 +2065,19 @@
       <p class="menu-hint-text">Settings moved here</p>
       <button type="button" class="ghost menu-hint-ok" id="menu-hint-ok">OK</button>
     </div>
+
+    <!-- Add income (2.0): the Monthly income form shown as a sheet while open
+         (openAddIncome moves #form-income in here and back; ids and handlers
+         unchanged). -->
+    <dialog id="income-dialog" class="edit-dialog add-dialog" aria-labelledby="income-dialog-title">
+      <div class="add-sheet">
+        <div class="card-head">
+          <h2 id="income-dialog-title">Add income</h2>
+          <button type="button" class="ghost icon-btn add-dialog-close" id="income-dialog-close" aria-label="Close">✕</button>
+        </div>
+        <div id="income-dialog-host"></div>
+      </div>
+    </dialog>
 
     <!-- Add entry (2.0): the Spend / Pay debt / Save form as a sheet, opened by
          the bubble's radial actions, quick actions and links (openAddEntry). -->
@@ -3706,7 +3719,7 @@
     <script src="ai-cloud.js?v=0debcf4f"></script>
     <script src="pro.js?v=885ede50"></script>
     <script src="ocr.js?v=d135377e"></script>
-    <script src="kira-bubble.js?v=50f90bb5"></script>
-    <script src="script.js?v=ce661970"></script>
+    <script src="kira-bubble.js?v=39ffd946"></script>
+    <script src="script.js?v=387537b4"></script>
   </body>
 </html>

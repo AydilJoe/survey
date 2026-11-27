@@ -9,10 +9,14 @@
      and counts on the sempoa only while on-device AI is working
      (syncAiThinkingUi in script.js calls kiraBubbleSync).
    - A tap opens the radial actions (#radial-dialog): Scan receipt, Pay debt,
-     Save, Spend, Split a bill, No spend today, Talk. A hold (BUBBLE_HOLD_MS)
+     Save, Spend, Split a bill, Add income, Talk. A hold (BUBBLE_HOLD_MS)
      opens Talk already listening; letting go stops (voice.js).
    - Spend / Pay debt / Save open the Add entry sheet (#add-dialog,
      openAddEntry): the old Home form, moved, with every id kept.
+   - Add income opens #income-dialog (openAddIncome): Monthly's #form-income
+     is moved into it while open and put back on close, so every id and
+     handler is unchanged. No spend today left the radial: it lives on
+     Home's Today card, the streak sheet and duitful://action/no-spend.
    - ☰ (#btn-menu) opens #menu-dialog: Search, Settings, All entries,
      Reports, Tax, Wallets, Help & tour, What's new. Once after the update,
      people who already had data get "Settings moved here" beside it. */
@@ -112,6 +116,43 @@ function openAddEntry(kind, opts) {
 function closeAddEntry() {
   const dlg = bubbleEl("add-dialog");
   if (dlg && dlg.open) dlg.close();
+}
+
+/* Add income: Monthly's own form, shown as a sheet. It is moved into the
+   dialog while open and returned to its place on close; submit / Cancel reset
+   it (the add-form reset signal), which closes the sheet. */
+let incomeHome = null;
+
+function openAddIncome() {
+  const dlg = bubbleEl("income-dialog");
+  const form = bubbleEl("form-income");
+  const host = bubbleEl("income-dialog-host");
+  if (!dlg || !form || !host) return;
+  radialClose();
+  const menu = bubbleEl("menu-dialog");
+  if (menu && menu.open) menu.close();
+  if (!dlg.open) {
+    if (!incomeHome) { incomeHome = document.createComment("form-income"); form.parentNode.insertBefore(incomeHome, form); }
+    host.appendChild(form);
+    form.hidden = false;
+    try { if (typeof syncFlowSubmitLabels === "function") syncFlowSubmitLabels(); } catch {}
+    if (typeof dlg.showModal === "function") dlg.showModal();
+  }
+  setTimeout(() => { try { form.querySelector("input[name='name']")?.focus({ preventScroll: true }); } catch {} }, 30);
+}
+
+function closeAddIncome() {
+  const dlg = bubbleEl("income-dialog");
+  if (dlg && dlg.open) dlg.close();
+}
+
+function incomeRestore() {
+  const form = bubbleEl("form-income");
+  if (!form || !incomeHome || !incomeHome.parentNode) return;
+  incomeHome.parentNode.insertBefore(form, incomeHome.nextSibling);
+  form.hidden = true;
+  const toggle = document.querySelector('[data-add-toggle="form-income"]');
+  if (toggle) { toggle.hidden = false; toggle.setAttribute("aria-expanded", "false"); }
 }
 
 /* ---------- Radial actions ---------- */
@@ -249,12 +290,7 @@ function radialRun(kind) {
     case "debt": openAddEntry("debt"); break;
     case "saving": openAddEntry("saving"); break;
     case "split": bubbleEl("btn-split-quick")?.click(); break;
-    case "nospend": {
-      const info = typeof computeStreak === "function" && state ? computeStreak(state) : null;
-      if (info && info.enabled && !info.checkedInToday && !info.hasDailyEntryToday && typeof checkInNoSpendToday === "function") checkInNoSpendToday();
-      else if (typeof openStreakDialog === "function") openStreakDialog();
-      break;
-    }
+    case "income": openAddIncome(); break;
     // scan (#btn-scan, ocr.js) and talk (#btn-voice, voice.js) run their own handlers.
     default: break;
   }
@@ -331,6 +367,15 @@ function initBubble() {
     else if (e.key === "End") { e.preventDefault(); radialFocus(items.length - 1); }
   });
   window.addEventListener("resize", () => { if (dlg.open) radialLayout(); });
+
+  const inc = bubbleEl("income-dialog");
+  bubbleEl("income-dialog-close")?.addEventListener("click", closeAddIncome);
+  inc?.addEventListener("click", (e) => { if (e.target === inc) closeAddIncome(); });
+  inc?.addEventListener("close", incomeRestore);
+  // A saved entry or Cancel resets the form: that closes the sheet.
+  document.addEventListener("reset", (e) => {
+    if (e.target && e.target.id === "form-income" && inc && inc.open) setTimeout(closeAddIncome, 0);
+  });
 
   const add = bubbleEl("add-dialog");
   bubbleEl("add-dialog-close")?.addEventListener("click", closeAddEntry);
@@ -417,6 +462,8 @@ window.kiraQuota = kiraQuota;
 window.kiraBubbleSync = kiraBubbleSync;
 window.openAddEntry = openAddEntry;
 window.closeAddEntry = closeAddEntry;
+window.openAddIncome = openAddIncome;
+window.closeAddIncome = closeAddIncome;
 window.radialOpen = radialOpen;
 window.radialClose = radialClose;
 window.menuOpen = menuOpen;

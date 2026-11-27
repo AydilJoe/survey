@@ -8134,6 +8134,9 @@ check('and what was typed reaches the home screen calculation',
   await page.keyboard.press('End'); kb.end = await at();
   await page.keyboard.press('Home'); kb.home = await at();
   await page.keyboard.press('Tab'); kb.tabStaysIn = await S(() => document.getElementById('radial-dialog').contains(document.activeElement));
+  await S(() => radialFocus(0));
+  { const seen = []; for (let i = 0; i < 7; i++) { await page.keyboard.press('ArrowRight'); seen.push(await at()); } kb.walk = seen.join(); }
+  await page.keyboard.press('Home');
   kb.items = await S(() => [...document.querySelectorAll('#radial .radial-item')].map((b) => ({ k: b.dataset.radial, role: b.getAttribute('role'), tag: b.tagName, label: b.textContent.trim() })));
   await page.keyboard.press('Escape');
   await page.waitForTimeout(150);
@@ -8144,10 +8147,10 @@ check('and what was typed reaches the home screen calculation',
   await page.waitForTimeout(150);
   kb.outside = await S(() => !document.getElementById('radial-dialog').open);
   check('2.0 radial: Enter on the bubble opens it (aria-expanded) with focus on Spend; arrows, Home and End move round the fan; Tab stays inside',
-    kb.open && kb.expanded === 'true' && kb.first === 'spend' && kb.right === 'split' && kb.left === 'saving' && kb.end === 'talk' && kb.home === 'scan' && kb.tabStaysIn, JSON.stringify(kb));
-  check('2.0 radial: seven real buttons with labels — Scan receipt, Pay debt, Save, Spend, Split a bill, No spend today, Talk',
+    kb.open && kb.expanded === 'true' && kb.first === 'spend' && kb.right === 'split' && kb.left === 'saving' && kb.end === 'talk' && kb.home === 'scan' && kb.tabStaysIn && kb.walk === 'debt,saving,spend,split,income,talk,scan', JSON.stringify(kb));
+  check('2.0 radial: seven real buttons with labels — Scan receipt, Pay debt, Save, Spend, Split a bill, Add income, Talk (No spend today is not one)',
     kb.items.length === 7 && kb.items.every((i) => i.tag === 'BUTTON' && i.role === 'menuitem' && i.label)
-    && kb.items.map((i) => i.label).join('|') === 'Scan receipt|Pay debt|Save|Spend|Split a bill|No spend today|Talk', JSON.stringify(kb.items));
+    && kb.items.map((i) => i.label).join('|') === 'Scan receipt|Pay debt|Save|Spend|Split a bill|Add income|Talk' && !kb.items.some((i) => i.k === 'nospend'), JSON.stringify(kb.items));
   check('2.0 radial: Escape and a tap outside both close it', kb.closed && kb.outside, JSON.stringify(kb));
 
   // 3) Each item opens its own sheet or flow.
@@ -8168,31 +8171,59 @@ check('and what was typed reaches the home screen calculation',
   const chooser = page.waitForEvent('filechooser', { timeout: 2500 }).then(() => true).catch(() => false);
   await page.click('#radial [data-radial="scan"]');
   items.scan = await chooser;
+  // Add income: the Monthly form as a sheet; saving books an income row.
+  await S(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  await page.click('#kira-bubble');
+  await page.waitForTimeout(420);
+  await page.click('#radial [data-radial="income"]');
+  await page.waitForTimeout(300);
+  items.income = await S(() => ({ open: [...document.querySelectorAll('dialog[open]')].map((d) => d.id).join(), inDialog: !!document.querySelector('#income-dialog #form-income') && !document.getElementById('form-income').hidden,
+    focus: document.activeElement && document.activeElement.name }));
+  const incBefore = await S(() => ({ n: state.income.length, total: document.getElementById('total-income').textContent }));
+  await page.fill('#form-income [name="name"]', 'Radial bonus');
+  await page.fill('#form-income [name="amount"]', '321.50');
+  await page.click('#form-income button[type="submit"]');
+  await page.waitForTimeout(500);
+  const inc = await S((n) => ({ added: state.income.length - n.n, last: state.income[state.income.length - 1], closed: !document.getElementById('income-dialog').open,
+    home: !document.querySelector('#income-dialog #form-income') && !!document.querySelector('#tab-flow #form-income') && document.getElementById('form-income').hidden,
+    totalChanged: document.getElementById('total-income').textContent !== n.total }), incBefore);
+  check('2.0 radial: Add income opens the income sheet with the Source focused, saves one income row (Monthly total moves), closes, and the form returns to Monthly',
+    items.income.open === 'income-dialog' && items.income.inDialog && items.income.focus === 'name' && inc.added === 1 && inc.last.name === 'Radial bonus' && inc.last.amount === 321.5 && inc.closed && inc.home && inc.totalChanged,
+    JSON.stringify({ i: items.income, inc }));
+  // Cancel closes it and puts the form back; Monthly's own Add toggle still opens it inline.
+  await S(() => openAddIncome());
+  await page.waitForTimeout(100);
+  await page.click('#income-dialog [data-add-cancel]');
+  await page.waitForTimeout(200);
+  const canc = await S(() => ({ closed: !document.getElementById('income-dialog').open, home: !!document.querySelector('#tab-flow #form-income') }));
+  check('2.0 radial: Cancel on the income sheet closes it and returns the form to Monthly', canc.closed && canc.home, JSON.stringify(canc));
+
+  // No spend today left the radial: Home's Today card button, the streak sheet and the deep link still check in.
   const ns = await S(async () => {
     document.querySelectorAll('dialog[open]').forEach((d) => d.close());
     const saved = { daily: state.dailyExpenses, streak: JSON.stringify(state.streak) };
     state.dailyExpenses = state.dailyExpenses.filter((e) => e.date !== todayISO());
-    state.streak = { ...coerceStreak(state.streak), enabled: true, noSpendDates: (coerceStreak(state.streak).noSpendDates || []).filter((d) => d !== todayISO()) };
+    state.streak = { ...coerceStreak(state.streak), enabled: true, noSpendDates: (coerceStreak(state.streak).noSpendDates || []).filter((d) => d !== todayISO()), activityDates: (coerceStreak(state.streak).activityDates || []).filter((d) => d !== todayISO()) };
+    state.income = state.income.filter((e) => e.name !== 'Radial bonus');
     renderAll();
-    radialOpen();
-    document.querySelector('#radial [data-radial="nospend"]').click();
+    const row = document.getElementById('today-nospend-row');
+    const shown = !!row && !row.hidden;
+    document.getElementById('btn-no-spend-today').click();
     await new Promise((r) => setTimeout(r, 120));
     const checked = coerceStreak(state.streak).noSpendDates.includes(todayISO());
-    // Already checked in: the streak sheet says so instead.
-    radialOpen();
-    document.querySelector('#radial [data-radial="nospend"]').click();
+    document.getElementById('streak-pill').click();
     await new Promise((r) => setTimeout(r, 120));
     const sheet = document.getElementById('streak-dialog').open;
     document.querySelectorAll('dialog[open]').forEach((d) => d.close());
     state.dailyExpenses = saved.daily; state.streak = JSON.parse(saved.streak); save(); renderAll();
-    return { checked, sheet };
+    return { shown, checked, sheet };
   });
   check('2.0 radial: Spend, Pay debt and Save open the Add entry sheet on that tab with the amount focused',
     ['spend', 'debt', 'saving'].every((k) => items[k].open.join() === 'add-dialog' && items[k].focus === 'amount')
     && items.spend.type === 'expense' && items.debt.type === 'debt' && items.saving.type === 'saving', JSON.stringify(items));
   check('2.0 radial: Split a bill opens the split composer, Talk the voice sheet, Scan receipt the picture picker — never under the radial',
     items.split.open.join() === 'split-compose-dialog' && items.talk.open.join() === 'voice-dialog' && items.scan === true, JSON.stringify(items));
-  check('2.0 radial: No spend today checks in, and once checked in shows the streak sheet', ns.checked && ns.sheet, JSON.stringify(ns));
+  check('2.0 No spend today (not in the radial): the Today card button checks in and the streak chip opens the streak sheet', ns.shown && ns.checked && ns.sheet, JSON.stringify(ns));
 
   // 4) A spend through the sheet lands on Home and the sheet goes.
   await S(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
@@ -8225,7 +8256,7 @@ check('and what was typed reaches the home screen calculation',
   const deep = await S(async () => {
     const out = {};
     const wait = () => new Promise((r) => setTimeout(r, 260));
-    for (const [k, url] of [['spend', 'duitful://action/spend'], ['debt', 'duitful://action/debt'], ['saving', '?action=saving'], ['voice', 'duitful://action/voice'], ['split', 'duitful://action/split']]) {
+    for (const [k, url] of [['spend', 'duitful://action/spend'], ['debt', 'duitful://action/debt'], ['saving', '?action=saving'], ['voice', 'duitful://action/voice'], ['split', 'duitful://action/split'], ['income', 'duitful://action/income']]) {
       document.querySelectorAll('dialog[open]').forEach((d) => d.close());
       lastQuickAction = { name: '', at: 0 };
       requestQuickAction(quickActionFromUrl(url));
@@ -8233,7 +8264,7 @@ check('and what was typed reaches the home screen calculation',
       out[k] = { open: [...document.querySelectorAll('dialog[open]')].map((d) => d.id).join(), type: document.getElementById('daily-type').value };
     }
     document.querySelectorAll('dialog[open]').forEach((d) => d.close());
-    // No spend: the same check-in as the radial's item.
+    // No spend: the same check-in as the Today card's button.
     const realNs = checkInNoSpendToday;
     let ns = 0;
     checkInNoSpendToday = () => { ns++; };
@@ -8253,7 +8284,7 @@ check('and what was typed reaches the home screen calculation',
     deep.scan === true && deep.nospend === 1, JSON.stringify({ scan: deep.scan, nospend: deep.nospend }));
   check('2.0 deep links: duitful://action/spend, /debt, ?action=saving open the Add entry sheet on the right tab; voice and split their own sheets',
     deep.spend.open === 'add-dialog' && deep.spend.type === 'expense' && deep.debt.open === 'add-dialog' && deep.debt.type === 'debt'
-    && deep.saving.open === 'add-dialog' && deep.saving.type === 'saving' && deep.voice.open === 'voice-dialog' && deep.split.open === 'split-compose-dialog', JSON.stringify(deep));
+    && deep.saving.open === 'add-dialog' && deep.saving.type === 'saving' && deep.voice.open === 'voice-dialog' && deep.split.open === 'split-compose-dialog' && deep.income.open === 'income-dialog', JSON.stringify(deep));
 
   // 7) ☰: every item works, and the search shortcuts still open search.
   const menuGo = async (sel) => {
@@ -14872,7 +14903,7 @@ check('the brand catalogue makes no network calls at all',
       '#scan-dialog', '#stmt-dialog', '#capture-check-dialog', '#capture-share-dialog',
       '#split-compose-dialog', '#split-share-dialog', '#split-ingest-dialog', '#split-payto-dialog', '#split-paid-dialog', '#rs-dialog',
       '#wallet-dialog', '#wallet-detail-dialog', '#wallet-adjust-dialog', '#wallet-move-dialog', '#ai-info-dialog', '#ai-think', '#ea-dialog',
-      '#add-dialog', '#radial-dialog', '#menu-dialog', '#menu-hint'];
+      '#add-dialog', '#income-dialog', '#radial-dialog', '#menu-dialog', '#menu-hint'];
     const out = {};
     for (const l of I18N.langs.filter((x) => x.pack).map((x) => x.code)) out[l] = scopes.flatMap((s) => I18N.missing(l, doc.querySelector(s)));
     return out;
@@ -15020,7 +15051,7 @@ check('the brand catalogue makes no network calls at all',
       ['on-device AI', () => { const keep = window.Capacitor; window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} }; try { openAiInfo('badge'); } finally { window.Capacitor = keep; } }],
       ['AI thinking', () => { aiThinkStart(1500, { overlay: true, label: 'Sorting your statement' }); }],
       // 2.0: the Add entry sheet (all three tabs' pills), the open radial and the ☰ menu.
-      ['add entry', () => { openAddEntry('debt', { focus: false }); setDailyMoreOpen(true); }], ['radial', () => radialOpen()], ['menu', () => menuOpen()]]) {
+      ['add entry', () => { openAddEntry('debt', { focus: false }); setDailyMoreOpen(true); }], ['income', () => openAddIncome()], ['radial', () => radialOpen()], ['menu', () => menuOpen()]]) {
       await p.evaluate(open);
       await p.waitForTimeout(250);
       (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang}${theme ? '/' + theme : ''} ${label} dialog: ${x}`));
