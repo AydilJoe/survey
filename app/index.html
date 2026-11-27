@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=d97de80f" />
+    <link rel="stylesheet" href="styles.css?v=2b100fc9" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -825,7 +825,8 @@
                   </optgroup>
                   <optgroup label="Loans">
                     <option value="4.3">4.3% — housing loan (SBR 2.75% plus spread)</option>
-                    <option value="10">10% — personal loan (they run 8–15%)</option>
+                    <option value="3.5" data-extra-effect="full_settlement_only">3.5% — car loan / Hire Purchase (flat rate, full settlement only)</option>
+                    <option value="10" data-extra-effect="full_settlement_only">10% — personal loan (fixed rate, 8–15%)</option>
                     <option value="1">1% — PTPTN (ujrah on the outstanding balance)</option>
                   </optgroup>
                 </select>
@@ -888,6 +889,21 @@
                 <input type="number" name="dueDay" min="1" max="31" step="1" inputmode="numeric" />
                 <span class="hint">A reminder on the day.</span>
               </label>
+              <label class="field">
+                <span>Extra payment rule</span>
+                <select name="extraEffect" id="debt-extra-effect">
+                  <option value="">Auto (based on loan type)</option>
+                  <option value="reduces_interest">Cuts interest / profit right away</option>
+                  <option value="full_settlement_only">Full early settlement only (car / fixed loan)</option>
+                  <option value="no_savings">No interest saved by paying early</option>
+                </select>
+                <span class="hint">Car and fixed loans usually only save interest when settled in full.</span>
+              </label>
+              <label class="field">
+                <span>Early settlement penalty (%)</span>
+                <input type="number" name="lockInPenaltyPct" min="0" max="20" step="0.1" inputmode="decimal" placeholder="0" />
+                <span class="hint">Optional lock-in fee (e.g. 2–3% on housing loans).</span>
+              </label>
             </details>
             <button type="submit" class="primary">Add debt</button>
           </form>
@@ -921,7 +937,7 @@
               <span>Extra monthly payment (<span class="cur-code">MYR</span>)</span>
               <input type="number" id="extra-monthly" min="0" step="0.01" inputmode="decimal" placeholder="0.00" />
             </label>
-            <p class="hint">On top of minimums, to the highest-rate debt first.</p>
+            <p class="hint">On top of minimums, directed by your chosen payoff strategy.</p>
             <div class="stat-row">
               <div class="stat"><span class="label">Debt-free in</span><strong id="stat-months">—</strong></div>
               <div class="stat"><span class="label" data-term="totalInterest">Total interest</span><strong id="stat-interest">RM 0.00</strong></div>
@@ -933,10 +949,25 @@
 
         <div class="card" id="payoff-card">
           <h2>When each debt is cleared</h2>
+          <div class="payoff-strategy" id="payoff-strategy" role="radiogroup" aria-label="Payoff strategy">
+            <button type="button" class="pill active" data-payoff-strategy="avalanche" role="radio" aria-checked="true">Avalanche</button>
+            <button type="button" class="pill" data-payoff-strategy="snowball" role="radio" aria-checked="false">Snowball</button>
+            <button type="button" class="pill" data-payoff-strategy="cfi" role="radio" aria-checked="false">Cash flow</button>
+            <button type="button" class="pill" data-payoff-strategy="hybrid" role="radio" aria-checked="false">Quick-win</button>
+          </div>
           <p class="payoff-target" id="payoff-target" hidden></p>
+          <p class="payoff-compare" id="payoff-compare" hidden></p>
           <ol id="payoff-order" class="payoff-list">
             <li class="empty">No debts yet.</li>
           </ol>
+          <details class="payoff-windfall" id="payoff-windfall-wrap">
+            <summary>Got a bonus or lump sum?</summary>
+            <label class="field">
+              <span>One-off extra amount (<span class="cur-code">MYR</span>)</span>
+              <input type="number" id="windfall-amount" min="0" step="0.01" inputmode="decimal" placeholder="e.g. 2000" />
+            </label>
+            <div id="windfall-results" hidden></div>
+          </details>
         </div>
         <div class="card split-card" id="split-owed-card" hidden>
           <div class="card-head">
@@ -3797,7 +3828,7 @@
 
     <!-- Languages first: i18n-boot.js loads only the active pack (0 KB for English)
          synchronously before i18n.js walks the static markup. -->
-    <script src="i18n-langs.js?v=a0d9b809"></script>
+    <script src="i18n-langs.js?v=7dfe9b4e"></script>
     <script src="i18n-boot.js?v=e8f35f1d"></script>
     <script src="i18n.js?v=e94f1821"></script>
     <script src="drive-config.js?v=9aaf242d"></script>
@@ -3822,7 +3853,7 @@
     <script src="recap.js?v=e4c2c931"></script>
     <script src="brands.js?v=73d9f7dc"></script>
     <script src="search.js?v=1723d81e"></script>
-    <script src="csv.js?v=ca8caf4e"></script>
+    <script src="csv.js?v=e1a8ce53"></script>
     <script src="reports.js?v=6b3b772b"></script>
     <script src="onboarding.js?v=dd4ac4be"></script>
     <script src="kira-seasons.js?v=84d7b80b"></script>
@@ -3836,6 +3867,6 @@
     <script src="pro.js?v=6810a131"></script>
     <script src="ocr.js?v=d135377e"></script>
     <script src="kira-bubble.js?v=c16eff1b"></script>
-    <script src="script.js?v=0ee3c6db"></script>
+    <script src="script.js?v=04282833"></script>
   </body>
 </html>

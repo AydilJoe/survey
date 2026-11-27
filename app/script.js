@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.84.0";
+const APP_VERSION = "1.85.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -59,6 +59,7 @@ const emptyState = () => ({
   investments: [],
   budgetPools: [],
   extraMonthly: 0,
+  payoffStrategy: "avalanche",
   currency: "MYR",
   fx: { anchor: "EUR", rates: {}, fetched_at: null, stale: false },
   monthlyMinSums: {},
@@ -215,19 +216,49 @@ function coerceDebtBrand(d) {
   return out;
 }
 
+const PAYOFF_STRATEGIES = ["avalanche", "snowball", "cfi", "hybrid"];
+const DEBT_EXTRA_EFFECTS = ["reduces_interest", "full_settlement_only", "no_savings"];
+
+function normalizePayoffStrategy(v) {
+  return PAYOFF_STRATEGIES.includes(v) ? v : "avalanche";
+}
+
+function debtExtraEffect(d) {
+  if (!d || typeof d !== "object") return "reduces_interest";
+  if (DEBT_EXTRA_EFFECTS.includes(d.extraEffect)) return d.extraEffect;
+  if (d.kind === "installment") return "no_savings";
+  if (typeof isIslamic === "function" && isIslamic(d)) {
+    return d.contract === "aitab" ? "full_settlement_only" : "reduces_interest";
+  }
+  return (typeof costRate === "function" ? costRate(d) : Number(d.apr) || 0) <= 0
+    ? "no_savings"
+    : "reduces_interest";
+}
+
+function debtLockInPenaltyPct(d) {
+  const v = Number(d && d.lockInPenaltyPct);
+  return Number.isFinite(v) && v > 0 ? Math.min(20, +v.toFixed(2)) : 0;
+}
+
 // Islamic-financing rows carry three extra fields the conventional shape has
 // no slot for. Fill them from whatever survived a partial import so the row
 // renders a "Needs setup" state rather than NaN.
 function coerceDebt(d) {
   d = coerceDebtBrand(d);
-  if (d.kind !== "islamic") return d;
+  const out = { ...d };
+  if (DEBT_EXTRA_EFFECTS.includes(out.extraEffect)) out.extraEffect = out.extraEffect;
+  else delete out.extraEffect;
+  const pen = debtLockInPenaltyPct(out);
+  if (pen > 0) out.lockInPenaltyPct = pen;
+  else delete out.lockInPenaltyPct;
+  if (out.kind !== "islamic") return out;
   const num = (v) => (Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : 0);
-  const tenureMonths = Math.max(0, Math.round(num(d.tenureMonths)));
+  const tenureMonths = Math.max(0, Math.round(num(out.tenureMonths)));
   return {
-    ...d,
-    contract: ISLAMIC_CONTRACTS.some((c) => c.id === d.contract) ? d.contract : "murabahah",
-    principal: num(d.principal),
-    totalProfit: num(d.totalProfit),
+    ...out,
+    contract: ISLAMIC_CONTRACTS.some((c) => c.id === out.contract) ? out.contract : "murabahah",
+    principal: num(out.principal),
+    totalProfit: num(out.totalProfit),
     tenureMonths,
     apr: 0, // conventional APR is meaningless here; ranking uses effectiveProfitRate()
   };
@@ -326,6 +357,7 @@ function coerceState(parsed) {
             createdAt: Number.isFinite(Number(p.createdAt)) ? Number(p.createdAt) : Date.now(),
           })),
       extraMonthly: Number(parsed.extraMonthly) || 0,
+      payoffStrategy: normalizePayoffStrategy(parsed.payoffStrategy),
       currency: typeof parsed.currency === "string" && /^[A-Z]{3}$/i.test(parsed.currency) ? parsed.currency.toUpperCase() : "MYR",
       fx: (parsed && typeof parsed.fx === "object" && parsed.fx) ? {
         anchor: typeof parsed.fx.anchor === "string" ? parsed.fx.anchor : "EUR",
@@ -1925,11 +1957,77 @@ function formatMonths(months) {
   return tr("{y} yr {m} mo", { y: years, m: rem });
 }
 
-/* ---------- avalanche simulation ---------- */
+/* ---------- payoff strategy library (Free for everyone + Kira) ---------- */
 
-function simulateAvalanche(debts, extraMonthly) {
-  // Clone debts; sort by APR desc for avalanche priority.
-  const working = debts
+function payoffCfiScore(d) {
+  const min = Number(d.minPayment) || 0;
+  return min > 0 ? (Number(d.balance) || 0) / min : Infinity;
+}
+
+// Ranks active debts to receive extra / surplus cash under the chosen strategy.
+// - avalanche: skips `no_savings` (0% / no early rebate); prioritizes
+//   `reduces_interest` ahead of `full_settlement_only` (partial extra cuts
+//   interest immediately, whereas full_settlement_only parks cash in a sinking
+//   fund until full balance is reached), then highest cost rate, smaller balance.
+// - snowball: smallest balance first (fastest win), tie-break higher rate.
+// - cfi (Cash-Flow Index): lowest balance ÷ minPayment first (frees monthly
+//   cash flow fastest).
+// - hybrid (Quick-Win Hybrid): clears any non-full-settlement debt finishable
+//   in <= 2 months of (min + extra) first, then runs Avalanche priority.
+function payoffRankForExtra(active, strategy, extraMonthly) {
+  const strat = normalizePayoffStrategy(strategy);
+  const avalancheSort = (list) => list
+    .filter((d) => d.extraEffect !== "no_savings")
+    .sort((a, b) => {
+      const ta = a.extraEffect === "full_settlement_only" ? 1 : 0;
+      const tb = b.extraEffect === "full_settlement_only" ? 1 : 0;
+      return ta - tb || b.rate - a.rate || a.balance - b.balance;
+    });
+
+  if (strat === "snowball") {
+    return active.slice().sort((a, b) => a.balance - b.balance || b.rate - a.rate);
+  }
+  if (strat === "cfi") {
+    return active.slice().sort((a, b) => payoffCfiScore(a) - payoffCfiScore(b) || a.balance - b.balance || b.rate - a.rate);
+  }
+  if (strat === "hybrid") {
+    const budget = Math.max(0, Number(extraMonthly) || 0);
+    if (active.length > 1 && budget > 0) {
+      const quickWins = active
+        .filter((d) => d.extraEffect !== "full_settlement_only" && d.balance <= (d.minPayment + budget) * 2 + 0.005)
+        .sort((a, b) => a.balance - b.balance || b.rate - a.rate);
+      if (quickWins.length) {
+        const qIds = new Set(quickWins.map((d) => d.id));
+        const rest = avalancheSort(active.filter((d) => !qIds.has(d.id)));
+        return quickWins.concat(rest);
+      }
+    }
+    return avalancheSort(active);
+  }
+  return avalancheSort(active);
+}
+
+function payoffTargetFor(debts, strategy, extraMonthly) {
+  const active = (debts || [])
+    .map((d) => ({
+      ...d,
+      balance: Number(d.balance) || 0,
+      rate: costRate(d),
+      islamic: isIslamic(d),
+      minPayment: isIslamic(d) ? islamicInstalment(d) : Number(d.minPayment) || 0,
+      extraEffect: debtExtraEffect(d),
+      lockInPenaltyPct: debtLockInPenaltyPct(d),
+    }))
+    .filter((d) => d.balance > 0);
+  if (!active.length) return null;
+  const ranked = payoffRankForExtra(active, strategy, extraMonthly);
+  return ranked[0] || null;
+}
+
+function simulatePayoff(debts, extraMonthly, strategy) {
+  const strat = normalizePayoffStrategy(strategy);
+  const extra = Math.max(0, Number(extraMonthly) || 0);
+  const working = (debts || [])
     .map((d) => ({
       id: d.id,
       name: d.name,
@@ -1943,24 +2041,42 @@ function simulateAvalanche(debts, extraMonthly) {
       // Conventional interest compounds on the balance instead.
       fixedMonthlyProfit: isIslamic(d) ? islamicMonthlyProfit(d) : 0,
       // Contracted profit can never be exceeded, however the schedule runs.
-      // Without this cap, sub-cent rounding in the stored instalment leaves a
-      // few sen outstanding at term and buys a whole extra month of profit.
       profitRemaining: isIslamic(d) ? (Number(d.totalProfit) || 0) : Infinity,
       islamic: isIslamic(d),
       // Use the exact instalment for Islamic rows; `minPayment` is stored
       // rounded to sen for display and drifts over a long tenure.
       minPayment: isIslamic(d) ? islamicInstalment(d) : Number(d.minPayment) || 0,
+      extraEffect: debtExtraEffect(d),
+      lockInPenaltyPct: debtLockInPenaltyPct(d),
+      sinkingFund: 0,
+      settledBySinkingFund: false,
+      sinkingTargetAmount: 0,
+      penaltyPaid: 0,
       paidAtMonth: null,
     }))
     .filter((d) => d.balance > 0);
 
   if (working.length === 0) {
-    return { months: 0, totalInterest: 0, order: [], infeasible: false };
+    return {
+      strategy: strat,
+      months: 0,
+      totalInterest: 0,
+      totalPenalty: 0,
+      order: [],
+      infeasible: false,
+      firstCleared: null,
+      target: null,
+      sinkingTargets: [],
+    };
   }
 
+  const initialTarget = payoffRankForExtra(working, strat, extra)[0] || null;
+  const initialMinSum = working.reduce((s, d) => s + d.minPayment, 0);
   let month = 0;
   let totalInterest = 0;
+  let totalPenalty = 0;
   let infeasible = false;
+  let carriedCash = 0;
 
   while (working.some((d) => d.balance > 0.005)) {
     month += 1;
@@ -1969,7 +2085,7 @@ function simulateAvalanche(debts, extraMonthly) {
       break;
     }
 
-    // Accrue this month's cost of carry.
+    // 1. Accrue this month's interest / contracted profit on active balances.
     for (const d of working) {
       if (d.balance <= 0) continue;
       const charge = d.islamic
@@ -1980,60 +2096,69 @@ function simulateAvalanche(debts, extraMonthly) {
       totalInterest += charge;
     }
 
-    // Pool of payments: sum of minimums + extra.
-    let pool = working.reduce(
-      (sum, d) => sum + (d.balance > 0 ? d.minPayment : 0),
-      0,
-    ) + (Number(extraMonthly) || 0);
-
-    if (pool <= 0) {
+    // Monthly budget keeps freed minimums rolling into remaining targets.
+    const monthlyBudget = initialMinSum + extra;
+    if (monthlyBudget <= 0) {
       infeasible = true;
       break;
     }
 
-    // Sort remaining debts by APR desc, tie-break by smaller balance.
-    const remaining = working
-      .filter((d) => d.balance > 0)
-      .sort((a, b) => b.rate - a.rate || a.balance - b.balance);
+    let pool = monthlyBudget + carriedCash;
+    carriedCash = 0;
 
-    // First pass: pay minimum (or full balance) on every debt except the target.
-    // Target is remaining[0] — highest APR.
-    // For non-target debts, allocate their minimum (capped by balance).
-    for (let i = 1; i < remaining.length; i++) {
-      const d = remaining[i];
+    // 2. Pay scheduled minimum on every active debt first.
+    for (const d of working) {
+      if (d.balance <= 0) continue;
       const pay = Math.min(d.minPayment, d.balance, pool);
       d.balance -= pay;
       pool -= pay;
       if (d.balance <= 0.005) {
         d.balance = 0;
         d.paidAtMonth = month;
+        if (d.sinkingFund > 0) {
+          pool += d.sinkingFund;
+          d.sinkingFund = 0;
+        }
       }
     }
 
-    // All remaining pool goes to target (highest APR).
-    if (remaining.length > 0) {
-      const target = remaining[0];
-      const pay = Math.min(pool, target.balance);
-      target.balance -= pay;
-      pool -= pay;
-      if (target.balance <= 0.005) {
-        target.balance = 0;
-        target.paidAtMonth = month;
-      }
+    // 3. Allocate surplus according to the active strategy & extraEffect rules.
+    let guard = 0;
+    while (pool > 0.005 && guard++ < working.length + 4) {
+      const active = working.filter((d) => d.balance > 0.005);
+      if (!active.length) break;
+      const ranked = payoffRankForExtra(active, strat, extra);
+      const target = ranked[0];
+      if (!target) break; // e.g., Avalanche with only `no_savings` debts left
 
-      // Overflow cascade: if target paid off mid-month with surplus pool,
-      // redirect surplus to next-highest APR debt, then next, etc.
-      while (pool > 0.005) {
-        const next = working
-          .filter((d) => d.balance > 0)
-          .sort((a, b) => b.rate - a.rate || a.balance - b.balance)[0];
-        if (!next) break;
-        const pay2 = Math.min(pool, next.balance);
-        next.balance -= pay2;
-        pool -= pay2;
-        if (next.balance <= 0.005) {
-          next.balance = 0;
-          next.paidAtMonth = month;
+      if (target.extraEffect === "full_settlement_only") {
+        // Park surplus in a settlement sinking fund instead of trickling partial
+        // payments that don't cut interest/profit on fixed / Hire Purchase loans.
+        target.sinkingFund += pool;
+        pool = 0;
+        const penalty = target.balance * (target.lockInPenaltyPct / 100);
+        const settlementCost = target.balance + penalty;
+        if (target.sinkingFund >= settlementCost - 0.005) {
+          const leftover = Math.max(0, target.sinkingFund - settlementCost);
+          target.sinkingTargetAmount = +settlementCost.toFixed(2);
+          target.penaltyPaid += penalty;
+          totalPenalty += penalty;
+          totalInterest += penalty;
+          target.sinkingFund = 0;
+          target.balance = 0;
+          target.paidAtMonth = month;
+          target.settledBySinkingFund = true;
+          pool += leftover;
+        } else {
+          break; // keep accumulating in sinking fund next month
+        }
+      } else {
+        const pay = Math.min(pool, target.balance);
+        target.balance -= pay;
+        pool -= pay;
+        if (target.balance <= 0.005) {
+          target.balance = 0;
+          target.paidAtMonth = month;
         }
       }
     }
@@ -2049,10 +2174,136 @@ function simulateAvalanche(debts, extraMonthly) {
       apr: d.apr,
       rate: d.rate,
       islamic: d.islamic,
+      extraEffect: d.extraEffect,
+      lockInPenaltyPct: d.lockInPenaltyPct,
       paidAtMonth: d.paidAtMonth,
+      settledBySinkingFund: d.settledBySinkingFund,
+      sinkingTargetAmount: d.sinkingTargetAmount,
+      penaltyPaid: +d.penaltyPaid.toFixed(2),
     }));
 
-  return { months: month, totalInterest, order, infeasible };
+  const sinkingTargets = order
+    .filter((d) => d.settledBySinkingFund)
+    .map((d) => ({
+      id: d.id,
+      name: d.name,
+      settledAtMonth: d.paidAtMonth,
+      targetAmount: d.sinkingTargetAmount,
+      penalty: d.penaltyPaid,
+    }));
+
+  return {
+    strategy: strat,
+    months: month,
+    totalInterest,
+    totalPenalty,
+    order,
+    infeasible,
+    firstCleared: order[0] || null,
+    target: initialTarget ? {
+      id: initialTarget.id,
+      name: initialTarget.name,
+      rate: initialTarget.rate,
+      islamic: initialTarget.islamic,
+      extraEffect: initialTarget.extraEffect,
+      lockInPenaltyPct: initialTarget.lockInPenaltyPct,
+      balance: initialTarget.balance,
+      minPayment: initialTarget.minPayment,
+    } : null,
+    sinkingTargets,
+  };
+}
+
+function simulateAvalanche(debts, extraMonthly) {
+  return simulatePayoff(debts, extraMonthly, "avalanche");
+}
+
+function comparePayoffStrategies(debts, extraMonthly) {
+  const out = {};
+  for (const s of PAYOFF_STRATEGIES) {
+    out[s] = simulatePayoff(debts, extraMonthly, s);
+  }
+  return out;
+}
+
+// Tests applying a one-off lump sum (bonus / windfall) to each active debt,
+// respecting `extraEffect` (full_settlement_only requires covering the full
+// balance + lock-in penalty; no_savings saves 0 interest) and `lockInPenaltyPct`.
+function simulateWindfall(debts, extraMonthly, lumpSum, strategy) {
+  const strat = normalizePayoffStrategy(strategy);
+  const lump = Math.max(0, Number(lumpSum) || 0);
+  const active = (debts || []).filter((d) => (Number(d.balance) || 0) > 0);
+  const baseline = simulatePayoff(active, extraMonthly, strat);
+  if (lump <= 0 || !active.length || baseline.infeasible) {
+    return { baseline, lumpSum: lump, options: [], best: null };
+  }
+
+  const options = active.map((d) => {
+    const effect = debtExtraEffect(d);
+    const penaltyPct = debtLockInPenaltyPct(d);
+    const bal = Number(d.balance) || 0;
+    const settlementCost = bal * (1 + penaltyPct / 100);
+
+    if (effect === "full_settlement_only" && lump + 0.005 < settlementCost) {
+      return {
+        id: d.id,
+        name: d.name,
+        extraEffect: effect,
+        eligible: false,
+        reason: "needs_full_settlement",
+        shortfall: +(settlementCost - lump).toFixed(2),
+        settlementCost: +settlementCost.toFixed(2),
+        interestSaved: 0,
+        penalty: 0,
+        netSaved: 0,
+        monthsSaved: 0,
+        freedMonthly: 0,
+      };
+    }
+
+    const applied = effect === "full_settlement_only"
+      ? bal
+      : Math.min(lump, bal);
+    const penalty = effect === "full_settlement_only" || applied >= bal - 0.005
+      ? applied * (penaltyPct / 100)
+      : (penaltyPct > 0 ? applied * (penaltyPct / 100) : 0);
+    const clearedNow = applied >= bal - 0.005;
+
+    const nextDebts = active.map((x) => {
+      if (x.id !== d.id) return x;
+      return { ...x, balance: Math.max(0, +(bal - applied).toFixed(2)) };
+    });
+    const after = simulatePayoff(nextDebts, extraMonthly, strat);
+    const interestSaved = Math.max(0, baseline.totalInterest - after.totalInterest);
+    const netSaved = +(interestSaved - penalty).toFixed(2);
+    const monthsSaved = Math.max(0, baseline.months - after.months);
+    const freedMonthly = clearedNow ? +(isIslamic(d) ? islamicInstalment(d) : Number(d.minPayment) || 0).toFixed(2) : 0;
+
+    return {
+      id: d.id,
+      name: d.name,
+      extraEffect: effect,
+      eligible: effect !== "no_savings" || clearedNow,
+      reason: effect === "no_savings" ? "no_savings" : (netSaved < 0 ? "penalty_exceeds_savings" : "ok"),
+      applied: +applied.toFixed(2),
+      clearedNow,
+      interestSaved: +interestSaved.toFixed(2),
+      penalty: +penalty.toFixed(2),
+      netSaved,
+      monthsSaved,
+      freedMonthly,
+      penaltyExceedsSavings: penalty > 0 && netSaved <= 0,
+    };
+  });
+
+  options.sort((a, b) => {
+    const ae = a.eligible && !a.penaltyExceedsSavings ? 0 : 1;
+    const be = b.eligible && !b.penaltyExceedsSavings ? 0 : 1;
+    return ae - be || b.netSaved - a.netSaved || b.monthsSaved - a.monthsSaved || b.freedMonthly - a.freedMonthly;
+  });
+
+  const best = options.find((o) => o.eligible && !o.penaltyExceedsSavings && (o.netSaved > 0 || o.monthsSaved > 0 || o.freedMonthly > 0)) || null;
+  return { baseline, lumpSum: lump, options, best };
 }
 
 /* ---------- rendering ---------- */
@@ -3110,9 +3361,8 @@ function renderDashboard() {
       if (totalEl) totalEl.textContent = fmtMoney(total);
       if (metaEl) {
         const n = state.debts.length;
-        // Try to compute payoff ETA from the avalanche sim (already runs in
-        // renderDebtsCard but we don't have its result here). Compute it cheap.
-        const sim = simulateAvalanche(state.debts, state.extraMonthly);
+        const strat = normalizePayoffStrategy(state.payoffStrategy);
+        const sim = simulatePayoff(state.debts, state.extraMonthly, strat);
         let etaPart;
         if (sim.infeasible) {
           etaPart = T("belowRate");
@@ -3185,7 +3435,14 @@ function renderDashboard() {
     if (extraInput.value !== desired) extraInput.value = desired;
   }
 
-  const sim = simulateAvalanche(state.debts, state.extraMonthly);
+  const activeStrat = normalizePayoffStrategy(state.payoffStrategy);
+  document.querySelectorAll("#payoff-strategy [data-payoff-strategy]").forEach((btn) => {
+    const on = btn.dataset.payoffStrategy === activeStrat;
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-checked", on ? "true" : "false");
+  });
+
+  const sim = simulatePayoff(state.debts, state.extraMonthly, activeStrat);
   const monthsEl = $("#stat-months");
   const interestEl = $("#stat-interest");
 
@@ -3221,28 +3478,69 @@ function renderDashboard() {
   }
 
   const orderEl = $("#payoff-order");
+  const compareEl = document.getElementById("payoff-compare");
   if (state.debts.length === 0) {
-    // Unreachable in practice — #payoff-card is hidden above when there are
-    // no debts, and the dashboard's #debt-empty carries the real call to
-    // action. Kept as a defensive placeholder, deliberately not an
-    // empty-block: a panel nobody can see is just a thing to maintain.
     orderEl.innerHTML = `<li class="empty">${tr("No debts yet.")}</li>`;
+    if (compareEl) { compareEl.hidden = true; compareEl.textContent = ""; }
   } else {
-    // This list runs in the order debts get CLEARED, which is not the order
-    // to attack them: a short 0% instalment plan ends first on its own. Say
-    // where the avalanche actually sends extra money — the same pick
-    // simulateAvalanche makes (highest cost rate, then smaller balance) — so
-    // a "1" next to a 0% plan never reads as "pay this first".
+    const activeDebts = state.debts.filter((d) => (Number(d.balance) || 0) > 0);
     const targetEl = document.getElementById("payoff-target");
-    const target = state.debts
-      .filter((d) => (Number(d.balance) || 0) > 0)
-      .sort((a, b) => costRate(b) - costRate(a) || (Number(a.balance) || 0) - (Number(b.balance) || 0))[0];
+    const target = sim.target;
     if (targetEl) {
-      targetEl.hidden = !target || state.debts.filter((d) => (Number(d.balance) || 0) > 0).length < 2;
-      if (target) {
-        targetEl.innerHTML = tr("Anything extra goes to <strong>{name}</strong> first ({rate}) — the highest rate. Everything else gets its minimum.", { name: escapeHtml(target.name), rate: `${fmtPct(costRate(target))}${isIslamic(target) ? ` ${tr("eff.")}` : ""}` });
+      const showTarget = activeDebts.length >= 2 || (target && target.extraEffect === "full_settlement_only") || (!target && activeDebts.length > 0);
+      targetEl.hidden = !showTarget;
+      if (showTarget) {
+        if (!target) {
+          targetEl.innerHTML = tr("None of these debts save interest from paying early — stick to minimums, or switch to Snowball or Cash flow to free a monthly bill sooner.");
+        } else if (target.extraEffect === "full_settlement_only") {
+          targetEl.innerHTML = tr("Park extra cash in a settlement fund for <strong>{name}</strong> — partial extra payments don't cut its interest, so settle it in full once saved.", { name: escapeHtml(target.name) });
+        } else if (activeStrat === "snowball") {
+          targetEl.innerHTML = tr("Anything extra goes to <strong>{name}</strong> first ({bal}) — the smallest balance, for the fastest win.", { name: escapeHtml(target.name), bal: fmtMoney(target.balance) });
+        } else if (activeStrat === "cfi") {
+          const score = payoffCfiScore(target);
+          targetEl.innerHTML = tr("Anything extra goes to <strong>{name}</strong> first (index {score}) — frees {min}/mo the fastest.", { name: escapeHtml(target.name), score: Number.isFinite(score) ? score.toFixed(1) : "—", min: fmtMoney(target.minPayment) });
+        } else if (activeStrat === "hybrid") {
+          targetEl.innerHTML = tr("Quick-win first: extra goes to <strong>{name}</strong> ({rate}), then highest rate next.", { name: escapeHtml(target.name), rate: `${fmtPct(target.rate)}${target.islamic ? ` ${tr("eff.")}` : ""}` });
+        } else {
+          targetEl.innerHTML = tr("Anything extra goes to <strong>{name}</strong> first ({rate}) — the highest rate. Everything else gets its minimum.", { name: escapeHtml(target.name), rate: `${fmtPct(target.rate)}${target.islamic ? ` ${tr("eff.")}` : ""}` });
+        }
       }
     }
+
+    if (compareEl) {
+      const parts = [];
+      if (activeDebts.length >= 2 && !sim.infeasible && activeStrat !== "avalanche") {
+        const av = simulateAvalanche(state.debts, state.extraMonthly);
+        if (!av.infeasible) {
+          const diffInt = sim.totalInterest - av.totalInterest;
+          const diffMo = sim.months - av.months;
+          const first = sim.firstCleared && sim.firstCleared.paidAtMonth
+            ? tr("First cleared in {m}", { m: formatMonths(sim.firstCleared.paidAtMonth) })
+            : "";
+          let vsText;
+          if (Math.abs(diffInt) < 1 && diffMo === 0) {
+            vsText = tr("Same cost and timeline as Avalanche.");
+          } else {
+            const pieces = [];
+            if (diffInt >= 1) pieces.push(tr("+{a} more interest", { a: fmtMoney(diffInt) }));
+            else if (diffInt <= -1) pieces.push(tr("{a} less interest", { a: fmtMoney(Math.abs(diffInt)) }));
+            if (diffMo > 0) pieces.push(tr("+{n} mo", { n: diffMo }));
+            else if (diffMo < 0) pieces.push(tr("{n} mo faster", { n: Math.abs(diffMo) }));
+            vsText = tr("vs Avalanche: {d}", { d: pieces.join(", ") });
+          }
+          parts.push([first, vsText].filter(Boolean).join(" · "));
+        }
+      }
+      if (sim.sinkingTargets && sim.sinkingTargets.length) {
+        const sf = sim.sinkingTargets[0];
+        const baseMonth = currentMonthISO();
+        const settleMonth = formatMonthLabelShort(shiftMonth(baseMonth, sf.settledAtMonth - 1));
+        parts.push(tr("Settlement fund: save {a} to clear {name} in full ({m}).", { a: fmtMoney(sf.targetAmount), name: sf.name, m: settleMonth }));
+      }
+      compareEl.hidden = parts.length === 0;
+      compareEl.textContent = parts.join(" ");
+    }
+
     // Convert "Month N" to "Cleared by <Month YYYY>" so the label reads as a
     // calendar deadline rather than an ordinal rank.
     const baseMonth = currentMonthISO();
@@ -3253,16 +3551,20 @@ function renderDashboard() {
           const targetMonth = shiftMonth(baseMonth, d.paidAtMonth - 1);
           // Short month ("Aug 2030") so the eta label doesn't wrap in
           // narrow payoff cards.
-          etaLabel = tr("Cleared {m}", { m: formatMonthLabelShort(targetMonth) });
+          etaLabel = d.settledBySinkingFund
+            ? tr("Settled {m}", { m: formatMonthLabelShort(targetMonth) })
+            : tr("Cleared {m}", { m: formatMonthLabelShort(targetMonth) });
         }
-        // 3 grid children to match `grid-template-columns: auto 1fr auto`:
-        // counter (::before), name+detail, eta. A leading empty <span>
-        // here would push the eta onto a wrapped second row.
+        const effectTag = d.extraEffect === "full_settlement_only"
+          ? ` · <span class="payoff-effect-tag">${tr("Full settlement")}</span>`
+          : d.extraEffect === "no_savings"
+            ? ` · <span class="payoff-effect-tag">${tr("No early savings")}</span>`
+            : "";
         return `
         <li>
           <span class="debt-info">
             <div class="debt-name">${escapeHtml(d.name)}</div>
-            <div class="debt-detail">${tr(d.islamic ? TERMS.islamic.rateShort : TERMS.conventional.rateShort)} ${fmtPct(d.rate)}${d.islamic ? ` ${tr("eff.")}` : ""}</div>
+            <div class="debt-detail">${tr(d.islamic ? TERMS.islamic.rateShort : TERMS.conventional.rateShort)} ${fmtPct(d.rate)}${d.islamic ? ` ${tr("eff.")}` : ""}${effectTag}</div>
           </span>
           <span class="payoff-eta">${etaLabel}</span>
         </li>`;
@@ -3270,7 +3572,56 @@ function renderDashboard() {
       .join("");
   }
 
+  renderWindfallSimulator();
   renderLastMonthLine();
+}
+
+function renderWindfallSimulator() {
+  const input = document.getElementById("windfall-amount");
+  const outEl = document.getElementById("windfall-results");
+  if (!input || !outEl) return;
+  const lump = Number(input.value) || 0;
+  if (lump <= 0 || !state.debts.some((d) => (Number(d.balance) || 0) > 0)) {
+    outEl.hidden = true;
+    outEl.innerHTML = "";
+    return;
+  }
+  const strat = normalizePayoffStrategy(state.payoffStrategy);
+  const res = simulateWindfall(state.debts, state.extraMonthly, lump, strat);
+  outEl.hidden = false;
+  if (!res.options.length) {
+    outEl.innerHTML = `<p class="hint">${tr("Check your monthly minimums first.")}</p>`;
+    return;
+  }
+  const bestId = res.best ? res.best.id : null;
+  const rows = res.options.map((o) => {
+    let summary;
+    if (o.reason === "needs_full_settlement") {
+      summary = tr("Needs full settlement ({a} — short by {b}). Park it in savings until ready.", { a: fmtMoney(o.settlementCost), b: fmtMoney(o.shortfall) });
+    } else if (o.penaltyExceedsSavings) {
+      summary = tr("Penalty ({p}) outweighs interest saved ({s}) — wait until lock-in ends.", { p: fmtMoney(o.penalty), s: fmtMoney(o.interestSaved) });
+    } else if (o.reason === "no_savings") {
+      summary = o.clearedNow && o.freedMonthly > 0
+        ? tr("Saves {a} interest · clears bill and frees {m}/mo.", { a: fmtMoney(0), m: fmtMoney(o.freedMonthly) })
+        : tr("Saves {a} interest — better used elsewhere.", { a: fmtMoney(0) });
+    } else {
+      const bits = [];
+      if (o.netSaved > 0) bits.push(tr("Saves {a}", { a: fmtMoney(o.netSaved) }));
+      if (o.monthsSaved > 0) bits.push(tr("{n} mo sooner", { n: o.monthsSaved }));
+      if (o.clearedNow && o.freedMonthly > 0) bits.push(tr("frees {m}/mo", { m: fmtMoney(o.freedMonthly) }));
+      if (o.penalty > 0) bits.push(tr("after {p} penalty", { p: fmtMoney(o.penalty) }));
+      summary = bits.length ? bits.join(" · ") : tr("No measurable change.");
+    }
+    const isBest = o.id === bestId;
+    return `<li class="windfall-row${isBest ? " is-best" : ""}${!o.eligible || o.penaltyExceedsSavings ? " is-muted" : ""}">
+      <div class="windfall-row-head">
+        <strong>${escapeHtml(o.name)}</strong>
+        ${isBest ? `<span class="windfall-best-badge">${tr("Best move")}</span>` : ""}
+      </div>
+      <div class="windfall-row-detail">${escapeHtml(summary)}</div>
+    </li>`;
+  }).join("");
+  outEl.innerHTML = `<ul class="windfall-list">${rows}</ul>`;
 }
 
 /* ---------- zakat ---------- */
@@ -6822,12 +7173,16 @@ document.querySelectorAll(".debt-type-pills .pill").forEach((btn) => {
    the number in the APR box is the feedback. */
 document.getElementById("debt-apr-preset")?.addEventListener("change", (e) => {
   const sel = e.currentTarget;
+  const opt = sel.selectedOptions && sel.selectedOptions[0];
   const rate = sel.value;
+  const effect = opt && opt.dataset ? (opt.dataset.extraEffect || "") : "";
   sel.value = "";
   if (!rate) return;
   const apr = document.querySelector("#form-debt input[name='apr']");
   if (!apr) return;
   apr.value = rate;
+  const effectSel = document.querySelector("#form-debt select[name='extraEffect']");
+  if (effectSel && (!effectSel.value || effect)) effectSel.value = effect;
   // Anything watching the field (previews, validation) should see this as a
   // real edit, because it is one.
   apr.dispatchEvent(new Event("input", { bubbles: true }));
@@ -7070,12 +7425,22 @@ function initDebtBrandPicker() {
 }
 initDebtBrandPicker();
 
+function debtExtraFieldsFromForm(f) {
+  const out = {};
+  const rawEff = (f.get("extraEffect") || "").toString().trim();
+  if (DEBT_EXTRA_EFFECTS.includes(rawEff)) out.extraEffect = rawEff;
+  const rawPen = Number(f.get("lockInPenaltyPct"));
+  if (Number.isFinite(rawPen) && rawPen > 0) out.lockInPenaltyPct = Math.min(20, +rawPen.toFixed(2));
+  return out;
+}
+
 $("#form-debt").addEventListener("submit", (e) => {
   e.preventDefault();
   const f = new FormData(e.target);
   const name = (f.get("name") || "").toString().trim();
   const kind = (f.get("kind") || "standard").toString();
   const dueDay = parseDay(f.get("dueDay"));
+  const extraFields = debtExtraFieldsFromForm(f);
   if (!name) return;
   // Pro gates. Islamic financing is never gated and never counted.
   if (kind !== "islamic") {
@@ -7108,6 +7473,7 @@ $("#form-debt").addEventListener("submit", (e) => {
       principal,
       totalProfit,
       tenureMonths,
+      ...extraFields,
     });
     // Legacy flag: older builds gate the Islamic pill on it, so keep it set
     // for anyone who round-trips a CSV back to a pre-1.9 version.
@@ -7133,6 +7499,7 @@ $("#form-debt").addEventListener("submit", (e) => {
       // imply negative progress, so it is clamped rather than rejected.
       termMonths: debtTermFromForm(f, monthsLeft),
       ...debtBrandFromForm(f, name),
+      ...extraFields,
     });
   } else {
     const balance = Number(f.get("balance"));
@@ -7141,7 +7508,7 @@ $("#form-debt").addEventListener("submit", (e) => {
     if (!Number.isFinite(balance) || balance < 0) return;
     if (!Number.isFinite(apr) || apr < 0) return;
     if (!Number.isFinite(minPayment) || minPayment < 0) return;
-    state.debts.push({ id: uid(), name, balance, apr, minPayment, dueDay, kind: "standard" });
+    state.debts.push({ id: uid(), name, balance, apr, minPayment, dueDay, kind: "standard", ...extraFields });
   }
 
   save();
@@ -7597,6 +7964,19 @@ function openEditDialog(kind, id) {
     }
   } else if (kind === "debt") {
     const isInstallment = entity.kind === "installment";
+    const curEff = entity.extraEffect || "";
+    const extraEffectHtml = `
+      <label class="field">
+        <span>Extra payment rule</span>
+        <select name="extraEffect">
+          <option value=""${curEff === "" ? " selected" : ""}>Auto (based on loan type)</option>
+          <option value="reduces_interest"${curEff === "reduces_interest" ? " selected" : ""}>Cuts interest / profit right away</option>
+          <option value="full_settlement_only"${curEff === "full_settlement_only" ? " selected" : ""}>Full early settlement only (car / fixed loan)</option>
+          <option value="no_savings"${curEff === "no_savings" ? " selected" : ""}>No interest saved by paying early</option>
+        </select>
+      </label>
+      ${numberField("Early settlement penalty (%)", "lockInPenaltyPct", entity.lockInPenaltyPct ?? "", { step: "0.1", min: "0", max: "20" })}
+    `;
     if (isIslamic(entity)) {
       const tenure = Number(entity.tenureMonths) || 0;
       const paid = Math.max(0, tenure - islamicMonthsLeft(entity));
@@ -7616,6 +7996,7 @@ function openEditDialog(kind, id) {
         </div>
         ${numberField("Months paid", "monthsPaid", paid, { step: "1", min: "0", max: "480" })}
         ${numberField("Due day (1–31)", "dueDay", entity.dueDay ?? "", { step: "1", min: "1", max: "31" })}
+        ${extraEffectHtml}
         <p class="hint">Fixed profit, no compounding. Balance shown is outstanding principal — settling today costs that, with the unearned profit rebated as ibra'.</p>
       `;
     } else if (isInstallment) {
@@ -7633,6 +8014,7 @@ function openEditDialog(kind, id) {
           ${numberField("Total months", "termMonths", entity.termMonths ?? "", { step: "1", min: "1", max: "120" })}
         </div>
         ${numberField("Due day (1–31)", "dueDay", entity.dueDay ?? "", { step: "1", min: "1", max: "31" })}
+        ${extraEffectHtml}
         <p class="hint">${tr("Interest-free installment (Atome / SPayLater style). Balance = monthly × months left.")}${
           prog && prog.known
             ? ""
@@ -7648,6 +8030,7 @@ function openEditDialog(kind, id) {
           ${numberField("Min (RM)", "minPayment", entity.minPayment)}
         </div>
         ${numberField("Due day (1–31)", "dueDay", entity.dueDay ?? "", { step: "1", min: "1", max: "31" })}
+        ${extraEffectHtml}
       `;
     }
   } else if (kind === "saving") {
@@ -7764,6 +8147,12 @@ editForm.addEventListener("submit", (e) => {
       if (![balance, apr, minPayment].every((n) => Number.isFinite(n) && n >= 0)) return;
       it.name = name; it.balance = balance; it.apr = apr; it.minPayment = minPayment; it.dueDay = dueDay;
     }
+    const rawEff = (f.get("extraEffect") || "").toString().trim();
+    if (DEBT_EXTRA_EFFECTS.includes(rawEff)) it.extraEffect = rawEff;
+    else delete it.extraEffect;
+    const rawPen = Number(f.get("lockInPenaltyPct"));
+    if (Number.isFinite(rawPen) && rawPen > 0) it.lockInPenaltyPct = Math.min(20, +rawPen.toFixed(2));
+    else delete it.lockInPenaltyPct;
   } else if (kind === "saving") {
     const it = state.savings.find((x) => x.id === id);
     if (!it) { closeEditDialog(); return; }
@@ -7925,12 +8314,24 @@ document.querySelectorAll(".hero-stat").forEach((el) => {
   });
 });
 
-/* extra monthly payment */
+/* extra monthly payment + strategy picker + windfall simulator */
 $("#extra-monthly").addEventListener("input", (e) => {
   const v = Number(e.target.value);
   state.extraMonthly = Number.isFinite(v) && v >= 0 ? v : 0;
   save();
   renderDashboard();
+});
+document.getElementById("payoff-strategy")?.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-payoff-strategy]");
+  if (!btn) return;
+  const next = normalizePayoffStrategy(btn.dataset.payoffStrategy);
+  if (state.payoffStrategy === next) return;
+  state.payoffStrategy = next;
+  save();
+  renderDashboard();
+});
+document.getElementById("windfall-amount")?.addEventListener("input", () => {
+  renderWindfallSimulator();
 });
 
 $("#btn-clear").addEventListener("click", async () => {
@@ -7958,6 +8359,10 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.85.0": [
+    "<strong>Debt payoff strategies (free for everyone)</strong> — Switch between Avalanche, Snowball, Cash flow, and Quick-win on the Debts tab to compare timelines, interest saved, and where a bonus or lump sum works hardest.",
+    "<strong>Real-world loan rules</strong> — Fixed-rate car loans (Hire Purchase / AITAB) now model a settlement fund instead of partial extra payments that don't cut interest, 0% plans are skipped by Avalanche, and optional early-settlement penalties are factored in.",
+  ],
   "1.84.0": [
     "<strong>Jelly Bubble and 4-action radial</strong> — Tap the centre bubble for Scan, Money out (Spend, Split, Pay debt), Income, and Kira or Docs, or hold to pop straight into Voice with rising bubble sounds and haptics.",
     "<strong>Glance Home and ☰ menu</strong> — Home stays focused on your balance and today's spending; Settings, Reports, Tax, and Kira &amp; Docs live cleanly in the menu, with separate Sound and Haptics toggles.",

@@ -19225,6 +19225,67 @@ check('the brand catalogue makes no network calls at all',
     JSON.stringify({ layout: parsed.layout, count: parsed.rows.length, rec }));
 }
 
+// ---------- v1.85.0: Debt Strategy Library & real-world loan rules (Free) ----------
+{
+  const stratRes = await S(() => {
+    const keep = { debts: state.debts, extra: state.extraMonthly, strat: state.payoffStrategy };
+    state.debts = [
+      { id: 'd-bnpl', name: 'Atome', balance: 360, apr: 0, minPayment: 120, kind: 'installment', installment: 120, monthsLeft: 3 },
+      { id: 'd-card', name: 'Visa', balance: 4000, apr: 18, minPayment: 150, kind: 'standard' },
+      { id: 'd-car', name: 'Myvi HP', balance: 15000, apr: 6, minPayment: 400, kind: 'standard', extraEffect: 'full_settlement_only' },
+      { id: 'd-house', name: 'Housing', balance: 10000, apr: 4, minPayment: 200, kind: 'standard', lockInPenaltyPct: 5 },
+    ];
+    state.extraMonthly = 300;
+    state.payoffStrategy = 'avalanche';
+    save(); renderAll();
+
+    const cmp = comparePayoffStrategies(state.debts, state.extraMonthly);
+    const hpOnly = simulateAvalanche([{ id: 'h', name: 'HP', balance: 12000, apr: 6, minPayment: 300, kind: 'standard', extraEffect: 'full_settlement_only' }], 300);
+    const rbOnly = simulateAvalanche([{ id: 'r', name: 'RB', balance: 12000, apr: 6, minPayment: 300, kind: 'standard', extraEffect: 'reduces_interest' }], 300);
+
+    // Switch strategy via the UI pills
+    document.querySelector('#payoff-strategy [data-payoff-strategy="cfi"]').click();
+    const cfiTarget = document.getElementById('payoff-target').textContent;
+    const cfiCompare = document.getElementById('payoff-compare').textContent;
+    const orderHtml = document.getElementById('payoff-order').innerHTML;
+
+    // Windfall simulator UI check
+    const wfIn = document.getElementById('windfall-amount');
+    wfIn.value = '3000';
+    wfIn.dispatchEvent(new Event('input', { bubbles: true }));
+    const wfText = document.getElementById('windfall-results').textContent;
+    const wfBest = document.querySelector('#windfall-results .windfall-row.is-best strong')?.textContent || '';
+
+    // CSV round-trip of extraEffect, lockInPenaltyPct, payoffStrategy
+    const csv = toCSV();
+    const back = fromCSV(csv);
+    const carBack = back.debts.find((d) => d.name === 'Myvi HP');
+    const houseBack = back.debts.find((d) => d.name === 'Housing');
+
+    // Clean up UI + state
+    wfIn.value = '';
+    wfIn.dispatchEvent(new Event('input', { bubbles: true }));
+    state.debts = keep.debts; state.extraMonthly = keep.extra; state.payoffStrategy = keep.strat;
+    save(); renderAll();
+
+    return {
+      targets: { av: cmp.avalanche.target?.name, sb: cmp.snowball.target?.name, cfi: cmp.cfi.target?.name, hyb: cmp.hybrid.target?.name },
+      sinking: cmp.avalanche.sinkingTargets.map((s) => s.name),
+      hpVsRb: hpOnly.totalInterest > rbOnly.totalInterest && hpOnly.order[0].settledBySinkingFund,
+      cfiTarget, cfiCompare,
+      hasFullSettleTag: orderHtml.includes('Full settlement'),
+      wfBest, wfNeedsFull: /Needs full settlement/.test(wfText),
+      csvRoundTrip: back.payoffStrategy === 'cfi' && carBack?.extraEffect === 'full_settlement_only' && houseBack?.lockInPenaltyPct === 5,
+    };
+  });
+  check('v1.85.0: Free Debt Strategy Library (Avalanche/Snowball/CFI/Quick-win), sinking-fund full settlement, Windfall simulator, and CSV round-trip',
+    stratRes.targets.av === 'Visa' && stratRes.targets.sb === 'Atome' && stratRes.targets.cfi === 'Atome' && stratRes.targets.hyb === 'Atome'
+    && stratRes.sinking.includes('Myvi HP') && stratRes.hpVsRb
+    && stratRes.cfiTarget.includes('Atome') && stratRes.cfiCompare.length > 0 && stratRes.hasFullSettleTag
+    && stratRes.wfBest === 'Visa' && stratRes.wfNeedsFull && stratRes.csvRoundTrip,
+    JSON.stringify(stratRes));
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();
