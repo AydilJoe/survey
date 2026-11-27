@@ -644,5 +644,13 @@
   "A bit over this month. It happens.": "这个月稍微超支了。没关系，常有的事。",
   "A pool is a bit over. It happens.": "有个预算稍微超了。没关系，常有的事。",
   "{name} reached. Well done.": "{name}达成了，真棒！",
-  "Your goal": "你的目标"
+  "Your goal": "你的目标",
+  "Read with Duitful AI+ (cloud)": "用 Duitful AI+（云端）读取",
+  "Sends this statement's text to Duitful AI+, with account numbers, phone numbers and emails removed first. The figures must still add up before anything imports.": "会先去掉账号、电话号码和电邮，再把这份对账单的文字发送给 Duitful AI+。金额仍须对得上，才能导入。",
+  "Suggested by Duitful AI+ (cloud)": "由 Duitful AI+（云端）建议",
+  "Reading with Duitful AI+ (cloud)…": "正在用 Duitful AI+（云端）读取…",
+  "Duitful AI+ couldn't read this one. Your review is unchanged.": "Duitful AI+ 读不了这份。你的核对内容保持不变。",
+  "Read by Duitful AI+ (cloud)": "由 Duitful AI+（云端）读取",
+  "Tidying payee names": "正在整理收款方名称",
+  "AI+ is tidying payee names": "AI+ 正在整理收款方名称"
 }

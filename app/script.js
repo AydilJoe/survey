@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.78.0";
+const APP_VERSION = "1.79.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -3503,6 +3503,7 @@ function bindShariahControls() {
 bindShariahControls();
 
 function renderAll() {
+  renderDebtLetter();
   resetEndingBalanceCache();
   resetEffectiveLimitCache();
   const recurResult = autoRecurFromLastMonth();
@@ -4769,7 +4770,12 @@ function pendingSplitMatchHtml(p) {
   const m = matches[0];
   const gap = Math.round((Number(m.remaining) - Number(p.amount)) * 100) / 100;
 
-  const sub = ambiguous
+  // An AI+ suggestion (aiPick) only orders the choices: its person comes first
+  // as the main button, everyone else stays one tap away.
+  const pick = ambiguous && p.aiPick != null ? matches.find((x) => String(x.personId) === String(p.aiPick)) : null;
+  const sub = pick
+    ? tr("Duitful AI+ thinks {name} paid. Tap who paid.", { name: escapeHtml(pick.name) })
+    : ambiguous
     ? tr("Matches {n} open requests — who paid?", { n: matches.length })
     : tr("Settle {name}'s share of {title}?", { name: escapeHtml(m.name), title: escapeHtml(m.title) })
       + (Math.abs(gap) > 0.005
@@ -4779,7 +4785,7 @@ function pendingSplitMatchHtml(p) {
         : "");
 
   const buttons = ambiguous
-    ? matches.map((x) => `<button class="ghost" data-action="pending-split-settle" data-id="${p.id}" data-person="${escapeHtml(x.personId)}">${escapeHtml(x.name)}</button>`).join("")
+    ? matches.map((x) => `<button class="${pick && x === pick ? "primary" : "ghost"}" data-action="pending-split-settle" data-id="${p.id}" data-person="${escapeHtml(x.personId)}">${escapeHtml(x.name)}</button>`).join("")
     : `<button class="primary" data-action="pending-split-settle" data-id="${p.id}" data-person="${escapeHtml(m.personId)}">${tr("Settle {name}", { name: escapeHtml(m.name) })}</button>`;
 
   return `
@@ -4790,7 +4796,7 @@ function pendingSplitMatchHtml(p) {
           <span class="pending-amount in">${fmtMoney(p.amount)}</span>
         </div>
         <div class="pending-source">${escapeHtml(source)}</div>
-        <div class="pending-match-sub">${sub}</div>
+        <div class="pending-match-sub">${p.aiPlus ? `<span class="ai-plus-badge">AI+</span> ` : ""}${sub}</div>
       </div>
       <div class="pending-actions${ambiguous ? " pending-choices" : ""}">
         <button class="ghost icon-btn" data-action="pending-dismiss" data-id="${p.id}" aria-label="${escapeHtml(tr("Dismiss"))}">✕</button>
@@ -6659,6 +6665,143 @@ document.getElementById("debt-apr-preset")?.addEventListener("change", (e) => {
   apr.focus();
 });
 
+/* ---------- Read a loan letter (Duitful AI+) ----------
+   Only when aiCloudAllowed(). The letter / statement is read on the phone with
+   statement.js's readers (PDF text layer, else the same OCR); the redacted text
+   goes to aiCloudReadLoan, and what comes back fills EMPTY boxes of the Add Debt
+   form for the person to check. Every figure must be printed in the text, boxes
+   the person typed are never overwritten, nothing is added until they press
+   "Add debt", and any failure leaves the form exactly as it was. */
+const LOAN_KINDS = ["standard", "installment", "islamic"];
+function debtLetterSay(msg) {
+  const el = document.getElementById("debt-letter-status");
+  if (el) { el.textContent = msg || ""; el.hidden = !msg; }
+}
+function renderDebtLetter() {
+  const box = document.getElementById("debt-letter");
+  if (!box) return;
+  box.hidden = !(typeof aiCloudAllowed === "function" && aiCloudAllowed() && typeof aiCloudReadLoan === "function");
+  if (box.hidden) debtLetterSay("");
+}
+function debtLetterTag(input) {
+  const label = input && input.closest("label.field");
+  const head = label && label.querySelector(":scope > span");
+  if (!head || head.querySelector("[data-ai-fill]")) return;
+  head.insertAdjacentHTML("beforeend", ' <span class="ai-plus-badge" data-ai-fill translate="no">AI+</span>');
+  input.addEventListener("input", () => head.querySelector("[data-ai-fill]")?.remove(), { once: true });
+}
+// Whole months from today to a printed end date (1 to 120), else 0.
+function debtLetterMonthsTo(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+  if (!m) return 0;
+  const now = new Date();
+  const n = (Number(m[1]) - now.getFullYear()) * 12 + (Number(m[2]) - 1 - now.getMonth()) + (Number(m[3]) >= now.getDate() ? 1 : 0);
+  return n >= 1 && n <= 120 ? n : 0;
+}
+// Is this ISO date printed in the text as a whole date (15/03/2027, 15-03-2027,
+// 15.3.2027, 2027-03-15, 15 Mar 2027, 15 Mac 2027, 15 March 2027)?
+const LOAN_MONTHS = [["jan"], ["feb"], ["mar", "mac"], ["apr"], ["may", "mei"], ["jun"], ["jul", "julai"], ["aug", "ogo", "ogos"], ["sep", "sept"], ["oct", "okt"], ["nov"], ["dec", "dis"]];
+function debtLetterDatePrinted(iso, text) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+  if (!m) return false;
+  const y = m[1], mo = Number(m[2]), d = Number(m[3]);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return false;
+  const t = String(text || "");
+  const dd = `0?${d}`, mm = `0?${mo}`;
+  const numeric = new RegExp(String.raw`(?<!\d)(?:${dd}[/.\-]${mm}[/.\-]${y}|${y}[/.\-]${mm}[/.\-]${dd})(?!\d)`);
+  if (numeric.test(t)) return true;
+  const names = LOAN_MONTHS[mo - 1].join("|");
+  return new RegExp(String.raw`(?<!\d)${dd}(?:st|nd|rd|th)?\s+(?:${names})[a-z]*\.?,?\s+${y}(?!\d)`, "i").test(t);
+}
+// Fills only empty boxes of the form's current type; returns how many it set.
+function debtLetterApply(ai, text) {
+  const form = document.getElementById("form-debt");
+  if (!form || !ai || typeof ai !== "object") return 0;
+  const printed = (n) => Number.isFinite(Number(n)) && Number(n) > 0 && aiAmountInText(Number(n), text);
+  const typed = [...form.querySelectorAll("input[name], select[name]")]
+    .some((el) => el.type !== "hidden" && el.name !== "contract" && String(el.value || "").trim() !== "");
+  // The type changes only on an untouched form, and never into a gated one.
+  let kind = document.getElementById("debt-kind").value;
+  if (!typed) {
+    const want = ai.islamic === true || ai.kind === "islamic" ? "islamic" : LOAN_KINDS.includes(ai.kind) ? ai.kind : "";
+    const blocked = want === "installment" && installmentCount() >= FREE_INSTALLMENT_LIMIT && !isPro();
+    if (want && !blocked && want !== kind) { setDebtKind(want); kind = want; }
+  }
+  let n = 0;
+  const put = (name, value) => {
+    const input = name === "name"
+      ? form.querySelector('input[name="name"]')
+      : form.querySelector(`#debt-fields-${kind} [name="${name}"]`);
+    if (!input || String(input.value || "").trim() !== "") return;
+    input.value = String(value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    debtLetterTag(input);
+    n++;
+  };
+  if (typeof ai.lender === "string" && ai.lender.trim() && aiWordsInText(ai.lender, text)) put("name", ai.lender.trim().slice(0, 80));
+  if (kind === "standard") {
+    if (printed(ai.balance)) put("balance", ai.balance);
+    if (printed(ai.rate) && Number(ai.rate) <= 100) put("apr", ai.rate);
+    if (printed(ai.monthly)) put("minPayment", ai.monthly);
+  } else if (kind === "installment") {
+    if (printed(ai.monthly)) put("installment", ai.monthly);
+    // Months left only from an end date the letter prints in full (day, month
+    // and year), never from a year that merely appears somewhere on it.
+    const left = debtLetterMonthsTo(ai.endDate);
+    if (left && debtLetterDatePrinted(ai.endDate, text)) put("monthsLeft", left);
+  } else if (kind === "islamic") {
+    const c = typeof ai.contract === "string" ? ISLAMIC_CONTRACTS.find((x) => x.id === ai.contract) : null;
+    const sel = document.getElementById("debt-contract");
+    if (c && sel && !typed && sel.value !== c.id) { sel.value = c.id; renderDebtContractNote(); debtLetterTag(sel); n++; }
+    if (printed(ai.balance)) put("principal", ai.balance);
+  }
+  if (n) renderIslamicPreview();
+  return n;
+}
+async function debtLetterRead(files) {
+  if (!(typeof aiCloudAllowed === "function" && aiCloudAllowed() && typeof aiCloudReadLoan === "function")) return;
+  const photos = files.filter((f) => /^image\//.test(f.type || ""));
+  const pdf = files.find((f) => !/^image\//.test(f.type || ""));
+  const pageSay = (a, b) => debtLetterSay(tr("Reading page {n} of {m} on your phone…", { n: a, m: b }));
+  debtLetterSay(tr("Reading on your phone…"));
+  let read;
+  try {
+    if (pdf) {
+      const data = await pdf.arrayBuffer();
+      try { read = await readStatementPdf(data); }
+      catch (e) {
+        if (!(e && e.code === "scanned")) throw e;
+        read = await readStatementScanPdf(data, undefined, pageSay);
+      }
+    } else if (photos.length) {
+      read = await readStatementPhotos(photos, pageSay);
+    } else return;
+  } catch (e) {
+    const pw = e && (e.code === "password" || e.code === "wrong-password");
+    debtLetterSay(pw ? tr("This PDF has a password. Open it first, or use a photo.") : tr("Couldn't read any text on this. Try a sharper photo."));
+    return;
+  }
+  const text = (read.lines || []).map((l) => (typeof l === "string" ? l : String((l && l.text) || ""))).join("\n").slice(0, 16000);
+  if (!text.trim()) { debtLetterSay(tr("Couldn't read any text on this. Try a sharper photo.")); return; }
+  debtLetterSay(tr("Double-checking with Duitful AI+ (cloud)…"));
+  let ai = null;
+  try { ai = await aiCloudReadLoan({ text, kinds: LOAN_KINDS, contracts: ISLAMIC_CONTRACTS.map((c) => c.id) }); } catch { ai = null; }
+  const form = document.getElementById("form-debt");
+  if (!form || form.hidden) { debtLetterSay(""); return; }
+  const n = ai ? debtLetterApply(ai, text) : 0;
+  debtLetterSay(n ? tr("Filled in from your letter. Check each figure before you add it.") : tr("Nothing to fill in from this letter."));
+}
+document.getElementById("debt-letter-btn")?.addEventListener("click", () => document.getElementById("debt-letter-file")?.click());
+document.getElementById("debt-letter-file")?.addEventListener("change", (e) => {
+  const files = Array.from(e.target.files || []);
+  e.target.value = "";
+  if (files.length) debtLetterRead(files).catch(() => debtLetterSay(""));
+});
+document.getElementById("form-debt")?.addEventListener("reset", () => {
+  document.querySelectorAll("#form-debt [data-ai-fill]").forEach((el) => el.remove());
+  debtLetterSay("");
+});
+
 // ── Brand picker ────────────────────────────────────────────────────────────
 // Reads the value the user explicitly picked from the suggestion list, and
 // falls back to an alias match on the typed name. Typing "Atome — laptop"
@@ -7645,6 +7788,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.79.0": [
+    "<strong>Duitful AI+ helps in more places</strong> — with AI+ on, it can read a bank statement your phone couldn't balance, tidy payee names, fill empty boxes from a Borang EA or a loan letter, work out who paid when a split credit matches several people, and tidy messy items on a by-item split. It only uses figures printed on the page, and you check everything before it's saved.",
+  ],
   "1.78.0": [
     "<strong>Safer Duitful AI+ subscription checks</strong> — every subscription is now checked against the store's own signature before AI+ switches on, and renewals, refunds and cancellations from the store keep it up to date. If AI+ shows as off after updating, tap Restore purchase once.",
   ],

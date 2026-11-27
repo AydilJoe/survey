@@ -1962,6 +1962,96 @@ check('two people owing RM 41 produce a choice, not a guess',
   ambiguousQueue.text.replace(/\n/g, ' | ').slice(0, 160));
 await S(() => { state.pendingTxns = []; save(); renderAll(); });
 
+// --- AI+ (cloud) wiring: split-match and split-items. Off = today's behaviour;
+//     on = a suggestion the person still confirms, and bad answers are dropped.
+const aiSplit = await S(async () => {
+  const out = {};
+  const saved = { sub: state.aiSub, en: state.aiPlusEnabled, prev: state.aiPlusPreviewedKinds, split: state.split, fetch: window.fetch };
+  const raw = 'NASI LEMAK AYAM 12.00\nTEH TARIK 3.50\nSUBTOTAL 15.50';
+  const read = splitParseReceiptItems(raw);
+  out.rowsOk = splitTidyRows(read, { items: [{ name: 'Nasi lemak ayam', qty: 1, amount: 12 }, { name: 'Teh tarik', qty: 1, amount: 3.5 }] }, raw);
+  out.rowsBadPrice = splitTidyRows(read, { items: [{ name: 'Nasi lemak ayam', qty: 1, amount: 12 }, { name: 'Teh tarik', qty: 1, amount: 4 }] }, raw);
+  out.rowsBadSum = splitTidyRows(read, { items: [{ name: 'Nasi lemak ayam', qty: 1, amount: 12 }] }, raw);
+  out.rowsCheck = splitTidyRows(read, { status: 'Check', items: [{ name: 'x', qty: 1, amount: 12 }] }, raw);
+  out.messy = splitItemsLookMessy({ items: [{ name: 'AB#1', price: 5 }], itemSum: 5, dropped: [], statedTotal: 0, charges: 0 });
+  out.clean = splitItemsLookMessy({ items: [{ name: 'Teh tarik', price: 5 }], itemSum: 5, dropped: [], statedTotal: 0, charges: 0 });
+  // Off: no offer, no call.
+  state.aiPlusEnabled = false;
+  out.offOffer = splitTidyOfferHtml({ method: 'item', scanRaw: 'AB#1 5.00', items: [{ name: 'AB#1', price: 5 }] });
+  let calls = 0;
+  window.fetch = async (u, o) => { if (String(u).includes('/api/ai')) calls += 1; return saved.fetch(u, o); };
+  state.pendingTxns = []; state.split = emptySplit();
+  state.split.out.push(coerceSplitOut({ id: 'aip-rec', kind: 'split', title: 'Rent', date: todayISO(), total: 100, people: [
+    { id: 'aip-a', name: 'Abang Long', amount: 50, status: 'open', repayments: [] },
+    { id: 'aip-b', name: 'Kak Ros', amount: 50, status: 'open', repayments: [] } ] }));
+  window.duitfulIncoming({ package: 'com.maybank2u.life', text: 'You have received RM50.00 from MUHAMMAD HAFIZ' });
+  await new Promise((r) => setTimeout(r, 200));
+  const p0 = state.pendingTxns[0];
+  out.offPending = p0 && { match: p0.match, n: p0.matches.length, ai: !!p0.aiPlus };
+  out.offCalls = calls;
+  // On: AI+ narrows the ambiguous card to one person, still unsettled.
+  state.aiPlusEnabled = true;
+  state.aiSub = { active: true, expiresAt: Date.now() + 864e5, subToken: 'tok' };
+  state.aiPlusPreviewedKinds = { split: true };
+  const sent = [];
+  window.fetch = async (u, o) => {
+    if (!String(u).includes('/api/ai')) return saved.fetch(u, o);
+    sent.push(JSON.parse(o.body));
+    return new Response(JSON.stringify({ ok: true, result: { splitId: 'aip-b' } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+  state.pendingTxns = [];
+  window.duitfulIncoming({ package: 'com.maybank2u.life', text: 'You have received RM50.00 from MUHAMMAD HAFIZ' });
+  await new Promise((r) => setTimeout(r, 600));
+  const p = state.pendingTxns[0];
+  out.onPending = p && { match: p.match, ids: p.matches.map((m) => m.personId), ai: !!p.aiPlus, pick: p.aiPick };
+  out.sentIds = sent[0] ? sent[0].input.openSplits.map((s) => s.id) : [];
+  out.settled = state.split.out[0].people.every((x) => x.status === 'open' && !x.repayments.length);
+  renderAll();
+  out.tag = /AI\+/.test(document.getElementById('pending-list').innerText);
+  // Both people stay on the card; the AI's pick is the main button.
+  const btns = [...document.querySelectorAll('#pending-list [data-action="pending-split-settle"]')];
+  out.buttons = btns.map((b) => [b.dataset.person, b.classList.contains('primary')]);
+  // The bank fires the same credit again seconds later: still one card,
+  // even though the AI's pick now heads the list.
+  const sentBefore = sent.length;
+  window.duitfulIncoming({ package: 'com.maybank2u.life', text: 'You have received RM50.00 from MUHAMMAD HAFIZ' });
+  await new Promise((r) => setTimeout(r, 300));
+  out.afterDupe = { cards: state.pendingTxns.length, calls: sent.length - sentBefore };
+  // An answer naming someone who is not a candidate is ignored.
+  window.fetch = async (u, o) => String(u).includes('/api/ai')
+    ? new Response(JSON.stringify({ ok: true, result: { splitId: 'nobody' } }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    : saved.fetch(u, o);
+  state.pendingTxns = [];
+  window.duitfulIncoming({ package: 'com.maybank2u.life', text: 'You have received RM50.00 from MUHAMMAD HAFIZ' });
+  await new Promise((r) => setTimeout(r, 600));
+  out.badAnswer = state.pendingTxns[0] && state.pendingTxns[0].match;
+  out.badPick = state.pendingTxns[0] && state.pendingTxns[0].aiPick;
+  // Tidy leaves the rows alone once anyone was unticked from an item.
+  out.unchangedAll = splitItemsUnchanged({ items: [{ name: 'Teh', price: 5, who: splitComposeKeys() }] }, { items: [{ name: 'Teh', price: 5 }] });
+  out.unchangedWho = splitItemsUnchanged({ items: [{ name: 'Teh', price: 5, who: [] }] }, { items: [{ name: 'Teh', price: 5 }] });
+  Object.assign(state, { aiSub: saved.sub, aiPlusEnabled: saved.en, aiPlusPreviewedKinds: saved.prev, pendingTxns: [], split: saved.split });
+  window.fetch = saved.fetch;
+  save(); renderAll();
+  return out;
+});
+check('AI+ off: no offer to tidy items, no AI call, the credit stays a "who paid?" card',
+  aiSplit.offOffer === '' && aiSplit.offCalls === 0 && aiSplit.offPending && aiSplit.offPending.match === 'ambiguous'
+  && aiSplit.offPending.n === 2 && !aiSplit.offPending.ai, JSON.stringify([aiSplit.offOffer, aiSplit.offCalls, aiSplit.offPending]));
+check('AI+ split-match: only splits equal to the credit are offered, the AI pick goes first, everyone stays on the card and nothing is settled',
+  aiSplit.onPending && aiSplit.onPending.match === 'ambiguous' && aiSplit.onPending.ids.join() === 'aip-b,aip-a' && aiSplit.onPending.pick === 'aip-b' && aiSplit.onPending.ai
+  && JSON.stringify(aiSplit.buttons) === JSON.stringify([['aip-b', true], ['aip-a', false]])
+  && aiSplit.sentIds.join() === 'aip-a,aip-b' && aiSplit.settled && aiSplit.tag,
+  JSON.stringify(aiSplit));
+check('AI+ split-match: the same credit fired twice after the AI reordered the card is still one card (no second AI call)',
+  aiSplit.afterDupe && aiSplit.afterDupe.cards === 1 && aiSplit.afterDupe.calls === 0, JSON.stringify(aiSplit.afterDupe));
+check('AI+ split-match: an answer outside the choices is ignored',
+  aiSplit.badAnswer === 'ambiguous' && aiSplit.badPick === undefined, String([aiSplit.badAnswer, aiSplit.badPick]));
+check('AI+ split-items: Tidy leaves the rows alone once someone was unticked from an item',
+  aiSplit.unchangedAll === true && aiSplit.unchangedWho === false, JSON.stringify([aiSplit.unchangedAll, aiSplit.unchangedWho]));
+check('AI+ split-items: tidy rows are used only when prices are printed and the total still matches',
+  aiSplit.rowsOk && aiSplit.rowsOk.length === 2 && aiSplit.rowsBadPrice === null && aiSplit.rowsBadSum === null && aiSplit.rowsCheck === null
+  && aiSplit.messy === true && aiSplit.clean === false, JSON.stringify([aiSplit.rowsOk, aiSplit.rowsBadPrice, aiSplit.rowsBadSum, aiSplit.rowsCheck]));
+
 /* ── Touch 'n Go / MAE alerts from a Vivo beta tester (1.55.14) ───────────
    Real wording, names replaced. A DuitNow transfer out must queue a spend;
    a feedback promo must not; MAE's "You've just received" must parse as a
@@ -16208,6 +16298,27 @@ check('the brand catalogue makes no network calls at all',
     liveRun.cardShown && liveRun.previewOpen && liveRun.previewRedacted && liveRun.res?.payee === 'Grab' && aiHits >= 1,
     JSON.stringify({ liveRun, aiHits }));
 
+  // Closing the preview another way (Escape / Back) counts as Cancel: the
+  // caller gets null at once instead of waiting for ever, and nothing is sent.
+  const previewEsc = await aip.evaluate(async () => {
+    const hitsBefore = performance.getEntriesByType('resource').filter((e) => e.name.includes('/api/ai')).length;
+    state.aiPlusPreviewedKinds = { payee: true };
+    const p = aiCloudRun('split-items', { lines: 'TEH TARIK 3.50', subtotal: 3.5 });
+    await new Promise((r) => setTimeout(r, 50));
+    const opened = document.getElementById('ai-preview-dialog').open === true;
+    // The previous preview's close event can arrive after this one opened
+    // (close events fire a task later); it must not cancel this one.
+    document.getElementById('ai-preview-dialog').dispatchEvent(new Event('close'));
+    await new Promise((r) => setTimeout(r, 30));
+    const staleIgnored = document.getElementById('ai-preview-dialog').open === true;
+    document.getElementById('ai-preview-dialog').close();
+    const res = await Promise.race([p, new Promise((r) => setTimeout(() => r('hung'), 1500))]);
+    const hitsAfter = performance.getEntriesByType('resource').filter((e) => e.name.includes('/api/ai')).length;
+    return { opened, res, kept: !!(state.aiPlusPreviewedKinds && state.aiPlusPreviewedKinds.split), sent: hitsAfter - hitsBefore, staleIgnored };
+  });
+  check('ai+ preview: a late close event from the previous preview does not cancel this one; closing it with Escape or Back resolves as Cancel (null), sends nothing and asks again next time',
+    previewEsc.opened && previewEsc.staleIgnored && previewEsc.res === null && !previewEsc.kept && previewEsc.sent === 0, JSON.stringify(previewEsc));
+
   // Privacy & store-label surfaces updated in the same release
   const privFiles = [
     'privacy/index.html',
@@ -16237,6 +16348,124 @@ check('the brand catalogue makes no network calls at all',
     quotaFallback === null && Number(quotaAfter) === 1000
     && JSON.stringify(await kvStore.get(aiKv.keys.sub(quotaSubId))) === subBeforeQuota,
     JSON.stringify({ quotaFallback, quotaAfter }));
+
+  // Statement import with AI+ (statement-read + payee-clean), fetch to /api/ai/ mocked.
+  const stmtPlus = await aip.evaluate(async () => {
+    const out = {};
+    const realFetch = window.fetch;
+    const calls = [];
+    let mode = 'good';
+    const canned = (task, input) => {
+      if (task === 'statement-read') {
+        const rows = [
+          { date: '2026-11-01', desc: 'PYMT*GRAB 8812 KL', amount: 20, dir: 'out', balance: 80 },
+          { date: '2026-11-02', desc: 'SALARY CONTOH SDN BHD', amount: 500, dir: 'in', balance: mode === 'bad' ? 500 : 580 },
+          { date: '2026-11-03', desc: 'INVENTED SHOP', amount: 999, dir: 'out' }];   // 999 is not printed: dropped
+        if (mode === 'noopen') {
+          // No opening / closing: the first balance row can't be checked, so a
+          // made-up first row (999, a printed reference) must not let it import.
+          return { opening: null, closing: null, rows: [
+            { date: '2026-11-01', desc: 'REF 999', amount: 999, dir: 'out', balance: 80 },
+            { date: '2026-11-02', desc: 'SALARY CONTOH SDN BHD', amount: 500, dir: 'in', balance: 580 }] };
+        }
+        return { opening: 100, closing: 580, rows };
+      }
+      if (task === 'payee-clean') return { payee: /GRAB/.test(input.raw) ? 'GRAB' : 'Zzz Invented' };   // invented words: refused
+      return null;
+    };
+    window.fetch = async (url, init) => {
+      if (String(url).includes('/api/ai')) {
+        const bd = JSON.parse(init.body); calls.push(bd.task);
+        return new Response(JSON.stringify({ ok: true, result: canned(bd.task, bd.input) }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return realFetch(url, init);
+    };
+    const lines = ['Opening 100.00', 'Nov 1 PYMT*GRAB 8812 KL out 20.00 bal 80.00', 'Nov 2 SALARY CONTOH SDN BHD in 500.00 bal 580.00', 'Closing 580.00']
+      .map((t, i) => ({ text: t, page: 1, y: 800 - i * 20 }));
+    const settle = () => new Promise((r) => setTimeout(r, 1200));
+    try {
+      state.aiPlusEnabled = true; state.aiPlusDisclosureSeen = true;
+      state.aiPlusPreviewedKinds = { statement: true, payee: true };
+      // Off: no offer, no call.
+      state.aiSub = null;
+      openStatementImport();
+      await showStatementReview({ lines });
+      await settle();
+      out.off = { offer: !document.getElementById('stmt-cloud').hidden, calls: calls.length };
+      document.getElementById('stmt-dialog').close();
+      // On: offered because the phone's read finds no rows; the read checks out.
+      state.aiSub = { active: true, expiresAt: Date.now() + 86400000, subToken: 'tok' };
+      openStatementImport();
+      await showStatementReview({ lines });
+      out.offer = !document.getElementById('stmt-cloud').hidden;
+      const beforeCalls = calls.length;
+      document.getElementById('stmt-cloud-read').click();
+      await settle();
+      out.on = {
+        rows: stmtUi.items.map((i) => [i.payee, i.amount, i.kind]),
+        status: stmtUi.recon.status, scanned: stmtUi.parsed.scanned,
+        tags: document.querySelectorAll('#stmt-list .ai-plus-badge.stmt-ai').length,
+        offerAfter: !document.getElementById('stmt-cloud').hidden,
+        importOff: document.getElementById('stmt-import').disabled,
+        used: calls.slice(beforeCalls),
+        fit: document.getElementById('stmt-dialog').scrollWidth <= document.getElementById('stmt-dialog').clientWidth + 1,
+      };
+      // A payee the person typed is never asked or overwritten.
+      const mk = (desc, extra) => ({ kind: 'spend', row: { desc }, payee: desc, ...extra });
+      const probe = [mk('PYMT*GRAB 1', { payee: 'My own name', userPayee: true }), mk('PYMT*GRAB 2', { userCat: true }), mk('PYMT*GRAB 3')];
+      const c0 = calls.length;
+      await statementCloudPayees(probe, {});
+      out.mine = { names: probe.map((i) => i.payee), asked: calls.length - c0 };
+      // A read that does not add up still can't import (scan rule).
+      document.getElementById('stmt-dialog').close();
+      mode = 'bad';
+      openStatementImport();
+      await showStatementReview({ lines });
+      document.getElementById('stmt-cloud-read').click();
+      await settle();
+      out.bad = { status: stmtUi.recon.status, blocked: stmtScanBlocked(), refused: statementImportNow() };
+      document.getElementById('stmt-dialog').close();
+      mode = 'noopen';
+      openStatementImport();
+      await showStatementReview({ lines: lines.concat([{ text: 'Ref 999', page: 1, y: 700 }]) });
+      document.getElementById('stmt-cloud-read').click();
+      await settle();
+      out.noOpen = { status: stmtUi.recon.status, blocked: stmtScanBlocked(), refused: statementImportNow() };
+      // A read left busy (a preview closed, a dropped network) never blocks the next open.
+      document.getElementById('stmt-dialog').close();
+      stmtUi.cloudBusy = true;
+      openStatementImport();
+      out.busyReset = stmtUi.cloudBusy === false;
+      // Edits made on the phone's rows come along to the AI+ rows.
+      const prevItems = [
+        { date: '2026-11-01', row: { dir: 'debit' }, amount: 20, payee: 'My Grab', userPayee: true, category: 'Transport', userCat: true, on: false, userOn: true, kind: 'spend' },
+        { date: '2026-11-05', row: { dir: 'debit' }, amount: 7, payee: 'Not in new read', userPayee: true, kind: 'spend' }];
+      const nextItems = [
+        { date: '2026-11-01', row: { dir: 'debit' }, amount: 20, payee: 'GRAB', category: '', on: true, kind: 'spend', aiPlus: true },
+        { date: '2026-11-02', row: { dir: 'credit' }, amount: 500, payee: 'SALARY', category: '', on: true, kind: 'income', aiPlus: true }];
+      stmtCarryEdits(prevItems, nextItems);
+      out.carry = nextItems.map((i) => [i.payee, i.category, i.on, !!i.userPayee]);
+    } finally {
+      window.fetch = realFetch;
+      try { document.getElementById('stmt-dialog').close(); } catch {}
+      state.aiSub = null;
+    }
+    return out;
+  });
+  check('ai+ statement: off = no offer and no call; on, the read is offered when the phone finds nothing that checks out, keeps only printed amounts, tags rows AI+ and still has to reconcile',
+    stmtPlus.off.offer === false && stmtPlus.off.calls === 0 && stmtPlus.offer === true
+    && JSON.stringify(stmtPlus.on.rows) === JSON.stringify([['GRAB', 20, 'spend'], ['SALARY CONTOH SDN BHD', 500, 'income']])
+    && stmtPlus.on.status === 'ok' && stmtPlus.on.scanned === true && stmtPlus.on.tags === 2 && stmtPlus.on.offerAfter === false && stmtPlus.on.importOff === false
+    && stmtPlus.on.used[0] === 'statement-read' && stmtPlus.on.fit,
+    JSON.stringify(stmtPlus));
+  check('ai+ statement: payee names you typed are never overwritten, and a read that does not add up cannot be imported',
+    stmtPlus.mine.names[0] === 'My own name' && stmtPlus.mine.names[1] === 'PYMT*GRAB 2' && stmtPlus.mine.names[2] === 'GRAB' && stmtPlus.mine.asked === 1 && stmtPlus.bad.status === 'mismatch' && stmtPlus.bad.blocked === true && stmtPlus.bad.refused === false,
+    JSON.stringify({ mine: stmtPlus.mine, bad: stmtPlus.bad }));
+  check('ai+ statement: an AI+ read with no printed opening and closing balance never counts as checked, so it cannot import',
+    stmtPlus.noOpen && stmtPlus.noOpen.status === 'none' && stmtPlus.noOpen.blocked === true && stmtPlus.noOpen.refused === false, JSON.stringify(stmtPlus.noOpen));
+  check('ai+ statement: reopening the import clears a stuck AI+ read, and your edits to the phone\'s rows survive an AI+ re-read',
+    stmtPlus.busyReset === true && JSON.stringify(stmtPlus.carry) === JSON.stringify([['My Grab', 'Transport', false, true], ['SALARY', '', true, false]]),
+    JSON.stringify({ busy: stmtPlus.busyReset, carry: stmtPlus.carry }));
 
   // Phase 2: StoreKit 2 / Play Billing subscription receipt keeps state.pro separate,
   // encrypted backup reconnect syncs status, Web paywall is pair-only, and no LAUNCH100 on iOS.
@@ -16665,6 +16894,169 @@ check('the brand catalogue makes no network calls at all',
       resetJwksCache();
     }
   }
+}
+// ── Duitful AI+ on the EA scanner and the Add Debt letter reader ────────────
+// The cloud answer is stubbed at /api/ai (never a real model). AI+ may only
+// fill what the document prints; typed boxes and printed totals are never changed.
+{
+  const lp = await b.newPage({ viewport: { width: 360, height: 800 } });
+  const lerr = [];
+  lp.on('pageerror', (e) => lerr.push(e.message));
+  const aiCalls = [];
+  const aiAnswer = {};
+  await lp.route('**/api/ai**', async (route) => {
+    const body = route.request().method() === 'POST' ? (route.request().postDataJSON() || {}) : {};
+    aiCalls.push(body.task);
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, result: aiAnswer[body.task] || { none: 1 } }) });
+  });
+  await lp.goto(`${BASE}/app/index.html`);
+  await lp.waitForTimeout(500);
+  await lp.click('#btn-start-open');
+  await lp.waitForTimeout(1200);
+  await lp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  const LE = (fn, arg) => lp.evaluate(fn, arg);
+  const resetDebtForm = () => LE(async () => {
+    document.getElementById('form-debt').reset();
+    await new Promise((r) => setTimeout(r, 60));
+    openAddForm('form-debt');
+  });
+  const loanPdf = () => buildPdf([[
+    [40, 800, 'PERSONAL FINANCING OFFER LETTER'],
+    [40, 786, 'Lender: CONTOH BANK BERHAD'],
+    [40, 772, 'Outstanding balance'], [470, 772, '12,500.00'],
+    [40, 758, 'Profit rate 6.80 % p.a.'],
+    [40, 744, 'Monthly instalment'], [470, 744, '450.00'],
+  ]]);
+
+  // AI+ off: no button, no call, and the EA scanner is unchanged (PCB stays empty).
+  await LE(() => { openAddForm('form-debt'); renderAll(); });
+  const offState = await LE(() => ({ hidden: document.getElementById('debt-letter').hidden }));
+  await LE(() => { taxOpenEa(); });
+  await lp.setInputFiles('#ea-file', { name: 'ea-en.pdf', mimeType: 'application/pdf', buffer: buildPdf(EA_FIXTURES.english()) });
+  await lp.waitForFunction(() => !document.getElementById('ea-review').hidden, null, { timeout: 15000 });
+  const offEa = await LE(() => ({ d1: document.getElementById('ea-in-d1').value, badges: document.querySelectorAll('#ea-dialog .ai-plus-badge').length }));
+  check('AI+ tax/loan: with AI+ off the loan-letter button is hidden, nothing is sent, and the EA scanner is unchanged',
+    offState.hidden && offEa.d1 === '' && offEa.badges === 0 && aiCalls.length === 0, JSON.stringify([offState, offEa, aiCalls]));
+  await LE(() => document.getElementById('ea-dialog').close());
+
+  // AI+ on.
+  await LE(() => {
+    state.aiPlusDisclosureSeen = true; state.aiPlusEnabled = true;
+    state.aiPlusPreviewedKinds = { document: true };
+    state.aiSub = { active: true, expiresAt: Date.now() + 86400000, subToken: 'test-token' };
+    renderAll();
+  });
+  // EA: a printed figure fills the empty PCB box (tagged AI+); an unprinted one is dropped;
+  // the form's own mismatching total stays as printed and tagged Check.
+  aiAnswer['ea-read'] = { d1: 3000, d5: 777.77, b1a: 1, sectionB: 99999 };
+  await LE(() => { taxOpenEa(); });
+  await lp.setInputFiles('#ea-file', { name: 'ea-en.pdf', mimeType: 'application/pdf', buffer: buildPdf(EA_FIXTURES.english()) });
+  await lp.waitForFunction(() => document.querySelector('#ea-tags-d1 .ai-plus-badge'), null, { timeout: 15000 });
+  const ea = await LE(() => ({
+    d1: document.getElementById('ea-in-d1').value, b1a: document.getElementById('ea-in-b1a').value,
+    total: document.getElementById('ea-in-bTotal') ? document.getElementById('ea-in-bTotal').value : '',
+    totalTag: document.getElementById('ea-tags-bTotal').textContent.replace(/ /g, ' '),
+    d5: !!document.querySelector('#ea-unused .ai-plus-badge'),
+    over: document.getElementById('ea-dialog').scrollWidth > document.getElementById('ea-dialog').clientWidth,
+  }));
+  check('AI+ EA: only a figure the form prints fills an empty box (tagged AI+); printed values and the mismatching total stay as read, and nothing unprinted is added',
+    ea.d1 === '3000' && ea.b1a === '45000' && /^Check/.test(ea.totalTag) && ea.total === '48500' && !ea.d5 && !ea.over && aiCalls.includes('ea-read'), JSON.stringify(ea));
+  await LE(() => document.getElementById('ea-dialog').close());
+
+  // A late AI+ answer for an earlier file never lands on the next one, AI+
+  // never fills the Section B total, and an answer that lands while you type
+  // keeps your box and what you typed.
+  const eaLate = await LE(async () => {
+    const out = {};
+    const realFetch = window.fetch;
+    const waiting = [];
+    window.fetch = (u, o) => {
+      if (!String(u).includes('/api/ai')) return realFetch(u, o);
+      return new Promise((resolve) => waiting.push((result) => resolve(new Response(JSON.stringify({ ok: true, result }), { status: 200, headers: { 'Content-Type': 'application/json' } }))));
+    };
+    const tick = (ms) => new Promise((r) => setTimeout(r, ms));
+    try {
+      taxOpenEa();
+      eaShow({ lines: [{ text: 'Nota 1,234.00', page: 1, y: 800, x: 40 }] });   // file A: nothing labelled, AI+ asked
+      await tick(80);
+      eaShow({ lines: [{ text: 'PCB 500.00', page: 1, y: 800, x: 40 }] });      // file B: on screen now
+      await tick(80);
+      out.calls = waiting.length;
+      waiting[1] && waiting[1]({ none: 1 });
+      waiting[0] && waiting[0]({ d1: 1234 });                                    // A's answer arrives last
+      await tick(200);
+      out.d1 = document.getElementById('ea-in-d1') && document.getElementById('ea-in-d1').value;
+      document.getElementById('ea-dialog').close();
+      // The dialog's close event (which clears the review) fires in a later
+      // task; let it run before reopening, or it wipes the next read.
+      await tick(50);
+      out.noTotal = !Object.prototype.hasOwnProperty.call(EA_AI_MAP, 'sectionB') && !Object.values(EA_AI_MAP).includes('bTotal');
+      // Typing in PCB while AI+ works on E1.
+      waiting.length = 0;
+      taxOpenEa();
+      eaShow({ lines: [{ text: 'PCB 500.00', page: 1, y: 800, x: 40 }, { text: 'Nota 600.00', page: 1, y: 780, x: 40 }] });
+      await tick(80);
+      const d1 = document.getElementById('ea-in-d1');
+      d1.focus(); d1.value = '55';
+      waiting[0] && waiting[0]({ e1: 600 });
+      await tick(200);
+      out.typing = { focus: document.activeElement && document.activeElement.id, d1: document.getElementById('ea-in-d1').value, e1: document.getElementById('ea-in-e1').value };
+      document.getElementById('ea-dialog').close();
+    } finally {
+      window.fetch = realFetch;
+    }
+    return out;
+  });
+  check('AI+ EA: a late answer for an earlier file is dropped, AI+ never fills the Section B total, and an answer landing while you type keeps your box and your digits',
+    eaLate.calls === 2 && eaLate.d1 === '500' && eaLate.noTotal
+    && eaLate.typing.focus === 'ea-in-d1' && eaLate.typing.d1 === '55' && eaLate.typing.e1 === '600', JSON.stringify(eaLate));
+
+  // Loan letter.
+  aiAnswer['loan-read'] = { lender: 'CONTOH BANK BERHAD', kind: 'standard', balance: 12500, rate: 6.8, monthly: 777 };
+  await LE(() => { openAddForm('form-debt'); renderAll(); });
+  const onState = await LE(() => ({ hidden: document.getElementById('debt-letter').hidden }));
+  await lp.setInputFiles('#debt-letter-file', { name: 'letter.pdf', mimeType: 'application/pdf', buffer: loanPdf() });
+  await lp.waitForFunction(() => document.querySelector('#form-debt [data-ai-fill]'), null, { timeout: 15000 });
+  const ln = await LE(() => {
+    const f = document.getElementById('form-debt');
+    const q = (n) => f.querySelector(`[name="${n}"]`).value;
+    return { name: q('name'), balance: q('balance'), apr: q('apr'), min: q('minPayment'), tags: f.querySelectorAll('[data-ai-fill]').length,
+      debts: state.debts.length, over: f.scrollWidth > f.clientWidth };
+  });
+  check('AI+ loan letter: the button shows only with AI+; printed name, balance and rate pre-fill with AI+ tags, an unprinted monthly figure is left empty, nothing is added until Add debt',
+    !onState.hidden && ln.name === 'CONTOH BANK BERHAD' && ln.balance === '12500' && ln.apr === '6.8' && ln.min === '' && ln.tags === 3 && !ln.over && aiCalls.includes('loan-read'), JSON.stringify([onState, ln]));
+  const debtsBefore = ln.debts;
+
+  // Typed boxes are never overwritten, and editing a filled box drops its tag.
+  await resetDebtForm();
+  await LE(() => { document.querySelector('#form-debt [name="name"]').value = 'My loan'; });
+  await lp.setInputFiles('#debt-letter-file', { name: 'letter.pdf', mimeType: 'application/pdf', buffer: loanPdf() });
+  await lp.waitForFunction(() => /Filled in/.test(document.getElementById('debt-letter-status').textContent), null, { timeout: 15000 });
+  const ln2 = await LE(() => {
+    const f = document.getElementById('form-debt');
+    const bal = f.querySelector('[name="balance"]');
+    bal.value = '1'; bal.dispatchEvent(new Event('input', { bubbles: true }));
+    return { name: f.querySelector('[name="name"]').value, apr: f.querySelector('[name="apr"]').value, tags: f.querySelectorAll('[data-ai-fill]').length, debts: state.debts.length };
+  });
+  check('AI+ loan letter: a name the person typed is kept, editing a filled box removes its AI+ tag, and no debt is saved by reading',
+    ln2.name === 'My loan' && ln2.apr === '6.8' && ln2.tags === 1 && ln2.debts === debtsBefore, JSON.stringify(ln2));
+
+  // An empty or invalid cloud answer leaves the form as it was.
+  aiAnswer['loan-read'] = null;
+  await resetDebtForm();
+  await lp.setInputFiles('#debt-letter-file', { name: 'letter.pdf', mimeType: 'application/pdf', buffer: loanPdf() });
+  await lp.waitForFunction(() => /Nothing to fill/.test(document.getElementById('debt-letter-status').textContent), null, { timeout: 15000 });
+  const ln3 = await LE(() => document.querySelectorAll('#form-debt [data-ai-fill]').length + document.querySelector('#form-debt [name="balance"]').value.length);
+  check('AI+ loan letter: an empty or invalid answer falls back silently, the form untouched', ln3 === 0 && lerr.length === 0, JSON.stringify([ln3, lerr]));
+  const ldates = await LE(() => [
+    debtLetterDatePrinted('2027-12-31', 'Tarikh: 15/03/2027 Tempoh 60 bulan'),
+    debtLetterDatePrinted('2027-03-15', 'Tarikh tamat: 15/03/2027'),
+    debtLetterDatePrinted('2027-03-05', 'Matures 5 Mac 2027'),
+    debtLetterDatePrinted('2027-03-05', 'Matures 15 Mac 2027'),
+  ]);
+  check('AI+ loan letter: months left is filled only from an end date the letter prints in full, never from a year alone',
+    JSON.stringify(ldates) === JSON.stringify([false, true, true, false]), JSON.stringify(ldates));
+  await lp.close();
 }
 // ── Kira phase 2 (v1.75.0): eyes, taps, celebrations, kind notes, hops,
 // first run, the tour and the widgets ─────────────────────────────────────

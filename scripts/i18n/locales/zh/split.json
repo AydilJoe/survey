@@ -269,5 +269,10 @@
   "Everyone's paid": "全员已付",
   "Paste the request code first.": "请先粘贴收款码。",
   "No QR code found in that image.": "图片里没有找到二维码。",
-  "Couldn't read that image.": "无法读取这张图片。"
+  "Couldn't read that image.": "无法读取这张图片。",
+  "Tidy items": "整理项目",
+  "Item names tidied. Check the rows before you split.": "项目名称已整理。分摊前请检查各行。",
+  "You've changed these rows, so AI+ left them alone.": "这些行已被你修改，所以 AI+ 没有改动。",
+  "AI+ couldn't tidy these, so your items are unchanged.": "AI+ 无法整理这些项目，所以保持原样。",
+  "Items tidied by AI+. Check them before you split.": "AI+ 已整理项目。分摊前请检查。"
 }
