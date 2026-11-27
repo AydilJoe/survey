@@ -989,6 +989,7 @@
       center.dataset.waveMode = "idle";
       center.style.setProperty("--voice-amp", "0");
     }
+    voiceApplyLevelRing(0);
     voiceWaveReset();
   }
 

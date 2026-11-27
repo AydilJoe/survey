@@ -19929,6 +19929,7 @@ check('the brand catalogue makes no network calls at all',
 
   // 4) 360px EN / MS / ZH fit on #tab-tax with pack bar & vault card.
   await tp.setViewportSize({ width: 360, height: 780 });
+  await tp.waitForTimeout(450);
   const fit = await tp.evaluate(async () => {
     const out = {};
     for (const lang of ['en', 'ms', 'zh']) {
