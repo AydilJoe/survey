@@ -19660,6 +19660,114 @@ check('the brand catalogue makes no network calls at all',
   await sbCtx.close();
 }
 
+// ── v1.89.0: several spends in one voice sentence ──
+{
+  const mCtx = await b.newContext({ viewport: { width: 360, height: 780 } });
+  const mp = await mCtx.newPage();
+  const mErr = [];
+  mp.on('pageerror', (e) => mErr.push(e.message));
+  await mp.goto(`${BASE}/app/index.html`);
+  await mp.waitForTimeout(500);
+  await mp.click('#btn-start-open');
+  await mp.waitForTimeout(1500);
+  await mp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+
+  const parsed = await mp.evaluate(() => {
+    const sum = (p) => (p.items ? p.items.map((i) => `${i.amount}|${i.category}|${i.note}`) : [`${p.amount}|${p.category}|${p.note}`]);
+    const heard = voiceCorrectHeard('Lock my spending 12 ringgit nasi lemak five ringgit teh tarik to ringgit roti canai');
+    return {
+      heard,
+      shot: sum(parseVoiceEntry(heard)),
+      noteFirst: sum(parseVoiceEntry('nasi lemak 12 ringgit, teh tarik RM5 dan roti canai 2 ringgit')),
+      splitOne: parseVoiceEntry('RM 40 dinner request RM 20 from Ali'),
+      sen: sum(parseVoiceEntry('12 ringgit 50 sen nasi lemak')),
+      qty: sum(parseVoiceEntry('2 roti canai RM 5')),
+      zh: sum(parseVoiceEntry('鸡饭十二块，咖啡五块')),
+      income: parseVoiceEntry('received salary RM 3000 and bonus RM 500'),
+      typedKept: voiceCorrectHeard('nasi lemak for RM 5'),
+    };
+  });
+  check('v1.89.0: "log my" / "two ringgit" sound-alikes fixed only before a currency word',
+    parsed.heard.startsWith('log my spending') && parsed.heard.includes('two ringgit roti') && parsed.typedKept === 'nasi lemak for RM 5',
+    JSON.stringify(parsed.heard));
+  check('v1.89.0: one sentence with three anchored amounts gives three spends (amount-first and note-first, EN/BM/ZH)',
+    JSON.stringify(parsed.shot) === JSON.stringify(['12|Food|Nasi lemak', '5|Food|Teh tarik', '2|Food|Roti canai'])
+    && JSON.stringify(parsed.noteFirst) === JSON.stringify(['12|Food|Nasi lemak', '5|Food|Teh tarik', '2|Food|Roti canai'])
+    && JSON.stringify(parsed.zh) === JSON.stringify(['12|Food|鸡饭', '5|Food|咖啡']),
+    JSON.stringify(parsed));
+  check('v1.89.0: split requests, income, "12 ringgit 50 sen" and a bare quantity stay one entry',
+    !parsed.splitOne.items && parsed.splitOne.amount === 40 && parsed.splitOne.split && parsed.splitOne.split.people.length === 1
+    && !parsed.income.items && parsed.income.entryKind === 'income'
+    && JSON.stringify(parsed.sen) === JSON.stringify(['12.5|Food|Nasi lemak'])
+    && parsed.qty.length === 1 && parsed.qty[0].startsWith('5|'),
+    JSON.stringify(parsed));
+
+  const ui = await mp.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const out = {};
+    for (const lang of ['en', 'ms', 'zh']) {
+      await I18N.set(lang);
+      openVoiceEntry('12 ringgit nasi lemak, 5 ringgit teh tarik, 2 ringgit roti canai');
+      await wait(120);
+      const list = document.getElementById('voice-preview-items');
+      const dlg = document.getElementById('voice-dialog');
+      const over = [...dlg.querySelectorAll('.voice-item, .voice-item-text, .voice-item-drop')].some((el) => {
+        const r = el.getBoundingClientRect(); return r.right > innerWidth + 1 || r.left < -1;
+      });
+      out[lang] = { rows: list.hidden ? 0 : list.children.length, save: document.getElementById('voice-save').textContent, over, x: document.documentElement.scrollWidth <= innerWidth + 1 };
+      dlg.close();
+    }
+    await I18N.set('en');
+    const before = state.dailyExpenses.length;
+    openVoiceEntry('12 ringgit nasi lemak, 5 ringgit teh tarik, 2 ringgit roti canai');
+    await wait(120);
+    document.querySelectorAll('#voice-preview-items .voice-item-drop')[1].click();
+    await wait(40);
+    out.afterDrop = { rows: document.getElementById('voice-preview-items').children.length, save: document.getElementById('voice-save').textContent };
+    voiceSaveConfirmed();
+    const added = state.dailyExpenses.slice(before);
+    out.saved = added.map((e) => `${e.amount}|${e.category}|${e.note}`);
+    out.closed = !document.getElementById('voice-dialog').open;
+    return out;
+  });
+  check('v1.89.0: preview lists one row per spend with a remove button, "Save 3 spends", and fits 360px in EN/MS/ZH',
+    ['en', 'ms', 'zh'].every((l) => ui[l].rows === 3 && !ui[l].over && ui[l].x) && ui.en.save === 'Save 3 spends' && ui.ms.save === 'Simpan 3 belanja',
+    JSON.stringify(ui));
+  check('v1.89.0: removing a row keeps the rest; Save books each spend as its own entry and closes the sheet',
+    ui.afterDrop.rows === 2 && ui.afterDrop.save === 'Save 2 spends'
+    && JSON.stringify(ui.saved) === JSON.stringify(['12|Food|Nasi lemak', '2|Food|Roti canai']) && ui.closed,
+    JSON.stringify(ui));
+  const mixed = await mp.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const e = parseVoiceEntry('12 ringgit nasi lemak split half with Ali, then found 50 ringgit on the floor');
+    const shape = e.items ? e.items.map((i) => `${i.entryKind}:${i.amount}:${i.split ? i.split.people.map((x) => x.name + x.amount).join('+') : ''}`) : [];
+    const inc0 = state.income.length, sp0 = state.dailyExpenses.length, so0 = splitOutList().length;
+    openVoiceEntry('12 ringgit nasi lemak split half with Ali, then found 50 ringgit on the floor');
+    await wait(120);
+    const save = document.getElementById('voice-save').textContent;
+    const rows = document.getElementById('voice-preview-items').children.length;
+    voiceSaveConfirmed();
+    await wait(500);
+    const res = {
+      shape, save, rows,
+      income: state.income.slice(inc0).map((i) => `${i.amount}|${i.name}`),
+      spends: state.dailyExpenses.slice(sp0).map((x) => `${x.amount}|${x.note}`),
+      splits: splitOutList().slice(so0).map((r) => r.people.map((p) => p.name + p.amount).join('+')),
+    };
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    return res;
+  });
+  check('v1.89.0: one sentence can mix a split spend and money in ("…split half with Ali, then found 50 ringgit")',
+    JSON.stringify(mixed.shape) === JSON.stringify(['expense:12:Ali6', 'income:50:'])
+    && mixed.rows === 2 && mixed.save === 'Save 2 entries'
+    && JSON.stringify(mixed.income) === JSON.stringify(['50|Found on the floor'])
+    && JSON.stringify(mixed.spends) === JSON.stringify(['12|Nasi lemak'])
+    && JSON.stringify(mixed.splits) === JSON.stringify(['Ali6']),
+    JSON.stringify(mixed));
+  check('v1.89.0: no page errors in multi-spend suite', mErr.length === 0, JSON.stringify(mErr));
+  await mCtx.close();
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();

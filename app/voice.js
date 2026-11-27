@@ -173,10 +173,12 @@
     return voiceMatchContacts(parts, knownContacts);
   }
 
+  const VOICE_EXACT_SPLIT_SRC = String.raw`\b(?:request|ask|charge|minta|claim)\s+(?:rm|myr|\$)?\s*(\d+(?:[.,]\d{1,2})?)\s*(?:ringgit|rm|myr)?\s+(?:from|dari|daripada)\s+([a-zA-Z\u4e00-\u9fff][a-zA-Z0-9\u4e00-\u9fff\s,&-]{0,60})`;
+
   function voiceExtractSplit(text, totalAmount, knownContacts) {
     const raw = String(text || "");
     // 1. Explicit exact request: "request RM 20 from Ali" / "minta RM 20 dari Ali"
-    const exactRe = /\b(?:request|ask|charge|minta|claim)\s+(?:rm|myr|\$)?\s*(\d+(?:[.,]\d{1,2})?)\s*(?:ringgit|rm|myr)?\s+(?:from|dari|daripada)\s+([a-zA-Z\u4e00-\u9fff][a-zA-Z0-9\u4e00-\u9fff\s,&-]{0,60})/i;
+    const exactRe = new RegExp(VOICE_EXACT_SPLIT_SRC, "i");
     const exactM = raw.match(exactRe);
     if (exactM) {
       const amt = voiceRound2(Number(exactM[1].replace(",", "")));
@@ -270,6 +272,11 @@
     [/\btouch\s+(?:and|n|'n)\s+go\b/gi, "Touch 'n Go"],
     [/\bduit\s+now\b/gi, "DuitNow"],
     [/\bmay\s+bank\b/gi, "Maybank"],
+    // 1.89.0: "log my" heard as "lock my"; "two / four ringgit" as "to / for ringgit".
+    [/\block\s+my\s+(spending|spend|expenses?|lunch|dinner|breakfast|food|makan)\b/gi, "log my $1"],
+    [/^lock\s+(?=rm\b|\d)/i, "log "],
+    [/\b(?:to|too)\s+(?=ringgit\b)/gi, "two "],
+    [/\bfor\s+(?=ringgit\b)/gi, "four "],
   ];
 
   function voiceCorrectHeard(text) {
@@ -342,10 +349,11 @@
     let amountMatch = "";
 
     // Numeric amount (supports RM 40, RM40.50, $12, 40 ringgit, 40块, or standalone number).
-    const numRe = /(?:(?:rm|myr|\$)\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?))|(?:(\d+(?:,\d{3})*(?:\.\d{1,2})?)\s*(?:ringgit|rm|myr|bucks|dollars|块|元|令吉))/i;
+    const numRe = /(?:(?:rm|myr|\$)\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?))|(?:(\d+(?:,\d{3})*(?:\.\d{1,2})?)\s*(?:ringgit|rm|myr|bucks|dollars|块|元|令吉)(?:\s*(\d{1,2})\s*(?:sen|cents?)\b)?)/i;
     const numM = work.match(numRe);
     if (numM) {
-      amount = voiceRound2(Number((numM[1] || numM[2]).replace(/,/g, "")));
+      // "12 ringgit 50 sen" is RM 12.50 (1.89.0).
+      amount = voiceRound2(Number((numM[1] || numM[2]).replace(/,/g, "")) + (numM[3] ? Number(numM[3]) / 100 : 0));
       amountMatch = numM[0];
     } else {
       const spoken = voiceParseSpokenNumber(work);
@@ -375,7 +383,7 @@
     }
 
     // Detect money-write intent: income vs debt payment vs spend (all still confirm before saving).
-    const isIncome = /\b(received|receive|earned|earn|salary|bonus|freelance|dividend|refund|gaji|dapat|terima|pendapatan|bonus)\b|[工资薪水收入收到赚了]/i.test(raw)
+    const isIncome = /\b(received|receive|earned|earn|salary|bonus|freelance|dividend|refund|gaji|dapat|terima|pendapatan|bonus|found|jumpa|terjumpa|kutip|pungut)\b|工资|薪水|收入|收到|赚了|捡到/i.test(raw)
       && !/\b(split|bahagi|kongsi)\b/i.test(raw);
     const isDebtPay = !isIncome && /\b(pay\s+debt|paid\s+debt|debt\s+payment|loan\s+payment|bayar\s+hutang|bayar\s+pinjaman|bayar\s+kereta|bayar\s+rumah)\b|[还贷还债还卡]/i.test(raw);
     let debtId = "";
@@ -393,9 +401,16 @@
     const category = isIncome ? "Income" : (isDebtPay ? "Debt" : voiceInferCategory(work + " " + raw));
 
     // Strip leading command boilerplate ("log my", "add", "rekod", "belanja", "spent") to leave a clean note.
-    let note = work
-      .replace(/^\s*(?:please\s+)?(?:log|add|record|track|spent|spend|paid|pay|received|receive|earned|earn|beli|belanja|rekod|tambah|dapat|terima|bayar|记一笔|花了|买了|收到|还了)\b\s*/i, "")
-      .replace(/^\s*(?:my|for|on|at|untuk|di|saya|hutang|debt)\b\s*/i, "")
+    // 1.89.0: strip every leading filler word, not just one ("log my spending nasi" → "Nasi").
+    let lead = work;
+    for (let n = 0; n < 8; n++) {
+      const next = lead
+        .replace(/^[\s,.:;-]*(?:please|tolong|log|add|record|track|note|spent|spend|spending|expenses?|paid|pay|bought|ate|had|received|receive|earned|earn|beli|belanja|rekod|tambah|catat|dapat|terima|bayar|my|for|on|at|untuk|di|saya|aku|i|just|today|tadi|hutang|debt)\b\s*/i, "")
+        .replace(/^\s*(?:记一笔|花了|买了|收到|还了)\s*/, "");
+      if (next === lead) break;
+      lead = next;
+    }
+    let note = lead
       .replace(/\b(?:spending|expense|expenses|in\s+duitful|dalam\s+duitful|and|dan)\s*$/i, "")
       // Currency words are never the note ("RM 40 ringgit nasi" → "Nasi").
       .replace(/(?:^|\s)(?:ringgit|rm|myr|sen)(?=\s|[,.]|$)/gi, " ")
@@ -421,6 +436,171 @@
     };
   }
 
+  /* ---------- Several spends in one sentence (1.89.0) ----------
+     "Log my spending 12 ringgit nasi lemak, five ringgit teh tarik, two ringgit
+     roti canai" is three spends. Only amounts anchored by a currency word
+     count (RM, ringgit, 块, 元): a bare "2 roti canai" is a quantity. Split
+     sentences ("… request RM 20 from Ali"), income and debt payments stay one
+     entry. Fewer than two anchored amounts: the single parser, unchanged. */
+  const VOICE_MAX_ITEMS = 10;
+  const VOICE_NUM_SPAN_RE = /(?:rm|myr|\$)\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?)(?:\s*(?:ringgit|rm|myr)\b)?|(\d+(?:,\d{3})*(?:\.\d{1,2})?)\s*(?:(?:ringgit|rm|myr|bucks|dollars)\b|块|元|令吉)(?:\s*(\d{1,2})\s*(?:sen|cents?)\b)?/gi;
+  const VOICE_ZH_SPAN_RE = /[零一二两三四五六七八九十百千]+\s*(?:块|元|令吉|马币)(?:\s*[零一二两三四五六七八九](?:毛|角)?)?/g;
+  const VOICE_NUM_WORDS = new Set(["belas", "puluh", "ratus", "seratus", "hundred", "ribu", "seribu", "thousand"]);
+  const VOICE_CURRENCY_WORDS = new Set(["ringgit", "rm", "myr", "dollars", "bucks"]);
+  // Words that only say "log this" — what's left after them decides whether
+  // the sentence names the thing before its price ("nasi lemak 12 ringgit").
+  const VOICE_LEAD_FILLER = /\b(?:please|tolong|log|logged|add|record|track|note|my|me|the|i|i've|just|today|spending|spend|spent|expenses?|paid|pay|bought|buy|ate|eat|had|for|on|at|beli|belanja|rekod|tambah|catat|saya|aku|hari\s+ini|tadi|dan|and|then|also|plus)\b|记一笔|记|花了|买了|今天|我/gi;
+
+  function voiceAmountSpans(text) {
+    const raw = String(text || "");
+    const spans = [];
+    let m;
+    VOICE_NUM_SPAN_RE.lastIndex = 0;
+    while ((m = VOICE_NUM_SPAN_RE.exec(raw))) {
+      spans.push({ start: m.index, end: m.index + m[0].length });
+    }
+    VOICE_ZH_SPAN_RE.lastIndex = 0;
+    while ((m = VOICE_ZH_SPAN_RE.exec(raw))) {
+      spans.push({ start: m.index, end: m.index + m[0].length });
+    }
+    // Spoken numbers anchored by a currency word: "five ringgit", "dua belas ringgit lima puluh sen".
+    const toks = [];
+    const tokRe = /[a-z]+/gi;
+    while ((m = tokRe.exec(raw))) toks.push({ w: m[0].toLowerCase(), s: m.index, e: m.index + m[0].length });
+    const isNum = (w) => w in WORD_NUMS || VOICE_NUM_WORDS.has(w);
+    for (let i = 0; i < toks.length; i++) {
+      if (!isNum(toks[i].w) || toks[i].w === "a" || toks[i].w === "se") continue;
+      if (i > 0 && isNum(toks[i - 1].w)) continue;
+      let j = i;
+      while (j < toks.length && (isNum(toks[j].w) || (j > i && (toks[j].w === "and" || toks[j].w === "dan") && j + 1 < toks.length && isNum(toks[j + 1].w)))) j++;
+      if (j >= toks.length || !VOICE_CURRENCY_WORDS.has(toks[j].w)) { i = j - 1; continue; }
+      let end = toks[j].e;
+      let k = j + 1;
+      while (k < toks.length && isNum(toks[k].w)) k++;
+      if (k > j + 1 && k < toks.length && /^(?:sen|cents?)$/.test(toks[k].w)) end = toks[k].e;
+      spans.push({ start: toks[i].s, end });
+      i = j;
+    }
+    spans.sort((a, b) => a.start - b.start);
+    const out = [];
+    for (const s of spans) {
+      const prev = out[out.length - 1];
+      if (prev && s.start < prev.end) { prev.end = Math.max(prev.end, s.end); continue; }
+      out.push({ ...s });
+    }
+    return out;
+  }
+
+  function voiceTrimJoiners(s) {
+    return String(s || "")
+      .replace(/^[\s,.;:&+\-，、。；]*(?:(?:and|dan|then|also|plus|lepas\s+tu|pastu|lagi)\b|和|还有|然后)?[\s,.;:&+\-，、。；]*/i, "")
+      .replace(/[\s,.;:&+\-，、。；]*(?:\b(?:and|dan|then|also|plus)|和|还有|然后)?[\s,.;:&+\-，、。；]*$/i, "")
+      .trim();
+  }
+
+  // Clause breaks that start a new thought: "…, then found 50 ringgit".
+  const VOICE_CLAUSE_RE = /\s*(?:[,;，；。]|\.(?=\s|$))\s*(?:(?:and\s+)?then\b|lepas\s+tu\b|pastu\b|also\b|plus\b|然后|还有)?\s*|\s+(?:and\s+then|then|lepas\s+tu|pastu|lepastu)\s+|然后|还有/gi;
+
+  function voiceClauses(raw) {
+    const parts = [];
+    let last = 0;
+    let m;
+    VOICE_CLAUSE_RE.lastIndex = 0;
+    while ((m = VOICE_CLAUSE_RE.exec(raw))) {
+      if (!m[0]) { VOICE_CLAUSE_RE.lastIndex++; continue; }
+      parts.push({ start: last, end: m.index });
+      last = m.index + m[0].length;
+    }
+    parts.push({ start: last, end: raw.length });
+    return parts.filter((c) => c.end > c.start);
+  }
+
+  // Amounts that are a split's own figure ("request RM 20 from Ali") are not a new item.
+  function voiceItemSpans(text) {
+    const spans = voiceAmountSpans(text);
+    const exact = [...text.matchAll(new RegExp(VOICE_EXACT_SPLIT_SRC, "gi"))]
+      .map((m) => ({ start: m.index, end: m.index + m[0].length }));
+    return spans.filter((s) => !exact.some((x) => s.start >= x.start && s.start < x.end));
+  }
+
+  function parseVoiceItems(rawText, opts) {
+    const raw = String(rawText || "").trim();
+    const whole = parseVoiceSentence(raw, opts);
+    if (!raw) return [whole];
+    const allSpans = voiceItemSpans(raw);
+    if (allSpans.length < 2) return [whole];
+
+    const o = opts && typeof opts === "object" ? opts : {};
+    const wallets = Array.isArray(o.wallets) ? o.wallets : (typeof state === "object" && state && Array.isArray(state.wallets) ? state.wallets : []);
+    const wHit = voiceMatchWallet(raw, wallets);
+
+    // 1. Clauses; a clause with no amount ("split half with Ali") joins the one before it
+    //    (or the next one when it comes first: "nasi lemak, 12 ringgit").
+    const clauses = [];
+    for (const c of voiceClauses(raw)) {
+      const has = allSpans.some((s) => s.start >= c.start && s.start < c.end);
+      const prev = clauses[clauses.length - 1];
+      if (!has && prev) { prev.end = c.end; continue; }
+      if (prev && !prev.has) { prev.end = c.end; prev.has = has; continue; }
+      clauses.push({ start: c.start, end: c.end, has });
+    }
+
+    // 2. Inside a clause, one item per amount: amount-first, or note-first when
+    //    words come before the first amount ("nasi lemak 12 ringgit dan teh tarik 5").
+    const segs = [];
+    for (const c of clauses) {
+      const spans = allSpans.filter((s) => s.start >= c.start && s.start < c.end);
+      if (spans.length < 2) { segs.push(raw.slice(c.start, c.end)); continue; }
+      const head = raw.slice(c.start, spans[0].start);
+      const noteFirst = /[a-z\u4e00-\u9fff]{2,}/i.test(head.replace(VOICE_LEAD_FILLER, " "));
+      spans.forEach((sp, i) => {
+        if (noteFirst) {
+          const from = i === 0 ? c.start : spans[i - 1].end;
+          segs.push(raw.slice(from, i === spans.length - 1 ? c.end : sp.end));
+        } else {
+          const from = i === 0 ? c.start : sp.start;
+          segs.push(raw.slice(from, i === spans.length - 1 ? c.end : spans[i + 1].start));
+        }
+      });
+    }
+    if (segs.length < 2) return [whole];
+
+    const items = [];
+    for (const seg of segs.slice(0, VOICE_MAX_ITEMS)) {
+      const p = parseVoiceSentence(voiceTrimJoiners(seg), { ...o, wallets });
+      if (!(p.amount > 0)) return [whole];
+      if (p.entryKind === "debt" && !p.debtId) p.entryKind = "expense";
+      if (!p.walletId && wHit) { p.walletId = wHit.wallet.id; p.walletName = wHit.wallet.name; }
+      items.push(p);
+    }
+    return items;
+  }
+
+  // What the sheet previews and saves: one entry, or `items` when the
+  // sentence holds several spends (amount = their total).
+  function voiceCombine(raw, items) {
+    return {
+      raw: String(raw || "").trim(),
+      entryKind: items.every((p) => p.entryKind === "expense") ? "expense" : "mixed",
+      // What goes out (spends, debt payments); money in is not added to it.
+      amount: voiceRound2(items.reduce((a, p) => a + (p.entryKind === "income" ? 0 : p.amount), 0)) || voiceRound2(items.reduce((a, p) => a + p.amount, 0)),
+      category: items[0].category,
+      note: "",
+      walletId: "",
+      walletName: "",
+      debtId: "",
+      debtName: "",
+      split: null,
+      items,
+      source: "local",
+    };
+  }
+
+  function parseVoiceEntry(rawText, opts) {
+    const items = parseVoiceItems(rawText, opts);
+    return items.length < 2 ? items[0] : voiceCombine(rawText, items);
+  }
+
   function voiceKnownContacts() {
     const names = new Set();
     try {
@@ -439,8 +619,10 @@
    * Always verifies split math locally; falls back cleanly to parseVoiceSentence.
    */
   async function parseVoiceSmart(rawText) {
-    const local = parseVoiceSentence(rawText);
+    const local = parseVoiceEntry(rawText);
     if (!rawText || typeof window.aiCloudRun !== "function") return local;
+    // Several spends: the cloud task reads one entry, so the local split stands.
+    if (local.items) return local;
     if (local.entryKind === "income" || local.entryKind === "debt") return local;
     try {
       const wallets = (state && Array.isArray(state.wallets) ? state.wallets : []).map((w) => w.name).filter(Boolean);
@@ -550,7 +732,7 @@
       if (input) {
         input.value = action.sentence;
         voiceSyncTranscript(action.sentence);
-        renderVoicePreview(parseVoiceSentence(action.sentence));
+        renderVoicePreview(parseVoiceEntry(action.sentence));
       }
       return true;
     }
@@ -1146,7 +1328,7 @@
     const corrected = voiceCorrectHeard(text);
     input.value = corrected;
     voiceSyncTranscript(corrected);
-    renderVoicePreview(parseVoiceSentence(corrected));
+    renderVoicePreview(parseVoiceEntry(corrected));
   }
 
   // Final words arrived: check local instant navigation first (0 quota),
@@ -1164,7 +1346,7 @@
       return;
     }
 
-    const local = parseVoiceSentence(raw);
+    const local = parseVoiceEntry(raw);
     if (local.amount > 0) {
       renderVoicePreview(local);
       parseVoiceSmart(raw).then((smart) => {
@@ -1297,6 +1479,15 @@
     box.hidden = false;
     saveBtn.disabled = false;
 
+    const itemsList = document.getElementById("voice-preview-items");
+    if (parsed.items && parsed.items.length > 1) {
+      voiceRenderItems(parsed, spendLine, itemsList, splitBox, saveBtn);
+      voiceKiraSync();
+      return;
+    }
+    if (itemsList) { itemsList.hidden = true; itemsList.replaceChildren(); }
+    box.classList.remove("is-multi");
+
     const money = typeof fmtMoney === "function" ? fmtMoney(parsed.amount) : `RM ${parsed.amount.toFixed(2)}`;
     const kindTag = parsed.entryKind === "income"
       ? voiceT("Income")
@@ -1333,11 +1524,115 @@
     voiceKiraSync();
   }
 
-  function voiceSaveConfirmed() {
+  function voiceMoney(n) {
+    return typeof fmtMoney === "function" ? fmtMoney(n) : `RM ${Number(n).toFixed(2)}`;
+  }
+
+  // Several spends: one row each (amount · category · note · wallet) with a
+  // remove button, the total above, "Save 3 spends" (1.89.0).
+  function voiceRenderItems(parsed, spendLine, list, splitBox, saveBtn) {
+    const items = parsed.items;
+    const n = items.length;
+    const plain = items.every((it) => it.entryKind === "expense" && !it.split);
+    const box = document.getElementById("voice-preview");
+    if (box) box.classList.add("is-multi");
+    spendLine.textContent = typeof trn === "function"
+      ? (plain
+        ? trn(n, "{n} spend · {a}", "{n} spends · {a}", { a: voiceMoney(parsed.amount) })
+        : trn(n, "{n} entry", "{n} entries"))
+      : `${n} · ${voiceMoney(parsed.amount)}`;
+    if (splitBox) { splitBox.hidden = true; splitBox.textContent = ""; }
+    if (list) {
+      const rows = items.map((it, idx) => {
+        const li = document.createElement("li");
+        li.className = "voice-item" + (it.entryKind === "income" ? " is-income" : "");
+        const txt = document.createElement("span");
+        txt.className = "voice-item-text";
+        const amt = document.createElement("b");
+        amt.textContent = (it.entryKind === "income" ? "+" : "") + voiceMoney(it.amount);
+        const tag = it.entryKind === "income" ? voiceT("Income") : (it.entryKind === "debt" ? voiceT("Pay debt") : voiceT(it.category));
+        const note = it.entryKind === "debt" ? (it.debtName || it.note) : (it.note !== it.category ? it.note : "");
+        txt.append(amt, document.createTextNode(" · " + [tag, note, it.walletName].filter(Boolean).join(" · ")));
+        if (it.split && it.split.people && it.split.people.length) {
+          const sp = document.createElement("span");
+          sp.className = "voice-item-split";
+          sp.textContent = voiceT("Split request: {list}", { list: it.split.people.map((x) => `${x.name} (${voiceMoney(x.amount)})`).join(", ") });
+          txt.append(sp);
+        }
+        const drop = document.createElement("button");
+        drop.type = "button";
+        drop.className = "ghost voice-item-drop";
+        drop.setAttribute("aria-label", voiceT("Remove {name}", { name: note || tag || voiceMoney(it.amount) }));
+        drop.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+        drop.addEventListener("click", () => voiceDropItem(idx));
+        li.append(txt, drop);
+        return li;
+      });
+      list.replaceChildren(...rows);
+      list.hidden = false;
+    }
+    saveBtn.textContent = typeof trn === "function"
+      ? (plain ? trn(n, "Save {n} spend", "Save {n} spends") : trn(n, "Save {n} entry", "Save {n} entries"))
+      : `Save ${n}`;
+  }
+
+  // A misheard item goes without dropping the rest.
+  function voiceDropItem(idx) {
     const p = voiceCurrent;
-    if (!p || !(p.amount > 0) || !state) return null;
+    if (!p || !Array.isArray(p.items)) return;
+    const items = p.items.filter((_, i) => i !== idx);
+    const focusNext = () => {
+      const btns = document.querySelectorAll("#voice-preview-items .voice-item-drop");
+      const b = btns[Math.min(idx, btns.length - 1)] || document.getElementById("voice-save");
+      try { b && b.focus(); } catch {}
+    };
+    if (items.length > 1) {
+      renderVoicePreview(voiceCombine(p.raw, items));
+    } else {
+      renderVoicePreview(items[0] || null);
+    }
+    focusNext();
+  }
+
+  function voiceSaveItems(p) {
     const date = typeof todayISO === "function" ? todayISO() : new Date().toISOString().slice(0, 10);
-    const id = typeof uid === "function" ? uid() : `v-${Date.now()}`;
+    const booked = p.items.filter((it) => it.amount > 0).map((it) => voiceBook(it, date));
+    if (typeof save === "function") save();
+    if (typeof renderAll === "function") renderAll();
+
+    const dlg = document.getElementById("voice-dialog");
+    voiceStopListening({ cancel: true });
+    clearVoiceThread();
+    if (dlg && dlg.open) dlg.close();
+    if (typeof kiraPlaySaveFeedback === "function") kiraPlaySaveFeedback();
+    const n = booked.length;
+    const allSpends = booked.every((x) => x.expense && x.expense.kind === "expense");
+    if (typeof toast === "function") {
+      const spent = voiceRound2(booked.reduce((a, x) => a + (x.destTab === "flow" ? 0 : x.expense.amount), 0));
+      toast(typeof trn === "function"
+        ? (allSpends
+          ? trn(n, "Saved {n} spend · {a}", "Saved {n} spends · {a}", { a: voiceMoney(spent) })
+          : trn(n, "Saved {n} entry", "Saved {n} entries"))
+        : `Saved ${n}`);
+      if (typeof kiraHop === "function") kiraHop();
+    }
+    // A split request still needs sending: open the first one's share sheet.
+    const firstSplit = booked.find((x) => x.splitRec);
+    if (firstSplit && typeof splitOpenShare === "function") {
+      setTimeout(() => splitOpenShare(firstSplit.splitRec.id, 0).catch(() => {}), 350);
+    } else {
+      const last = booked[booked.length - 1];
+      if (last && typeof kiraHighlightLanding === "function") {
+        kiraHighlightLanding({ kind: last.destTab === "flow" ? "income" : "expense", id: last.id, tab: last.destTab, label: last.destLabel });
+      }
+    }
+    return { expenses: booked.map((x) => x.expense), expense: booked[0] ? booked[0].expense : null, splitRec: firstSplit ? firstSplit.splitRec : null, booked };
+  }
+
+  // Books one parsed entry (spend, spend + split request, income or debt
+  // payment) into state; the caller saves, renders and closes once.
+  function voiceBook(p, date) {
+    const id = typeof uid === "function" ? uid() : `v-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     let expense = null;
     let splitRec = null;
     let destTab = "dashboard";
@@ -1421,6 +1716,15 @@
     }
 
     if (typeof kiraBumpStat === "function") kiraBumpStat("voiceLogged");
+    return { id, expense, splitRec, destTab, destLabel };
+  }
+
+  function voiceSaveConfirmed() {
+    const p = voiceCurrent;
+    if (!p || !(p.amount > 0) || !state) return null;
+    if (Array.isArray(p.items) && p.items.length > 1) return voiceSaveItems(p);
+    const date = typeof todayISO === "function" ? todayISO() : new Date().toISOString().slice(0, 10);
+    const { id, expense, splitRec, destTab, destLabel } = voiceBook(p, date);
     if (typeof save === "function") save();
     if (typeof renderAll === "function") renderAll();
 
@@ -1474,7 +1778,7 @@
     }
 
     if (input.value) {
-      const parsed = parseVoiceSentence(input.value);
+      const parsed = parseVoiceEntry(input.value);
       renderVoicePreview(parsed);
       parseVoiceSmart(input.value).then((smart) => {
         if (input.value.trim() === smart.raw.trim()) renderVoicePreview(smart);
@@ -1614,7 +1918,7 @@
       input.addEventListener("input", () => {
         const val = input.value;
         voiceSyncTranscript(val);
-        renderVoicePreview(parseVoiceSentence(val));
+        renderVoicePreview(parseVoiceEntry(val));
         clearTimeout(timer);
         if (val.trim().length >= 4 && typeof window.aiCloudRun === "function" && !voiceLooksLikeQuestion(val) && !voiceMatchLocalCommand(val)) {
           timer = setTimeout(() => {
@@ -1651,6 +1955,8 @@
   }
 
   window.parseVoiceSentence = parseVoiceSentence;
+  window.parseVoiceItems = parseVoiceItems;
+  window.parseVoiceEntry = parseVoiceEntry;
   window.voiceCorrectHeard = voiceCorrectHeard;
   window.voiceSpeechHints = voiceSpeechHints;
   window.parseVoiceSmart = parseVoiceSmart;
