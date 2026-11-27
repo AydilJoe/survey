@@ -62,6 +62,23 @@ for (const file of files) {
     changed.push(file.replace(`${ROOT}/node_modules/`, "").replace("/android/build.gradle", "").replace("/capacitor/build.gradle", ""));
   }
 }
+// A library manifest's package="…" has been ignored since AGP 8 (build.gradle's
+// namespace is the namespace) and AGP warns about it on every build. The
+// purchase plugin (capacitor-plugin-cdv-purchase, 1.80.0) still ships one.
+// Drop it only where build.gradle already declares that same namespace.
+for (const dep of deps) {
+  const gradle = resolve(ROOT, "node_modules", dep, "android/build.gradle");
+  const manifest = resolve(ROOT, "node_modules", dep, "android/src/main/AndroidManifest.xml");
+  if (!existsSync(gradle) || !existsSync(manifest)) continue;
+  const ns = /\bnamespace\s*=?\s*["']([\w.]+)["']/.exec(readFileSync(gradle, "utf8"))?.[1];
+  if (!ns) continue;
+  const before = readFileSync(manifest, "utf8");
+  const after = before.replace(new RegExp(`(<manifest\\b[^>]*?)\\s+package=["']${ns.replace(/\./g, "\\.")}["']`), "$1");
+  if (after !== before) {
+    writeFileSync(manifest, after);
+    changed.push(`${dep} (manifest package)`);
+  }
+}
 console.log(changed.length
   ? `patch-android-plugins-agp9: made AGP 9-ready: ${changed.join(", ")}.`
   : "patch-android-plugins-agp9: plugins already AGP 9-ready.");

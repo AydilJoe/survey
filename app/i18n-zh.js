@@ -1726,6 +1726,7 @@
   "Pro restored. Welcome back!": "Pro 已恢复，欢迎回来！",
   "Already unlocked — nothing to restore.": "已经解锁——无须恢复。",
   "No previous purchase found for this account. If you bought Pro on a different Google account, sign that account into the Play Store first.": "这个账户没有购买记录。如果你用另一个 Google 账户买了 Pro，请先在 Play Store 登录那个账户。",
+  "No previous purchase found for this Apple ID. If you bought Pro with a different Apple ID, sign in with it in Settings → your name → Media & Purchases, then try again.": "这个 Apple ID 没有购买记录。如果你用另一个 Apple ID 买了 Pro，请在“设置”→ 你的名字 →“媒体与购买项目”登录那个 Apple ID，然后再试一次。",
   "Restore failed:": "恢复失败：",
   "Welcome back.": "欢迎回来。",
   "Your data is back.": "你的资料已恢复。",

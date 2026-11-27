@@ -203,7 +203,7 @@
 
   <h1>Privacy <em>policy</em></h1>
   <p class="lede">Written in plain English, not legalese. The short version lives right below — the rest is the full detail you'll want if you care, or if a regulator asks.</p>
-  <p class="meta">Effective 23 April 2026 · Last updated 1 November 2026</p>
+  <p class="meta">Effective 23 April 2026 · Last updated 27 November 2026</p>
 
   <div class="tldr">
     <h2>The short version</h2>
@@ -294,7 +294,9 @@
   <p>We then issue you a Pro licence (see 4.3 below) and send it to the email address you provided. Our Vercel serverless function writes a short audit record of each purchase event (bill identifier, paid state, amount, email, any discount code used) to its execution log, so we can diagnose payment issues. These logs are kept by Vercel for a limited period (generally up to 30 days) and are not used for marketing, profiling, or any other purpose.</p>
 
   <h3>4.2 When you buy Duitful Pro inside the native iOS or Android app</h3>
-  <p>In-app purchases are processed entirely by Apple (App Store) or Google (Play Store). Duitful does not receive your payment details or see your Apple ID / Google account. Those stores operate under their own privacy policies, which you accepted when you set up your device. Purchase receipts are validated locally using each store's standard SDK.</p>
+  <p>In-app purchases are processed entirely by Apple (App Store) or Google (Play Store). Duitful does not receive your payment details or see your Apple ID / Google account. Those stores operate under their own privacy policies, which you accepted when you set up your device. Lifetime Pro is unlocked on your device from the store's own purchase record.</p>
+  <p><strong>Anonymous purchase id.</strong> The first time the app talks to a store, it makes a random identifier (a UUID) and keeps it inside your encrypted data; it is not derived from your name, email, device or anything else about you, and it travels with your encrypted cloud backup. Each purchase carries a scrambled form of it (Apple's <code>appAccountToken</code>, Google's <code>obfuscatedAccountId</code>), so a purchase can be told apart from one made with another copy of the app.</p>
+  <p><strong>Duitful AI+ subscription check.</strong> To switch AI+ on, the app sends the store's signed proof of that subscription (Apple's signed transaction, or Google's purchase token) and the same scrambled purchase id to <code>/api/ai?op=verify-sub</code>. The server checks it with Apple or Google, and stores the subscription's plan, expiry, the scrambled id, and up to three paired device slots (a random slot id and a label such as "iPhone"). Restoring on a new phone without your old data is never refused; it simply counts as one of the three devices. Nothing from your financial data is part of this.</p>
 
   <h3>4.3 The Pro licence token</h3>
   <p>Once payment is confirmed, we generate a Pro licence. It is a short signed token, using ECDSA on the P-256 curve. The payload contains: a subject identifier (your Billplz bill ID, or a complimentary code for free licences), the email address you provided at checkout, the product code (<code>duitful_pro</code>), the referral code if any, the issue timestamp, and — when applicable — the discount source. The token is verified on your device with a public key built into the app. It contains no device identifier, no IP address, no location.</p>

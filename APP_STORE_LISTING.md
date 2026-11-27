@@ -287,6 +287,18 @@ One data type is collected: **Purchases → Purchase History**.
 - Answers for it: used for **App Functionality**; **not linked** to the
   user's identity; **not used for tracking**.
 
+**Since 1.80.0 (StoreKit 2), declare one more: Identifiers → User ID.**
+Every purchase carries an `appAccountToken`: the UUID form of
+`state.purchaseId`, a random id made in the app (never derived from a name,
+email, device id or anything personal) and kept in the encrypted vault. For
+Duitful AI+ the app sends it, with the subscription's signed transaction, to
+`/api/ai?op=verify-sub`, which stores it with the subscription record to tell
+the purchasing vault's devices from others (a mismatch never refuses a
+restore; see `docs/plans/cloud-ai-subscription.md`). Answers: **App
+Functionality** only; **not linked** to the user's identity (there is no
+account, and the id is random); **not used for tracking**. The signed
+transaction itself is the same Purchase History item above.
+
 Everything else is "No": there is no account, no analytics SDK in the native
 app, and iCloud / Drive backups go to the user's own account already
 encrypted, which Apple does not count as collection by the developer.

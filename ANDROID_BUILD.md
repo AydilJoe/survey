@@ -525,9 +525,13 @@ country list and the tester email is on the list for *that specific track*
 7. Status: **Active**
 
 After your first release is on internal testing, the `duitful_pro`
-product starts appearing inside the app (`cordova-plugin-purchase`
-resolves it from the Play store). Test a sandbox purchase with a
-test account to verify the `approved -> verified` IAP hook fires.
+product starts appearing inside the app (`capacitor-plugin-cdv-purchase`,
+the Capacitor build of cordova-plugin-purchase since 1.80.0, resolves it
+from the Play store; its JS is copied into `www/vendor/cdv-purchase/` by
+`npm run build:web`). Test a sandbox purchase with a licence-test account
+to verify the `approved` IAP hook fires (`onStoreApproved` in `app/pro.js`),
+and run the purchase release checklist in
+`docs/plans/cloud-ai-subscription.md`.
 
 ## Iteration loop
 

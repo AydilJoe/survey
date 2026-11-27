@@ -109,6 +109,22 @@ if (existsSync(BRAND_LOGOS)) {
   });
 }
 
+// In-app purchases: capacitor-plugin-cdv-purchase's shared JS (the same
+// CdvPurchase.store API the Cordova build had; StoreKit 2 on iPhone, Play
+// Billing on Android). A Capacitor plugin's JS normally comes in through a
+// bundler, and Duitful has none, so its plain-script build is copied from
+// node_modules (it follows package.json, so a version bump needs no copy by
+// hand). app/pro.js loads it in the native shells only; the web never sells
+// through a store, so this is not part of the app shell or the service
+// worker.
+const PURCHASE_JS = resolve(ROOT, "node_modules", "capacitor-plugin-cdv-purchase", "www", "store.js");
+if (!existsSync(PURCHASE_JS)) {
+  throw new Error(`Missing ${PURCHASE_JS}: run npm ci (the native apps can't sell without it)`);
+}
+console.log("build-web: copying the purchase plugin's JS -> www/vendor/cdv-purchase/");
+mkdirSync(resolve(WWW, "vendor", "cdv-purchase"), { recursive: true });
+cpSync(PURCHASE_JS, resolve(WWW, "vendor", "cdv-purchase", "store.js"));
+
 console.log("build-web: fetching tesseract (if needed)");
 const fetchResult = spawnSync("npm", ["run", "fetch:tesseract"], {
   cwd: ROOT,

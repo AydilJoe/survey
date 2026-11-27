@@ -218,13 +218,16 @@ writeOnce(resolve(APP_DIR, RULES), `# ${MARK} — written by scripts/patch-andro
 -keep class com.google.mlkit.vision.documentscanner.** { *; }
 -keep class com.google.android.gms.internal.mlkit_vision_documentscanner.** { *; }
 
-# Cordova plugins are created by name from res/xml/config.xml
-# (PluginManager: Class.forName(...).newInstance()), so nothing references
-# their constructors and R8's full mode drops them. The in-app purchase
-# plugin (cordova-plugin-purchase, cc.fovea.PurchasePlugin) is one: when it
-# can't be created the store loads no products at all and Unlock Pro says
-# "Product not configured". Keep every Cordova plugin, the purchase plugin
-# and Play Billing whole.
+# Plugins are created by name (Cordova's PluginManager from
+# res/xml/config.xml, Capacitor's from capacitor.plugins.json, both
+# Class.forName(...).newInstance()), so nothing references their
+# constructors and R8's full mode drops them. The in-app purchase plugin was
+# one (cordova-plugin-purchase, cc.fovea.PurchasePlugin, until 1.80.0): when
+# it can't be created the store loads no products at all and Unlock Pro says
+# "Product not configured". Since 1.80.0 it is the Capacitor build,
+# capacitor-plugin-cdv-purchase (cc.fovea.iap.PurchasePlugin), created the
+# same way, so the same rule keeps it. Keep any Cordova plugin, the purchase
+# plugin and Play Billing whole.
 -keep class org.apache.cordova.** { *; }
 -keep class * extends org.apache.cordova.CordovaPlugin { <init>(); public *; }
 -keep class cc.fovea.** { *; }
@@ -272,8 +275,9 @@ edit(resolve(ANDROID, "gradle.properties"), (src) => {
 // can't see referenced, and two things are only ever looked up by name:
 //   - res/xml/config.xml, Cordova's plugin list, read with
 //     getIdentifier("config", "xml", …). Without it Cordova knows no plugins,
-//     so every call to the in-app purchase plugin answered "Class not found"
-//     (CdvPurchase error 6777001) and Android sold nothing until 1.56.7.
+//     so every call to the in-app purchase plugin (a Cordova plugin until
+//     1.80.0) answered "Class not found" (CdvPurchase error 6777001) and
+//     Android sold nothing until 1.56.7. Kept for any Cordova plugin to come.
 //   - drawable/ic_stat_icon, the reminders' small icon, named in JS.
 // tools:keep pins them; a name that doesn't exist is simply ignored.
 const KEEP_XML = resolve(APP_DIR, "src/main/res/raw/duitful_keep.xml");

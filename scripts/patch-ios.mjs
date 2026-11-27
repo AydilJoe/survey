@@ -700,7 +700,9 @@ const SHORTCUTS_REFRESH = "DuitfulAppShortcuts.updateAppShortcutParameters()";
 // Shortcuts queue above lives in AppDelegate.swift: both use UserDefaults,
 // for this app's own data only (reason CA92.1). The collected-data entry
 // mirrors the App Privacy answers in APP_STORE_LISTING.md (purchase history
-// for referral commissions, not linked, not tracking); keep them in step.
+// for referral commissions and the AI+ check; since 1.80.0 also a user id,
+// the anonymous purchase id sent as appAccountToken / to verify-sub; all
+// not linked, not tracking); keep them in step.
 const PRIVACY_MANIFEST = resolve(IOS_APP, "App/PrivacyInfo.xcprivacy");
 const PRIVACY_MANIFEST_BODY = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -715,6 +717,18 @@ const PRIVACY_MANIFEST_BODY = `<?xml version="1.0" encoding="UTF-8"?>
 \t\t<dict>
 \t\t\t<key>NSPrivacyCollectedDataType</key>
 \t\t\t<string>NSPrivacyCollectedDataTypePurchaseHistory</string>
+\t\t\t<key>NSPrivacyCollectedDataTypeLinked</key>
+\t\t\t<false/>
+\t\t\t<key>NSPrivacyCollectedDataTypeTracking</key>
+\t\t\t<false/>
+\t\t\t<key>NSPrivacyCollectedDataTypePurposes</key>
+\t\t\t<array>
+\t\t\t\t<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+\t\t\t</array>
+\t\t</dict>
+\t\t<dict>
+\t\t\t<key>NSPrivacyCollectedDataType</key>
+\t\t\t<string>NSPrivacyCollectedDataTypeUserID</string>
 \t\t\t<key>NSPrivacyCollectedDataTypeLinked</key>
 \t\t\t<false/>
 \t\t\t<key>NSPrivacyCollectedDataTypeTracking</key>

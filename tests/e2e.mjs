@@ -9791,8 +9791,28 @@ check('the vault is open before the quick-add checks',
     && ocrKitDeps.some((d) => d.startsWith('com.google.android.gms:play-services-mlkit-text-recognition:'))
     && ocrKitDeps.some((d) => d.startsWith('com.google.android.gms:play-services-mlkit-text-recognition-chinese:')));
   check('both platforms still get camera, biometrics and purchases',
-    ['@capacitor/camera', '@capgo/capacitor-native-biometric', 'cordova-plugin-purchase']
+    ['@capacitor/camera', '@capgo/capacitor-native-biometric', 'capacitor-plugin-cdv-purchase']
       .every(p => ios.includes(p) && android.includes(p)));
+  // Purchases (1.80.0): the Capacitor build of the purchase plugin (StoreKit 2
+  // on iPhone), never the Cordova one (StoreKit 1, no signed transaction).
+  // Its JS has no bundler here: build-web copies the plain-script build and
+  // pro.js loads it in the native shells, with ?v= = the installed version.
+  {
+    const cdvPkg = JSON.parse(readFileSync(path.join(REPO_ROOT, 'node_modules', 'capacitor-plugin-cdv-purchase', 'package.json'), 'utf8'));
+    const proJs = readFileSync(path.join(REPO_ROOT, 'app', 'pro.js'), 'utf8');
+    const buildWeb = readFileSync(path.join(REPO_ROOT, 'scripts', 'build-web.mjs'), 'utf8');
+    const vitals = readFileSync(path.join(REPO_ROOT, 'scripts', 'patch-android-play-vitals.mjs'), 'utf8');
+    const loaded = /const CDV_PURCHASE_JS = "vendor\/cdv-purchase\/store\.js\?v=([0-9.]+)";/.exec(proJs);
+    check('purchases use capacitor-plugin-cdv-purchase (StoreKit 2), its JS is copied by build-web and loaded natively at the installed version, and R8 keeps it',
+      !pluginDeps.includes('cordova-plugin-purchase') && !ios.includes('cordova-plugin-purchase') && !android.includes('cordova-plugin-purchase')
+      && /^\^?13\./.test(pkg.dependencies['capacitor-plugin-cdv-purchase'] || '')
+      && !!loaded && loaded[1] === cdvPkg.version
+      && /capacitor-plugin-cdv-purchase[\\/]+www[\\/]+store\.js|"capacitor-plugin-cdv-purchase", "www", "store\.js"/.test(buildWeb)
+      && /window\.CdvPurchaseCapacitor = \{ installed: true \}/.test(proJs)
+      && /-keep class cc\.fovea\.\*\* \{ \*; \}/.test(vitals)
+      && !/appStoreReceipt/.test(proJs.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')),
+      JSON.stringify({ loaded: loaded && loaded[1], installed: cdvPkg.version }));
+  }
   const { NATIVE_WEB_EXCLUDE } = await import(pathToFileURL(path.join(REPO_ROOT, 'scripts/trim-native-web.mjs')).href);
   check('Capacitor copy hook trims vendor/tesseract from iOS while keeping it on Android',
     pkg.scripts?.['capacitor:copy:after'] === 'node scripts/trim-native-web.mjs'
@@ -13174,22 +13194,26 @@ check('the brand catalogue makes no network calls at all',
     const registered = [...swift.matchAll(/CAPPluginMethod\(name: "(\w+)"/g)].map((m) => m[1]);
     const swiftMissing = registered.filter((n) => !new RegExp(`@objc func ${n}\\(_ call: CAPPluginCall\\)`).test(swiftClass));
     const javaMethods = [...javaClass.matchAll(/@PluginMethod[^\n]*\n\s*public void (\w+)\(PluginCall/g)].map((m) => m[1]);
-    const swiftOnly = new Set(['drainQuickAdd', 'readSharedFile', 'recognizeText']); // Android drains through NotificationListener, shared files through takeSharedFiles, and OCR through the ML Kit plugin
+    const swiftOnly = new Set(['drainQuickAdd', 'readSharedFile', 'recognizeText', 'takePurchaseIntents']); // Android drains through NotificationListener, shared files through takeSharedFiles, and OCR through the ML Kit plugin; promoted purchases are a StoreKit 2 PurchaseIntent (iPhone only)
     const javaMissing = registered.filter((n) => !swiftOnly.has(n) && !javaMethods.includes(n));
     check('DuitfulKit: every registered method is defined inside the plugin class, on iOS and Android',
       registered.length >= 6 && swiftMissing.length === 0 && javaMissing.length === 0,
       JSON.stringify({ registered, swiftMissing, javaMissing }));
   }
   // A purchase started on the App Store page (promoted IAP) gets the same
-  // welcome as the paywall, with the developer's thank-you note in it.
+  // welcome as the paywall, with the developer's thank-you note in it. Under
+  // StoreKit 2 it arrives as a PurchaseIntent (DuitfulKit), bought like the
+  // paywall's button; an unasked purchase that isn't a re-report gets it too.
   {
     const html = readFileSync(path.join(REPO_ROOT, 'app', 'index.html'), 'utf8');
     const js = readFileSync(path.join(REPO_ROOT, 'app', 'pro.js'), 'utf8');
+    const swiftKit = readFileSync(path.join(REPO_ROOT, 'native', 'duitful-kit', 'ios', 'Sources', 'DuitfulKitPlugin', 'DuitfulKitPlugin.swift'), 'utf8');
     const dlgAt = html.indexOf('<dialog id="pro-welcome-dialog"');
     const dlg = html.slice(dlgAt, html.indexOf('</dialog>', dlgAt));
     check('Pro welcome: carries the thank-you note from Aydil, and a promoted App Store purchase opens it',
       /class="pro-dev-note"/.test(dlg) && dlg.includes('mailto:hello@duitful.app') && /autofocus/.test(dlg.slice(0, 120))
-        && /if \(unasked\) openProWelcome\(\);/.test(js));
+        && /if \(out && out\.ok\) openProWelcome\(\);/.test(js) && /else if \(fresh && !wasPro\) openProWelcome\(\);/.test(js)
+        && /PurchaseIntent\.intents/.test(swiftKit) && /override public func load\(\)/.test(swiftKit));
   }
   // ITMS-90626: App Store Connect rejects an App Intent whose user-facing
   // text says "Apple" or "Siri" (1.53.0 lost two uploads to "Apple Pay").
@@ -16514,6 +16538,268 @@ check('the brand catalogue makes no network calls at all',
     && subChecks.proUntouched && subChecks.reconnected && subChecks.webPairOnly && subChecks.playOffersOk,
     JSON.stringify(subChecks));
 
+  // StoreKit 2 (1.80.0): a stand-in for capacitor-plugin-cdv-purchase's
+  // CdvPurchase.store (register / when().approved / initialize / get /
+  // restorePurchases / obfuscator / applicationUsername). Transactions are
+  // reported one by one; StoreKit 2 re-reports owned products at every launch
+  // and on Restore with isAcknowledged set, a purchase arrives with it unset.
+  const sk2 = await aip.evaluate(async () => {
+    const keep = {
+      cap: window.Capacitor, iap: window.CdvPurchase, fetch: window.fetch, notify: window.notify,
+      pro: state.pro, license: state.license, aiSub: state.aiSub, purchaseId: state.purchaseId,
+    };
+    const calls = { verify: [], record: [], notes: [] };
+    window.fetch = async (url, init = {}) => {
+      const u = String(url);
+      if (u.includes('op=verify-sub')) {
+        const body = JSON.parse(init.body || '{}');
+        calls.verify.push(body);
+        return new Response(JSON.stringify({ ok: true, subToken: 'tok-sk2', slotId: 'slotSK2abcd1', bound: true,
+          status: { active: true, plan: body.plan, expiresAt: Date.now() + 30 * 86400000, scansLimit: 100, textLimit: 1000, devicesCount: 1, maxDevices: 3, devices: [] } }), { status: 200 });
+      }
+      if (u.includes('/api/native/record-purchase')) { calls.record.push(JSON.parse(init.body || '{}')); return new Response('{"ok":true}', { status: 200 }); }
+      if (u.includes('op=status')) return new Response(JSON.stringify({ ok: true, status: { active: true, plan: 'duitful_ai_monthly', expiresAt: Date.now() + 86400000 } }), { status: 200 });
+      return keep.fetch(url, init);
+    };
+    window.notify = (m) => { calls.notes.push(String(m)); };
+    const b64u = (o) => btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const jwsOf = (payload) => `${b64u({ alg: 'ES256', x5c: [] })}.${b64u(payload)}.c2ln`;
+    const mkTx = (id, sku, extra = {}) => {
+      const t = { transactionId: id, products: [{ id: sku }], platform: 'ios-appstore', finished: 0, ...extra };
+      t.finish = () => { t.finished += 1; return Promise.resolve(); };
+      return t;
+    };
+    let approved = [];
+    let restoreTxs = [];
+    const fire = (tx) => approved.forEach((cb) => cb(tx));
+    const offerFor = (id, mk) => ({ id, pricingPhases: [{ price: 'RM 4.90' }], order: async () => { fire(mk()); return undefined; } });
+    let nextBuy = {};
+    const store = {
+      register() {}, error() {},
+      when() { const w = { approved(cb) { approved.push(cb); return w; } }; return w; },
+      initialize: () => Promise.resolve([]),
+      update: () => Promise.resolve(),
+      get: (id) => ({ id, getOffer: () => offerFor(id, () => nextBuy[id]()), offers: [] }),
+      restorePurchases: async () => { restoreTxs.forEach(fire); return undefined; },
+      obfuscateUsername: (u) => `0000000${String(u).length}`.slice(-8) + '-0000-3000-8000-' + String(u).replace(/-/g, '').slice(0, 12),
+      getAdapter: () => null,
+    };
+    window.CdvPurchase = {
+      store,
+      Platform: { APPLE_APPSTORE: 'ios-appstore', GOOGLE_PLAY: 'android-playstore' },
+      ProductType: { NON_CONSUMABLE: 'non consumable', PAID_SUBSCRIPTION: 'paid subscription' },
+      ErrorCode: { PAYMENT_CANCELLED: 6777006 },
+      Utils: {},
+    };
+    let intents = [];
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios',
+      Plugins: { DuitfulKit: { takePurchaseIntents: async () => { const r = { productIds: intents }; intents = []; return r; }, addListener() {} } } };
+    const welcomeOpen = () => document.getElementById('pro-welcome-dialog').open;
+    const closeWelcome = () => { const d = document.getElementById('pro-welcome-dialog'); if (d.open) d.close(); };
+    const tick = (ms = 30) => new Promise((r) => setTimeout(r, ms));
+    const out = {};
+    try {
+      try { localStorage.removeItem('duitful.iapRecorded'); } catch {}
+      state.pro = false; state.license = null; state.aiSub = null; state.purchaseId = '';
+      iapInitialized = false; iapInitTries = 0;
+      initIAP();
+      await tick();
+      out.binding = { obfuscator: store.obfuscator, username: typeof store.applicationUsername === 'function' ? store.applicationUsername() : '', id: state.purchaseId };
+
+      // 1. Buying AI+ on iPhone sends the transaction's own StoreKit 2 JWS.
+      const aiJws = jwsOf({ productId: 'duitful_ai_monthly', transactionId: 'sk2-ai-1', originalTransactionId: 'sk2-ai-0' });
+      const aiTx = mkTx('sk2-ai-1', 'duitful_ai_monthly', { jwsRepresentation: aiJws });
+      nextBuy.duitful_ai_monthly = () => aiTx;
+      const buy = await purchaseAiSubscription('monthly');
+      const v0 = calls.verify[0] || {};
+      out.aiBuy = { ok: !!(buy && buy.ok), sent: calls.verify.length, jws: v0.signedTransactionInfo === aiJws, platform: v0.platform, plan: v0.plan,
+        token: /^[0-9a-f]{8}-0000-3000-8000-[0-9a-f]{12}$/.test(v0.accountToken || ''), finished: aiTx.finished, pro: state.pro, linked: state.aiSub && state.aiSub.lastTxId };
+
+      // 2. The launch re-report of the same, finished AI+ period isn't sent again; a renewal is.
+      fire(mkTx('sk2-ai-1', 'duitful_ai_monthly', { jwsRepresentation: aiJws, isAcknowledged: true }));
+      await tick();
+      out.aiRereport = calls.verify.length;
+      const renewTx = mkTx('sk2-ai-2', 'duitful_ai_monthly', { jwsRepresentation: jwsOf({ transactionId: 'sk2-ai-2' }) });
+      fire(renewTx);
+      await tick();
+      out.aiRenewal = { sent: calls.verify.length, jws: calls.verify[calls.verify.length - 1].signedTransactionInfo === renewTx.jwsRepresentation, finished: renewTx.finished };
+
+      // 3. A launch re-report of Lifetime Pro on a fresh vault unlocks Pro
+      //    quietly: no welcome, no attribution; a second one changes nothing.
+      const pro1 = mkTx('sk2-pro-1', 'duitful_pro', { isAcknowledged: true, jwsRepresentation: jwsOf({ productId: 'duitful_pro' }) });
+      fire(pro1);
+      out.rereport = { pro: state.pro, welcome: welcomeOpen(), record: calls.record.length, finished: pro1.finished };
+      fire(mkTx('sk2-pro-1', 'duitful_pro', { isAcknowledged: true }));
+      out.rereport2 = { pro: state.pro, welcome: welcomeOpen(), record: calls.record.length };
+      closeWelcome();
+
+      // 4. A real purchase from the paywall: recorded once (as iPhone), not
+      //    again when StoreKit 2 re-reports it.
+      state.pro = false;
+      nextBuy.duitful_pro = () => mkTx('sk2-pro-buy', 'duitful_pro');
+      const bought = await purchasePro('duitful_pro');
+      out.buy = { ok: !!bought.ok, pro: state.pro, record: calls.record.length, platform: calls.record[0] && calls.record[0].platform, welcomeFromHandler: welcomeOpen() };
+      fire(mkTx('sk2-pro-buy', 'duitful_pro', { isAcknowledged: true }));
+      out.buyRereport = calls.record.length;
+
+      // 5. A promoted App Store purchase (PurchaseIntent) is bought like the
+      //    paywall's button and gets the welcome.
+      state.pro = false;
+      nextBuy.duitful_pro = () => mkTx('sk2-pro-promo', 'duitful_pro');
+      intents = ['duitful_pro'];
+      await drainPurchaseIntents();
+      out.promoted = { pro: state.pro, welcome: welcomeOpen(), record: calls.record.length };
+      closeWelcome();
+
+      // 6. Restore: no welcome, no attribution, and AI+ is sent again even
+      //    though that transaction was checked a moment ago.
+      state.pro = false;
+      const before = { verify: calls.verify.length, record: calls.record.length };
+      restoreTxs = [mkTx('sk2-pro-old', 'duitful_pro', { isAcknowledged: false }), mkTx('sk2-ai-2', 'duitful_ai_monthly', { jwsRepresentation: renewTx.jwsRepresentation, isAcknowledged: true })];
+      await restorePurchases();
+      out.restore = { pro: state.pro, welcome: welcomeOpen(), record: calls.record.length - before.record, verify: calls.verify.length - before.verify,
+        finished: restoreTxs.map((t) => t.finished), note: calls.notes[calls.notes.length - 1] || '' };
+      closeWelcome();
+
+      // 7. A refund that arrives while the app runs takes Pro off (no web licence).
+      state.pro = true;
+      const refund = mkTx('sk2-pro-buy', 'duitful_pro', { jwsRepresentation: jwsOf({ productId: 'duitful_pro', revocationDate: Date.now() }) });
+      fire(refund);
+      out.refund = { pro: state.pro, welcome: welcomeOpen(), finished: refund.finished };
+      state.license = { email: 'web@example.my' }; state.pro = true;
+      fire(mkTx('sk2-pro-buy', 'duitful_pro', { jwsRepresentation: refund.jwsRepresentation }));
+      out.refundWithLicence = state.pro;
+      state.license = null;
+
+      // 8. Android keeps its path: Play's purchase token, no JWS.
+      window.Capacitor.getPlatform = () => 'android';
+      const playTx = mkTx('GPA.1234-5678', 'duitful_ai', { purchaseToken: 'play-token-sk2-0001-abcdefghijk', platform: 'android-playstore' });
+      fire(playTx);
+      await tick();
+      const vA = calls.verify[calls.verify.length - 1];
+      out.android = { platform: vA.platform, token: vA.purchaseToken, jws: vA.signedTransactionInfo, plan: vA.plan, finished: playTx.finished };
+    } finally {
+      closeWelcome();
+      iapInitialized = false;
+      window.Capacitor = keep.cap; window.CdvPurchase = keep.iap; window.fetch = keep.fetch; window.notify = keep.notify;
+      Object.assign(state, { pro: keep.pro, license: keep.license, aiSub: keep.aiSub, purchaseId: keep.purchaseId });
+    }
+    return out;
+  });
+  check('StoreKit 2: purchases carry an anonymous per-vault id (obfuscator "uuid"), and buying AI+ on iPhone sends the transaction\'s own JWS, finishes it and leaves Pro alone',
+    sk2.binding.obfuscator === 'uuid' && /^[0-9a-f-]{36}$/.test(sk2.binding.id) && sk2.binding.username === sk2.binding.id
+    && sk2.aiBuy.ok && sk2.aiBuy.sent === 1 && sk2.aiBuy.jws && sk2.aiBuy.platform === 'ios' && sk2.aiBuy.plan === 'duitful_ai_monthly'
+    && sk2.aiBuy.token && sk2.aiBuy.finished === 1 && sk2.aiBuy.pro === false && sk2.aiBuy.linked === 'sk2-ai-1'
+    && sk2.aiRereport === 1 && sk2.aiRenewal.sent === 2 && sk2.aiRenewal.jws && sk2.aiRenewal.finished === 1,
+    JSON.stringify({ binding: sk2.binding, aiBuy: sk2.aiBuy, re: sk2.aiRereport, renewal: sk2.aiRenewal }));
+  check('StoreKit 2: a launch re-report of Lifetime Pro unlocks it without the welcome or a second attribution; a real purchase is recorded once, as iPhone; a promoted App Store purchase gets the welcome',
+    sk2.rereport.pro === true && sk2.rereport.welcome === false && sk2.rereport.record === 0 && sk2.rereport.finished === 1
+    && sk2.rereport2.pro === true && sk2.rereport2.welcome === false && sk2.rereport2.record === 0
+    && sk2.buy.ok && sk2.buy.pro && sk2.buy.record === 1 && sk2.buy.platform === 'ios' && sk2.buy.welcomeFromHandler === false && sk2.buyRereport === 1
+    && sk2.promoted.pro && sk2.promoted.welcome === true && sk2.promoted.record === 2,
+    JSON.stringify({ re: sk2.rereport, re2: sk2.rereport2, buy: sk2.buy, buyRe: sk2.buyRereport, promoted: sk2.promoted }));
+  check('StoreKit 2: Restore brings Pro back with no welcome or attribution and re-sends AI+; a refund while running takes store Pro off (a web licence keeps it); Android still sends the Play token',
+    sk2.restore.pro === true && sk2.restore.welcome === false && sk2.restore.record === 0 && sk2.restore.verify === 1
+    && sk2.restore.finished.every((n) => n === 1) && /Pro restored/.test(sk2.restore.note)
+    && sk2.refund.pro === false && sk2.refund.welcome === false && sk2.refund.finished === 1 && sk2.refundWithLicence === true
+    && sk2.android.platform === 'android' && sk2.android.token === 'play-token-sk2-0001-abcdefghijk' && sk2.android.jws === '' && sk2.android.plan === 'duitful_ai' && sk2.android.finished === 1,
+    JSON.stringify({ restore: sk2.restore, refund: sk2.refund, lic: sk2.refundWithLicence, android: sk2.android }));
+
+  // The real plugin JS (node_modules/capacitor-plugin-cdv-purchase/www/store.js,
+  // what build-web ships), loaded by pro.js's own loader, over a stand-in for
+  // the native PurchasePlugin that emits what PurchasePlugin.swift emits:
+  // "Restored" + isFinished for current entitlements at init and on restore,
+  // "Purchased" with the JWS for a purchase. Checks the bridge pro.js relies on.
+  await aip.route('**/vendor/cdv-purchase/store.js*', (route) => route.fulfill({
+    path: path.join(REPO_ROOT, 'node_modules', 'capacitor-plugin-cdv-purchase', 'www', 'store.js'), contentType: 'text/javascript' }));
+  const sk2Real = await aip.evaluate(async () => {
+    const keep = { cap: window.Capacitor, fetch: window.fetch, notify: window.notify, pro: state.pro, aiSub: state.aiSub, purchaseId: state.purchaseId };
+    const b64u = (o) => btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const jwsOf = (p) => `${b64u({ alg: 'ES256' })}.${b64u(p)}.c2ln`;
+    const listeners = {};
+    const emit = (data) => (listeners.transactionUpdated || []).forEach((cb) => cb(data));
+    const log = { finish: [], purchase: [], verify: [], record: [] };
+    let txSeq = 3000;
+    const receipt = { appStoreReceipt: '', bundleIdentifier: 'com.aydiljoe.duitful', bundleShortVersion: '1.80.0', bundleNumericVersion: 1, bundleSignature: '' };
+    const proJws = jwsOf({ productId: 'duitful_pro', transactionId: '2000001' });
+    const aiJws = jwsOf({ productId: 'duitful_ai_monthly', transactionId: '2000002' });
+    const entitlements = () => [
+      { state: 'PaymentTransactionStateRestored', transactionIdentifier: '2000001', productId: 'duitful_pro', transactionDate: String(Date.now() - 9e6), jwsRepresentation: proJws, isFinished: true, quantity: 1 },
+      { state: 'PaymentTransactionStateRestored', transactionIdentifier: '2000002', productId: 'duitful_ai_monthly', transactionDate: String(Date.now() - 9e5), expirationDate: String(Date.now() + 2e9), jwsRepresentation: aiJws, isFinished: true, quantity: 1 },
+    ];
+    window.Capacitor = {
+      isNativePlatform: () => true, getPlatform: () => 'ios',
+      Plugins: {
+        PurchasePlugin: {
+          addListener(ev, cb) { (listeners[ev] = listeners[ev] || []).push(cb); return Promise.resolve({ remove() {} }); },
+          init: async () => { setTimeout(() => entitlements().forEach(emit), 0); return {}; },
+          load: async ({ productIds }) => ({ validProducts: productIds.map((id) => ({ id, title: id, description: '', price: 'RM 4.90', priceMicros: 4900000, currency: 'MYR', countryCode: 'MY',
+            ...(id.startsWith('duitful_ai') ? { billingPeriod: 1, billingPeriodUnit: id.endsWith('yearly') ? 'Year' : 'Month', group: '21000001' } : {}) })), invalidProductIds: [] }),
+          purchase: async ({ productId, applicationUsername }) => {
+            log.purchase.push({ productId, applicationUsername });
+            const id = String(++txSeq);
+            setTimeout(() => emit({ state: 'PaymentTransactionStatePurchased', transactionIdentifier: id, productId, originalTransactionIdentifier: '2000002', transactionDate: String(Date.now()), expirationDate: String(Date.now() + 2e9), jwsRepresentation: jwsOf({ productId, transactionId: id }), quantity: 1 }), 5);
+            return {};
+          },
+          finish: async ({ transactionId }) => { log.finish.push(transactionId); emit({ state: 'PaymentTransactionStateFinished', transactionIdentifier: transactionId, productId: transactionId === '2000001' ? 'duitful_pro' : 'duitful_ai_monthly' }); return {}; },
+          restore: async () => { setTimeout(() => { entitlements().forEach(emit); (listeners.restoreCompleted || []).forEach((cb) => cb({})); }, 0); return {}; },
+          refreshReceipts: async () => ({ receipt }),
+          loadReceipts: async () => ({ receipt }),
+          canMakePayments: async () => ({ canMakePayments: true }),
+          getStorefront: async () => ({ countryCode: 'MYS' }),
+        },
+        DuitfulKit: { takePurchaseIntents: async () => ({ productIds: [] }), addListener() {} },
+      },
+    };
+    window.fetch = async (url, init = {}) => {
+      const u = String(url);
+      if (u.includes('op=verify-sub')) {
+        const body = JSON.parse(init.body || '{}');
+        log.verify.push({ jws: body.signedTransactionInfo, plan: body.plan, platform: body.platform, token: body.accountToken });
+        return new Response(JSON.stringify({ ok: true, subToken: 't-real', slotId: 'slotREAL0001', status: { active: true, plan: body.plan, expiresAt: Date.now() + 2e9 } }), { status: 200 });
+      }
+      if (u.includes('record-purchase')) { log.record.push(JSON.parse(init.body)); return new Response('{"ok":true}'); }
+      if (u.includes('op=status')) return new Response(JSON.stringify({ ok: true, status: { active: true, plan: 'duitful_ai_monthly', expiresAt: Date.now() + 2e9 } }));
+      return keep.fetch(url, init);
+    };
+    const notes = [];
+    window.notify = (m) => notes.push(String(m));
+    const r = {};
+    try {
+      state.pro = false; state.aiSub = null; state.purchaseId = '';
+      delete window.CdvPurchase; delete window.CdvPurchaseCapacitor;
+      iapScriptRequested = false; iapInitialized = false; iapInitTries = 0;
+      initIAP();
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      for (let i = 0; i < 40 && !iapInitialized; i++) await wait(150);
+      await wait(1500);
+      r.loaded = { sdk: !!window.CdvPurchase, marker: !!(window.CdvPurchaseCapacitor && window.CdvPurchaseCapacitor.installed), init: iapInitialized,
+        sk2: (() => { try { return window.CdvPurchase.store.getAdapter(window.CdvPurchase.Platform.APPLE_APPSTORE).useSK2 === true; } catch (e) { return false; } })() };
+      r.launch = { pro: state.pro, welcome: document.getElementById('pro-welcome-dialog').open, record: log.record.length, verify: log.verify.length,
+        aiJws: !!log.verify[0] && log.verify[0].jws === aiJws, finished: [...log.finish].sort() };
+      const buy = await purchaseAiSubscription('yearly');
+      const last = log.verify[log.verify.length - 1] || {};
+      r.buy = { ok: !!(buy && buy.ok), sku: log.purchase[0] && log.purchase[0].productId, username: log.purchase[0] && log.purchase[0].applicationUsername, token: last.token, plan: last.plan, jws: /^[\w-]+\.[\w-]+\.[\w-]+$/.test(last.jws || '') };
+      const v0 = log.verify.length;
+      await restorePurchases();
+      r.restore = { verify: log.verify.length - v0, welcome: document.getElementById('pro-welcome-dialog').open, record: log.record.length, note: notes[notes.length - 1] || '' };
+    } finally {
+      try { const d = document.getElementById('pro-welcome-dialog'); if (d.open) d.close(); } catch {}
+      iapInitialized = false;
+      window.Capacitor = keep.cap; window.fetch = keep.fetch; window.notify = keep.notify;
+      Object.assign(state, { pro: keep.pro, aiSub: keep.aiSub, purchaseId: keep.purchaseId });
+    }
+    return r;
+  });
+  check('StoreKit 2 (real plugin JS): pro.js loads store.js, which picks the Capacitor StoreKit 2 bridge; the launch re-report unlocks Pro quietly and sends the AI+ JWS; a purchase passes the UUID appAccountToken; Restore re-sends AI+ even inside the plugin\'s one-minute dedup',
+    sk2Real.loaded && sk2Real.loaded.sdk && sk2Real.loaded.marker && sk2Real.loaded.init && sk2Real.loaded.sk2
+    && sk2Real.launch.pro === true && sk2Real.launch.welcome === false && sk2Real.launch.record === 0 && sk2Real.launch.verify === 1 && sk2Real.launch.aiJws
+    && JSON.stringify(sk2Real.launch.finished) === JSON.stringify(['2000001', '2000002'])
+    && sk2Real.buy.ok && sk2Real.buy.sku === 'duitful_ai_yearly' && /^[0-9a-f]{8}-[0-9a-f]{4}-3[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/.test(sk2Real.buy.username || '')
+    && sk2Real.buy.token === sk2Real.buy.username && sk2Real.buy.plan === 'duitful_ai_yearly' && sk2Real.buy.jws
+    && sk2Real.restore.verify === 1 && sk2Real.restore.welcome === false && sk2Real.restore.record === 0 && /Already unlocked/.test(sk2Real.restore.note),
+    JSON.stringify(sk2Real));
+
   delete global.__DUITFUL_AI_GEMINI_STUB__;
   await aiCtx.close();
 
@@ -16776,6 +17062,187 @@ check('the brand catalogue makes no network calls at all',
         && reverify.status === 200 && reverify.data?.status?.active === true
         && wCur.status === 200 && afterCur?.active === false,
         JSON.stringify({ old: wOld.data, afterOld, reverify: reverify.data?.error || reverify.status, cur: wCur.data, afterCur }));
+    }
+
+    // (6) App Store Server API (1.80.0): with APPLE_IAP_* set, verify-sub and
+    // the switching-off notifications ask Apple for the live state (Get All
+    // Subscription Statuses, ES256 JWT). Apple's word decides; unreachable
+    // keeps the verified JWS no longer than its own expiry and asks again;
+    // 401 / 403 and "not configured" are the JWS alone, as before.
+    {
+      const appleApi = reqCjs(path.join(REPO_ROOT, 'api/_lib/ai/apple-api.js'));
+      const nodeCrypto = reqCjs('node:crypto');
+      const { publicKey, privateKey } = nodeCrypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+      const pem = privateKey.export({ type: 'pkcs8', format: 'pem' });
+      const savedApple = { kid: process.env.APPLE_IAP_KEY_ID, iss: process.env.APPLE_IAP_ISSUER_ID, key: process.env.APPLE_IAP_PRIVATE_KEY };
+      const setApple = (on) => {
+        appleApi.resetAppleApiCache();
+        if (on) {
+          process.env.APPLE_IAP_KEY_ID = 'TESTKEY123';
+          process.env.APPLE_IAP_ISSUER_ID = '57246542-96fe-1a63-e053-0824d011072a';
+          process.env.APPLE_IAP_PRIVATE_KEY = pem.replace(/\n/g, '\\n'); // a literal \n, as Vercel's UI keeps it
+        } else {
+          delete process.env.APPLE_IAP_KEY_ID; delete process.env.APPLE_IAP_ISSUER_ID; delete process.env.APPLE_IAP_PRIVATE_KEY;
+        }
+      };
+      const prevFetch = globalThis.fetch;
+      const appleSays = {}; // otid -> { http, items: [{ status, tx, renewal }] }
+      const appleCalls = [];
+      const jwtProblems = [];
+      const checkJwt = (auth) => {
+        const tok = String(auth || '').replace(/^Bearer /, '');
+        const [h, p, s] = tok.split('.');
+        try {
+          const head = JSON.parse(Buffer.from(h, 'base64url').toString());
+          const body = JSON.parse(Buffer.from(p, 'base64url').toString());
+          const sigOk = nodeCrypto.verify('sha256', Buffer.from(`${h}.${p}`), { key: publicKey, dsaEncoding: 'ieee-p1363' }, Buffer.from(s, 'base64url'));
+          if (head.alg !== 'ES256' || head.kid !== 'TESTKEY123' || head.typ !== 'JWT') jwtProblems.push('header');
+          if (body.iss !== '57246542-96fe-1a63-e053-0824d011072a' || body.aud !== 'appstoreconnect-v1' || body.bid !== 'com.aydiljoe.duitful') jwtProblems.push('claims');
+          if (!(body.exp > body.iat && body.exp - body.iat <= 3600)) jwtProblems.push('exp');
+          if (!sigOk) jwtProblems.push('signature');
+        } catch (_) { jwtProblems.push('unreadable'); }
+      };
+      const statusBody = (otid, items, env = 'Production') => ({
+        environment: env, bundleId: 'com.aydiljoe.duitful',
+        data: [{ subscriptionGroupIdentifier: '21000001', lastTransactions: items.map(({ status, tx = {}, renewal = {} }) => ({
+          originalTransactionId: otid, status,
+          signedTransactionInfo: signAppleJws(txFor(otid, { signedDate: Date.now(), environment: env, ...tx }), chain),
+          signedRenewalInfo: signAppleJws({ originalTransactionId: otid, signedDate: Date.now(), environment: env, ...renewal }, chain),
+        })) }],
+      });
+      globalThis.fetch = async (url, init = {}) => {
+        const m = /^https:\/\/api\.storekit(-sandbox)?\.itunes\.apple\.com\/inApps\/v1\/subscriptions\/([^/?]+)$/.exec(String(url));
+        if (!m) return prevFetch(url, init);
+        const otid = decodeURIComponent(m[2]);
+        appleCalls.push({ otid, host: m[1] ? 'sandbox' : 'production' });
+        checkJwt(init.headers && init.headers.Authorization);
+        const say = appleSays[otid] || { http: 404 };
+        if (say.http && say.http !== 200) return new Response(JSON.stringify({ errorCode: say.http }), { status: say.http });
+        return new Response(JSON.stringify(statusBody(otid, say.items, say.env)), { status: 200, headers: { 'content-type': 'application/json' } });
+      };
+      const logged = [];
+      const prevError = console.error;
+      console.error = (...a) => { logged.push(a.join(' ')); };
+      try {
+        const tA = Date.now();
+        const jwsFor = (otid, extra = {}) => signAppleJws(txFor(otid, { signedDate: tA, purchaseDate: tA - 1000, ...extra }), chain);
+
+        // Not configured: no call to Apple, the JWS alone (as before).
+        setApple(false);
+        const nc = await verifyIos(jwsFor('otid-nc'));
+        const ncCalls = appleCalls.length;
+
+        setApple(true);
+        // Active, renewed since the JWS: Apple's expiry and transaction count.
+        appleSays['otid-live-ok'] = { items: [{ status: 1, tx: { transactionId: 'otid-live-ok-2', purchaseDate: tA - 500, expiresDate: tA + 60 * 86400000 } }] };
+        const lOk = await verifyIos(jwsFor('otid-live-ok'));
+        const lOkRec = await kvS.get(aiKv.keys.sub(iosSubId('otid-live-ok')));
+        // An expired JWS that Apple says has renewed: accepted.
+        appleSays['otid-live-renewed'] = { items: [{ status: 1, tx: { transactionId: 'otid-live-renewed-2', purchaseDate: tA - 500, expiresDate: tA + 30 * 86400000 } }] };
+        const lRen = await verifyIos(jwsFor('otid-live-renewed', { expiresDate: tA - 1000 }));
+        // A running JWS that Apple says has expired / been refunded: refused, nothing written.
+        appleSays['otid-live-exp'] = { items: [{ status: 2, tx: { expiresDate: tA - 1000 } }] };
+        const lExp = await verifyIos(jwsFor('otid-live-exp'));
+        appleSays['otid-live-rev'] = { items: [{ status: 5, tx: { revocationDate: tA - 500 } }] };
+        const lRev = await verifyIos(jwsFor('otid-live-rev'));
+        // Grace period: access until the grace date.
+        const graceTo = tA + 10 * 86400000;
+        appleSays['otid-live-grace'] = { items: [{ status: 4, tx: { expiresDate: tA - 1000 }, renewal: { gracePeriodExpiresDate: graceTo } }] };
+        const lGrace = await verifyIos(jwsFor('otid-live-grace'));
+        // Apple down: the JWS, never past its own expiry, marked for a re-check.
+        appleSays['otid-live-down'] = { http: 503 };
+        const jwsExp = tA + 20 * 86400000;
+        const lDown = await verifyIos(jwsFor('otid-live-down', { expiresDate: jwsExp }));
+        const lDownRec = await kvS.get(aiKv.keys.sub(iosSubId('otid-live-down')));
+        appleSays['otid-live-down2'] = { http: 500 };
+        const lDownExpired = await verifyIos(jwsFor('otid-live-down2', { expiresDate: tA - 1000 }));
+        // 401: a config error, logged without secrets, then the JWS alone.
+        appleSays['otid-live-401'] = { http: 401 };
+        const l401 = await verifyIos(jwsFor('otid-live-401'));
+        // Sandbox goes to Apple's sandbox host.
+        process.env.AI_IOS_ALLOW_SANDBOX = '1';
+        appleSays['otid-live-sbx'] = { env: 'Sandbox', items: [{ status: 1, tx: { environment: 'Sandbox', expiresDate: tA + 86400000 } }] };
+        const lSbx = await verifyIos(jwsFor('otid-live-sbx', { environment: 'Sandbox' }));
+        delete process.env.AI_IOS_ALLOW_SANDBOX;
+        const sbxCall = appleCalls.find((c) => c.otid === 'otid-live-sbx');
+
+        check('ai+ App Store Server API: not configured asks nobody; Apple\'s live state decides (renewal counts, expired / refunded refused, grace kept); the ES256 JWT carries kid / iss / aud / bid and at most 60 minutes',
+          nc.status === 200 && ncCalls === 0
+          && lOk.status === 200 && lOkRec?.expiresAt === tA + 60 * 86400000 && lOkRec.txId === 'otid-live-ok-2' && lOkRec.storeEventAt >= tA && !lOk.data?.recheck
+          && lRen.status === 200 && lRen.data?.status?.active === true
+          && lExp.status === 400 && lExp.data?.error === 'sub-expired' && !(await kvS.get(aiKv.keys.sub(iosSubId('otid-live-exp'))))
+          && lRev.status === 400 && lRev.data?.error === 'sub-revoked' && !(await kvS.get(aiKv.keys.sub(iosSubId('otid-live-rev'))))
+          && lGrace.status === 200 && lGrace.data?.status?.expiresAt === graceTo
+          && lSbx.status === 200 && sbxCall?.host === 'sandbox' && appleCalls.filter((c) => c.otid !== 'otid-live-sbx').every((c) => c.host === 'production')
+          && jwtProblems.length === 0,
+          JSON.stringify({ nc: nc.status, ncCalls, ok: lOk.data?.error || lOkRec, ren: lRen.data?.error || lRen.status, exp: lExp.data, rev: lRev.data, grace: lGrace.data?.status?.expiresAt, sbx: sbxCall, jwtProblems }));
+        check('ai+ App Store Server API: Apple unreachable keeps the verified JWS only until its own expiry and marks it for a re-check; a 401 is logged (no secrets) and falls back like "not configured"',
+          lDown.status === 200 && lDown.data?.recheck === true && lDownRec?.recheck === true && lDownRec.expiresAt === jwsExp && lDown.data?.status?.expiresAt === jwsExp
+          && lDownExpired.status === 400 && lDownExpired.data?.error === 'sub-expired'
+          && l401.status === 200 && !l401.data?.recheck
+          && logged.some((l) => /configuration error \(HTTP 401\)/.test(l)) && !logged.some((l) => l.includes('TESTKEY123') || l.includes('BEGIN') || l.includes('57246542')),
+          JSON.stringify({ down: lDown.data, downRec: lDownRec && { recheck: lDownRec.recheck, exp: lDownRec.expiresAt }, downExpired: lDownExpired.data, l401: l401.data?.error || l401.status, logged }));
+
+        // Webhook: an EXPIRED notification while Apple says a newer
+        // transaction runs stays on; a REFUND of the transaction Apple still
+        // calls current stays off.
+        appleSays['otid-live-hook'] = { items: [{ status: 1, tx: { transactionId: 'otid-live-hook-1', expiresDate: tA + 30 * 86400000 } }] };
+        await verifyIos(jwsFor('otid-live-hook', { transactionId: 'otid-live-hook-1' }));
+        appleSays['otid-live-hook'] = { items: [{ status: 1, tx: { transactionId: 'otid-live-hook-2', purchaseDate: tA + 100, expiresDate: tA + 60 * 86400000 } }] };
+        const wExp = await hook(note('EXPIRED', 'otid-live-hook', { transactionId: 'otid-live-hook-1', expiresDate: tA - 1 }, { subtype: 'VOLUNTARY', signedDate: Date.now() }));
+        const afterExp = await subOf('otid-live-hook');
+        const wRef = await hook(note('REFUND', 'otid-live-hook', { transactionId: 'otid-live-hook-2', purchaseDate: tA + 100, expiresDate: tA + 60 * 86400000, revocationDate: Date.now() }, { signedDate: Date.now() + 5 }));
+        const afterRef = await subOf('otid-live-hook');
+        check('ai+ App Store Server API (webhook): EXPIRED while Apple says a newer period runs keeps AI+ on; a REFUND of the period Apple still calls current switches it off',
+          wExp.status === 200 && afterExp?.active === true && afterExp.expiresAt === tA + 60 * 86400000
+          && wRef.status === 200 && afterRef?.active === false,
+          JSON.stringify({ wExp: wExp.data, afterExp, wRef: wRef.data, afterRef }));
+      } finally {
+        console.error = prevError;
+        globalThis.fetch = prevFetch;
+        for (const [k, v] of [['APPLE_IAP_KEY_ID', savedApple.kid], ['APPLE_IAP_ISSUER_ID', savedApple.iss], ['APPLE_IAP_PRIVATE_KEY', savedApple.key]]) {
+          if (v === undefined) delete process.env[k]; else process.env[k] = v;
+        }
+        appleApi.resetAppleApiCache();
+      }
+    }
+
+    // (7) Purchase binding (1.80.0): the store-signed anonymous id is recorded
+    // with the sub; a verify from another vault (new phone, no old vault) is a
+    // new device claim inside the 3-device cap, never refused, and it makes
+    // room by pushing out a device that wasn't the purchasing vault's.
+    {
+      const tokA = '6f1c2a3b-4d5e-3f60-8a7b-8c9d0e1f2a3b';
+      const tokB = '11111111-2222-3333-8444-555555555555';
+      const tB0 = Date.now();
+      const jwsBind = signAppleJws(txFor('otid-bind', { signedDate: tB0, purchaseDate: tB0 - 1000, appAccountToken: tokA }), chain);
+      const vb = (accountToken, slotId) => callAiApi({ op: 'verify-sub', ip: nextIp(), body: { platform: 'ios', signedTransactionInfo: jwsBind, ...(accountToken ? { accountToken } : {}), ...(slotId ? { slotId } : {}) } });
+      const b1 = await vb(tokA);
+      const rec1 = await kvS.get(aiKv.keys.sub(iosSubId('otid-bind')));
+      const b2 = await vb(tokB);           // a new phone set up without the old vault
+      const b3 = await vb('');             // an older app that sends no id
+      const b4 = await vb(tokB);           // cap full: room is made by an unbound device
+      const devs = await kvS.get(aiKv.keys.dev(iosSubId('otid-bind')));
+      const b5 = await vb(tokA, b1.data?.slotId); // the purchasing vault, same slot
+      // All three bound: another vault still gets in.
+      await vb(tokA); await vb(tokA); await vb(tokA);
+      const devsBound = await kvS.get(aiKv.keys.dev(iosSubId('otid-bind')));
+      const b6 = await vb(tokB);
+      const devs6 = await kvS.get(aiKv.keys.dev(iosSubId('otid-bind')));
+      // No store id (bought before binding): the first verifier's id is recorded, a mismatch still gets in.
+      const jwsOld = signAppleJws(txFor('otid-bind-old', { signedDate: tB0, purchaseDate: tB0 - 1000 }), chain);
+      const o1 = await callAiApi({ op: 'verify-sub', ip: nextIp(), body: { platform: 'ios', signedTransactionInfo: jwsOld, accountToken: tokB } });
+      const oRec = await kvS.get(aiKv.keys.sub(iosSubId('otid-bind-old')));
+      const o2 = await callAiApi({ op: 'verify-sub', ip: nextIp(), body: { platform: 'ios', signedTransactionInfo: jwsOld, accountToken: tokA } });
+      check('ai+ purchase binding: the signed appAccountToken is recorded; another vault\'s claim is never refused, stays within 3 devices and pushes out an unbound device before the purchasing vault\'s own',
+        b1.status === 200 && b1.data?.bound === true && rec1?.account === tokA
+        && b2.status === 200 && b2.data?.bound === false && b3.status === 200 && b3.data?.bound === false
+        && b4.status === 200 && b4.data?.bound === false && devs.length === 3 && devs.some((d) => d.slotId === b1.data.slotId) && !devs.some((d) => d.slotId === b2.data.slotId)
+        && b5.status === 200 && b5.data?.bound === true && b5.data.slotId === b1.data.slotId
+        && devsBound.length === 3 && devsBound.every((d) => d.bound === true)
+        && b6.status === 200 && b6.data?.bound === false && !!b6.data?.subToken && devs6.length === 3 && devs6.some((d) => d.slotId === b6.data.slotId)
+        && o1.status === 200 && oRec?.account === tokB && o2.status === 200 && o2.data?.bound === false,
+        JSON.stringify({ b1: b1.data?.bound, rec1: rec1?.account, b2: b2.status, b4: b4.status, devs: devs?.map((d) => [d.slotId === b1.data?.slotId, d.bound]), b5: b5.data?.bound, b6: b6.status, o1: o1.status, oRec: oRec?.account, o2: o2.data?.bound }));
     }
 
     // Google Play: verify-sub and RTDN both ask subscriptionsv2.get; the RTDN

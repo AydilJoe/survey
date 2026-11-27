@@ -97,8 +97,10 @@ jobs:
 
       # Cordova finds its plugin list (res/xml/config.xml) by name, so the
       # resource shrinker can't see it's used. When it went, every call to the
-      # in-app purchase plugin answered "Class not found" (error 6777001) and
-      # Android couldn't sell Pro from 1.51 to 1.56.6. Fail if it's gone.
+      # in-app purchase plugin (a Cordova plugin until 1.80.0) answered "Class
+      # not found" (error 6777001) and Android couldn't sell Pro from 1.51 to
+      # 1.56.6. Capacitor still writes the file with no Cordova plugin; it is
+      # kept for any Cordova plugin to come. Fail if it's gone.
       - name: The release APK keeps Cordova's plugin list
         shell: bash
         run: |

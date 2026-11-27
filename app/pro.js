@@ -822,7 +822,28 @@ document.getElementById("pro-welcome-pool-limit")?.addEventListener("keydown", (
   if (e.key === "Enter") { e.preventDefault(); commitPendingPool(); }
 });
 
-/* in-app purchase (Capacitor native) — cordova-plugin-purchase v13 */
+/* in-app purchase (Capacitor native) — capacitor-plugin-cdv-purchase 13, the
+   Capacitor build of cordova-plugin-purchase: the same CdvPurchase.store API,
+   StoreKit 2 on iPhone and Google Play Billing on Android (1.80.0; the
+   Cordova build ran StoreKit 1 on iPhone, which gives no signed transaction,
+   so AI+ couldn't be verified there).
+
+   What StoreKit 2 changes, and how it is handled below:
+   - Every launch (and every Restore) re-reports the current entitlements as
+     approved: Lifetime Pro and the running AI+ period, finished or not. Pro
+     handling is idempotent (setting state.pro again is a no-op); the welcome,
+     the thank-you and the referral attribution happen only for a genuinely
+     new purchase (iapIsNewPurchase).
+   - Transactions are handled one by one (approved), never through one
+     aggregate receipt: on iPhone every product shares a receipt, and the AI+
+     check must send the AI+ transaction's own signed JWS.
+   - There is no app receipt (appStoreReceipt is empty under StoreKit 2);
+     nothing here reads it.
+   - Renewals and refunds arrive while the app runs (Transaction.updates):
+     an AI+ renewal is sent to the server like a purchase; a refunded Pro
+     (revocationDate in its signed transaction) switches Pro off unless a
+     web licence also unlocks it.
+   - Every transaction is finished. */
 const PRODUCT_ID = "duitful_pro";
 
 // Promo codes typed in the paywall reveal a discounted SKU. Each SKU
@@ -852,16 +873,178 @@ function lookupPromoCode(raw) {
   return { code, ...promo };
 }
 
-// IAP init can race the Cordova plugin boot — on a slow cold start the
-// user may finish their passcode before CdvPurchase has injected, and the
-// original guard would silently no-op, leaving Buy/Restore visibly dead
-// until the next app launch. Retry through deviceready + short polling
-// for ~5s so the store is ready by the time the user reaches the paywall.
+// IAP init can race the plugin's JS loading — on a slow cold start the user
+// may finish their passcode before CdvPurchase exists, and the original
+// guard would silently no-op, leaving Buy/Restore visibly dead until the
+// next app launch. Retry with short polling for ~5s so the store is ready by
+// the time the user reaches the paywall.
 let iapInitialized = false;
 // What the store said, for the "isn't available" message: init errors, the
 // last store error, and what the Google Play adapter loaded. No personal
 // data, only codes, messages and product ids.
 const iapDiag = { initErrors: [], lastError: null };
+
+// The plugin's JS. A Capacitor plugin's JS normally arrives through a
+// bundler; Duitful has none, so scripts/build-web.mjs copies the plugin's
+// plain-script build (node_modules/capacitor-plugin-cdv-purchase/www/store.js)
+// to www/vendor/cdv-purchase/, and only the native shells load it (the web
+// sells through Billplz, never a store). The marker is what the plugin's own
+// www/capacitor-plugin.js sets: it tells store.js that the native
+// PurchasePlugin (StoreKit 2 / Play Billing) is there. ?v= follows the
+// installed plugin version (e2e checks they agree).
+const CDV_PURCHASE_JS = "vendor/cdv-purchase/store.js?v=13.20.0";
+let iapScriptRequested = false;
+function loadStoreScript() {
+  if (iapScriptRequested || window.CdvPurchase) return;
+  const cap = window.Capacitor;
+  if (!cap || typeof cap.isNativePlatform !== "function" || !cap.isNativePlatform()) return;
+  iapScriptRequested = true;
+  window.CdvPurchaseCapacitor = { installed: true };
+  const s = document.createElement("script");
+  s.src = CDV_PURCHASE_JS;
+  s.async = true;
+  s.onerror = () => { iapDiag.initErrors.push({ code: "load", message: "store script missing" }); };
+  (document.head || document.documentElement).appendChild(s);
+}
+loadStoreScript();
+
+// The anonymous purchase id (state.purchaseId): a random UUID made here the
+// first time a store needs it, never derived from anything personal. The
+// store is given its UUIDv3 form (store.obfuscator = "uuid"): Apple's
+// appAccountToken, Play's obfuscatedAccountId.
+function newPurchaseId() {
+  try { if (crypto && typeof crypto.randomUUID === "function") return crypto.randomUUID(); } catch {}
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+function purchaseIdEnsure() {
+  if (typeof state === "undefined" || !state) return "";
+  if (!state.purchaseId) { state.purchaseId = newPurchaseId().toLowerCase(); save(); }
+  return state.purchaseId;
+}
+// The same UUID form the store carries, sent to the AI+ server beside the
+// store's own proof (see "Purchase binding" in api/_lib/ai/verify-sub.js).
+function purchaseAccountToken() {
+  const sdk = window.CdvPurchase;
+  const id = typeof state !== "undefined" && state ? state.purchaseId : "";
+  if (!id || !sdk) return "";
+  try {
+    const plat = nativePlatform() === "ios" ? sdk.Platform.APPLE_APPSTORE : sdk.Platform.GOOGLE_PLAY;
+    if (sdk.store && typeof sdk.store.obfuscateUsername === "function") return String(sdk.store.obfuscateUsername(id, plat) || "");
+    if (sdk.Utils && typeof sdk.Utils.md5toUUID === "function") return String(sdk.Utils.md5toUUID(id) || "");
+  } catch {}
+  return "";
+}
+
+/* One transaction at a time. */
+const PRO_SKUS = new Set([PRODUCT_ID, ...PROMO_SKUS]);
+// True while Restore runs: whatever it reports is a restore, never a purchase.
+let iapRestoring = false;
+function iapTxSku(tx) {
+  return String((tx && Array.isArray(tx.products) && tx.products[0] && tx.products[0].id) || (tx && tx.productId) || "");
+}
+function iapTxId(tx) {
+  return String((tx && (tx.transactionId || tx.purchaseToken || tx.id)) || "");
+}
+// The payload of a StoreKit 2 signed transaction, read (not verified: the
+// server verifies AI+, and Pro has always been unlocked on the device).
+function iapJwsPayload(tx) {
+  const jws = tx && typeof tx.jwsRepresentation === "string" ? tx.jwsRepresentation : "";
+  const part = jws.split(".")[1];
+  if (!part) return null;
+  try {
+    const b64 = part.replace(/-/g, "+").replace(/_/g, "/");
+    const bin = atob(b64 + "===".slice((b64.length + 3) % 4));
+    const json = decodeURIComponent(Array.from(bin, (c) => `%${c.charCodeAt(0).toString(16).padStart(2, "0")}`).join(""));
+    const p = JSON.parse(json);
+    return p && typeof p === "object" ? p : null;
+  } catch { return null; }
+}
+function iapTxRevoked(tx) {
+  const p = iapJwsPayload(tx);
+  return !!(p && p.revocationDate);
+}
+function iapFinish(tx) {
+  try {
+    const r = tx && typeof tx.finish === "function" ? tx.finish() : null;
+    if (r && typeof r.catch === "function") r.catch(() => {});
+  } catch {}
+}
+// A genuinely new purchase, as opposed to StoreKit 2 re-reporting what this
+// Apple ID already owns (every launch, every Restore) or Play re-delivering a
+// purchase it couldn't acknowledge yet.
+//   - Restore: never new.
+//   - isAcknowledged === true: finished before, so a re-report.
+//   - the paywall (or a promoted App Store purchase) is waiting on it: new.
+//   - iPhone: a re-report of an entitlement arrives as "restored", with
+//     isAcknowledged set (true or false); a purchase arrives as "purchased",
+//     with it unset.
+//   - Play: approved only fires for a purchase not yet acknowledged.
+function iapIsNewPurchase(tx, settling) {
+  if (iapRestoring) return false;
+  if (tx && tx.isAcknowledged === true) return false;
+  if (settling) return true;
+  if (nativePlatform() === "ios") return !!tx && tx.isAcknowledged === undefined;
+  return true;
+}
+// Referral attribution is recorded once per transaction on this device (the
+// server also dedupes by transaction id).
+const IAP_RECORDED_KEY = "duitful.iapRecorded";
+function iapRecordOnce(txId) {
+  if (!txId) return true;
+  try {
+    const seen = JSON.parse(localStorage.getItem(IAP_RECORDED_KEY) || "[]");
+    const list = Array.isArray(seen) ? seen.filter((x) => typeof x === "string") : [];
+    if (list.includes(txId)) return false;
+    list.push(txId);
+    localStorage.setItem(IAP_RECORDED_KEY, JSON.stringify(list.slice(-20)));
+  } catch {}
+  return true;
+}
+// The SKU the paywall is buying right now ("" when nothing is).
+let purchasePendingSku = "";
+
+function onStoreApproved(tx) {
+  const sku = iapTxSku(tx);
+  // Duitful AI+ stays strictly separate from state.pro (Lifetime Pro):
+  // cancelling AI+ never removes Lifetime Pro.
+  if (typeof isAiSubscriptionReceipt === "function" && isAiSubscriptionReceipt(tx)) {
+    if (typeof handleAiSubscriptionReceipt === "function") {
+      handleAiSubscriptionReceipt(tx, { restoring: iapRestoring }).catch((e) => console.warn("AI+ verify failed:", e));
+    } else {
+      iapFinish(tx);
+    }
+    return;
+  }
+  if (!PRO_SKUS.has(sku)) { iapFinish(tx); return; }
+  const settling = !!purchaseSettler && (!purchasePendingSku || purchasePendingSku === sku) && tx.isAcknowledged !== true;
+  if (iapTxRevoked(tx)) {
+    // Refunded (or a Family Sharing revoke): Pro from this store purchase
+    // ends. A web licence still unlocks it.
+    if (state.pro && !state.license) { state.pro = false; save(); renderAll(); }
+    iapFinish(tx);
+    if (settling) settlePurchase({ ok: false, message: tr("Purchase failed. Try again.") });
+    return;
+  }
+  const fresh = iapIsNewPurchase(tx, settling);
+  const wasPro = !!state.pro;
+  if (!wasPro) { state.pro = true; save(); renderAll(); }
+  iapFinish(tx);
+  if (fresh && iapRecordOnce(iapTxId(tx))) {
+    // Fire-and-forget attribution record so Aydil can pay the referrer
+    // manually later. Failure is silent — the purchase itself has already
+    // succeeded.
+    recordNativeAttribution(tx).catch((e) => console.warn("attribution skipped:", e));
+  }
+  if (settling) settlePurchase({ ok: true });
+  // A purchase nobody on screen asked for (Ask to Buy approved later, or
+  // bought on another device) still gets the welcome, once.
+  else if (fresh && !wasPro) openProWelcome();
+}
+
 function iapDiagText() {
   const sdk = window.CdvPurchase;
   if (!sdk || !sdk.store) return "store plugin missing";
@@ -898,12 +1081,12 @@ async function recordNativeAttribution(receipt) {
   try {
     let sku = "";
     let txId = "";
-    let platform = "android";
+    // CdvPurchase names the App Store "ios-appstore", so ask the shell.
+    const platform = nativePlatform() === "ios" ? "ios" : "android";
     const tx = receipt && (receipt.transaction || receipt);
     if (tx) {
       sku = tx.products?.[0]?.id || tx.productId || "";
       txId = tx.transactionId || tx.purchaseToken || tx.id || "";
-      if (tx.platform && /apple/i.test(String(tx.platform))) platform = "ios";
     }
     if (!sku && receipt && Array.isArray(receipt.collection)) {
       sku = receipt.collection[0]?.products?.[0]?.id || "";
@@ -929,6 +1112,7 @@ function settlePurchase(outcome) {
   if (!purchaseSettler) return;
   const fn = purchaseSettler;
   purchaseSettler = null;
+  purchasePendingSku = "";
   fn(outcome);
 }
 
@@ -936,14 +1120,10 @@ function initIAP() {
   if (!isNative()) return;
   if (iapInitialized) return;
 
+  loadStoreScript();
   const sdk = window.CdvPurchase;
   if (!sdk || !sdk.store) {
     iapInitTries++;
-    if (iapInitTries === 1) {
-      // Wire Cordova's canonical "plugins are ready" signal as well as the
-      // setTimeout poll — whichever lands first re-enters initIAP.
-      document.addEventListener("deviceready", () => initIAP(), { once: true });
-    }
     if (iapInitTries < IAP_MAX_INIT_TRIES) {
       setTimeout(initIAP, 200);
     } else {
@@ -970,41 +1150,17 @@ function initIAP() {
       registrations.push({ id: "duitful_ai", type: sdk.ProductType.PAID_SUBSCRIPTION, platform: sdk.Platform.GOOGLE_PLAY });
     }
     sdk.store.register(registrations);
-    sdk.store.when()
-      .approved((tx) => tx.verify())
-      .verified((receipt) => {
-        // Duitful AI+ subscription receipts stay strictly separate from
-        // state.pro (Lifetime Pro). Cancelling AI+ never removes Lifetime Pro.
-        if (typeof isAiSubscriptionReceipt === "function" && isAiSubscriptionReceipt(receipt)) {
-          if (typeof handleAiSubscriptionReceipt === "function") {
-            handleAiSubscriptionReceipt(receipt).catch((e) => console.warn("AI+ verify failed:", e));
-          } else {
-            receipt.finish();
-          }
-          return;
-        }
-        // A purchase started on the App Store product page (a promoted
-        // in-app purchase) arrives here with no paywall waiting on it, so
-        // open the same welcome (and thank-you) the paywall would have.
-        const unasked = !purchaseSettler && !state.pro;
-        state.pro = true;
-        save();
-        renderAll();
-        receipt.finish();
-        if (unasked) openProWelcome();
-        // Fire-and-forget attribution record so Aydil can pay the
-        // referrer manually later. Failure is silent — the purchase
-        // itself has already succeeded.
-        recordNativeAttribution(receipt).catch((e) => console.warn("attribution skipped:", e));
-        settlePurchase({ ok: true });
-      })
-      .unverified((tx) => {
-        console.warn("IAP unverified", tx);
-        if (typeof settleAiPurchase === "function") {
-          settleAiPurchase({ ok: false, message: tr("Receipt couldn't be verified. Tap Restore if you completed payment.") });
-        }
-        settlePurchase({ ok: false, message: tr("Receipt couldn't be verified. Tap Restore if you completed payment.") });
-      });
+    // Purchase binding: an anonymous per-vault id rides with every purchase
+    // (Apple's appAccountToken, Play's obfuscatedAccountId), in UUIDv3 form.
+    sdk.store.obfuscator = "uuid";
+    sdk.store.applicationUsername = () => purchaseIdEnsure();
+    // No client-side validator: Pro unlocks on the device, and AI+ is
+    // verified by Duitful's own server (handleAiSubscriptionReceipt sends
+    // the transaction's signed JWS / purchase token to /api/ai?op=verify-sub).
+    // So each approved transaction is handled, and finished, right here.
+    sdk.store.when().approved((tx) => {
+      try { onStoreApproved(tx); } catch (e) { console.warn("IAP approved handler failed", e); iapFinish(tx); }
+    });
     // Store-wide error handler — catches SDK errors and user cancellations.
     if (typeof sdk.store.error === "function") {
       sdk.store.error((err) => {
@@ -1030,10 +1186,46 @@ function initIAP() {
     if (init && typeof init.then === "function") {
       init.then((errs) => {
         iapDiag.initErrors = (errs || []).map((e) => ({ code: e && e.code, message: e && e.message }));
+        drainPurchaseIntents().catch(() => {});
       }).catch((e) => { iapDiag.initErrors = [{ code: "init", message: String(e && e.message || e) }]; });
     }
     iapInitialized = true;
   } catch (e) { console.warn("IAP init failed", e); }
+}
+
+/* Promoted in-app purchases (iPhone). A Buy tapped on the App Store product
+   page reaches the app as a StoreKit 2 PurchaseIntent; DuitfulKit
+   (DuitfulKitPlugin.swift) keeps it until the store here is ready, and it
+   is then bought exactly like the paywall's button, welcome included. The
+   Cordova build's StoreKit 1 observer used to take these; StoreKit 2 needs
+   the intent to be answered. */
+let purchaseIntentBound = false;
+let purchaseIntentBusy = false;
+async function drainPurchaseIntents() {
+  if (nativePlatform() !== "ios" || !iapInitialized || purchaseIntentBusy) return;
+  const kit = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.DuitfulKit;
+  if (!kit || typeof kit.takePurchaseIntents !== "function") return;
+  if (!purchaseIntentBound && typeof kit.addListener === "function") {
+    purchaseIntentBound = true;
+    try { kit.addListener("purchaseIntent", () => { drainPurchaseIntents().catch(() => {}); }); } catch {}
+  }
+  purchaseIntentBusy = true;
+  try {
+    let ids = [];
+    try {
+      const res = await kit.takePurchaseIntents();
+      ids = Array.isArray(res && res.productIds) ? res.productIds.filter((x) => typeof x === "string") : [];
+    } catch { return; }
+    for (const id of ids) {
+      if (PRO_SKUS.has(id)) {
+        if (state.pro) continue;
+        const out = await purchasePro(id);
+        if (out && out.ok) openProWelcome();
+      } else if (typeof AI_IOS_SKUS !== "undefined" && (id === AI_IOS_SKUS.monthly || id === AI_IOS_SKUS.yearly) && typeof purchaseAiSubscription === "function") {
+        await purchaseAiSubscription(id === AI_IOS_SKUS.yearly ? "yearly" : "monthly");
+      }
+    }
+  } finally { purchaseIntentBusy = false; }
 }
 
 async function purchasePro(sku = PRODUCT_ID) {
@@ -1063,23 +1255,32 @@ async function purchasePro(sku = PRODUCT_ID) {
   if (!offer) return { ok: false, message: tr("Pro has no price from the store yet. (Store: {info})", { info: iapDiagText() }) };
 
   // offer.order() resolves when the platform sheet closes — that's NOT when
-  // Pro unlocks. The verified/error handlers above call settlePurchase()
+  // Pro unlocks. The approved / error handlers above call settlePurchase()
   // with the real outcome; bridge them back to here.
   const settlement = new Promise((resolve) => { purchaseSettler = resolve; });
+  purchasePendingSku = sku;
+  // A sheet that never answers (Ask to Buy waiting on a parent) frees the
+  // paywall after 30 s; the purchase still lands through approved later.
   const TIMEOUT_MS = 30_000;
-  const timeout = new Promise((resolve) =>
-    setTimeout(() => resolve({ ok: false, message: tr("Verification timed out. Tap Restore if you completed the payment.") }), TIMEOUT_MS),
-  );
+  const timer = setTimeout(() => {
+    if (purchaseSettler) settlePurchase({ ok: false, message: tr("Verification timed out. Tap Restore if you completed the payment.") });
+  }, TIMEOUT_MS);
+  settlement.then(() => clearTimeout(timer));
 
   try {
-    await offer.order();
+    // order() resolves with an error object (cancelled, failed) or nothing
+    // (the sheet is done; approved follows). StoreKit 2's cancel only comes
+    // back this way. store.error may also fire; first one wins.
+    const err = await offer.order();
+    if (err && err.isError) {
+      const cancelled = err.code === sdk.ErrorCode?.PAYMENT_CANCELLED || /cancel/i.test(String(err.message || ""));
+      settlePurchase({ ok: false, cancelled, message: cancelled ? null : (err.message || tr("Purchase failed. Try again.")) });
+    }
   } catch (e) {
-    // order() rejects on user cancellation or platform error. store.error
-    // may also fire; settlePurchase is single-shot, first one wins.
     settlePurchase({ ok: false, cancelled: true, message: e && e.message });
   }
 
-  return Promise.race([settlement, timeout]);
+  return settlement;
 }
 /* The quick-add notification is opt-in, and only exists on the Android shell
    with the plugin present — the toggle stays hidden everywhere else rather
@@ -1255,13 +1456,28 @@ async function restorePurchases() {
   if (!iapInitialized) { notify(tr("Store still initialising. Try again in a moment, or restart the app.")); return; }
   const wasProBefore = !!(state && state.pro);
   const wasAiBefore = !!(typeof aiSubIsActive === "function" && aiSubIsActive(state && state.aiSub));
+  // Everything reported while this runs is a restore: no welcome, no
+  // attribution, and AI+ is re-sent to the server whatever was sent before.
+  iapRestoring = true;
+  const sentBefore = typeof aiVerifyCount === "function" ? aiVerifyCount() : 0;
   try {
-    await sdk.store.restorePurchases();
-    // restorePurchases() returns when the platform finishes its query;
-    // any restored receipts then flow through approved → verify → verified
-    // asynchronously. Give the verified handler a beat to commit state.pro
-    // / state.aiSub so the alert text matches reality.
+    // StoreKit 2: AppStore.sync(), then every current entitlement is
+    // reported again. Play: the owned purchases are queried again.
+    const err = await sdk.store.restorePurchases();
+    // Restored transactions then flow through approved asynchronously; give
+    // them a beat. The plugin reports a transaction again at most once a
+    // minute, so if no AI+ check went out, send the newest AI+ transaction
+    // the store holds. Then wait (bounded) for the checks, so the message
+    // matches reality.
     await new Promise((r) => setTimeout(r, 1500));
+    if (typeof aiVerifyCount === "function" && aiVerifyCount() === sentBefore && typeof aiRestoreFromStore === "function") {
+      await Promise.race([aiRestoreFromStore(sdk), new Promise((r) => setTimeout(r, 8000))]);
+    }
+    if (typeof aiVerifyIdle === "function") await Promise.race([aiVerifyIdle(), new Promise((r) => setTimeout(r, 8000))]);
+    if (err && err.isError && !(state && state.pro) && !wasAiBefore) {
+      notify(tr("Restore failed:") + " " + (err.message || String(err.code || "")));
+      return;
+    }
     const hasAiNow = !!(typeof aiSubIsActive === "function" && aiSubIsActive(state && state.aiSub));
     if (hasAiNow && !wasAiBefore) {
       notify(tr("Duitful AI+ restored. Welcome back!"));
@@ -1269,11 +1485,15 @@ async function restorePurchases() {
       notify(tr("Pro restored. Welcome back!"));
     } else if ((state && state.pro) || hasAiNow) {
       notify(tr("Already unlocked — nothing to restore."));
+    } else if (nativePlatform() === "ios") {
+      notify(tr("No previous purchase found for this Apple ID. If you bought Pro with a different Apple ID, sign in with it in Settings → your name → Media & Purchases, then try again."));
     } else {
       notify(tr("No previous purchase found for this account. If you bought Pro on a different Google account, sign that account into the Play Store first."));
     }
   } catch (e) {
     notify(tr("Restore failed:") + " " + (e && e.message ? e.message : String(e)));
+  } finally {
+    iapRestoring = false;
   }
 }
 

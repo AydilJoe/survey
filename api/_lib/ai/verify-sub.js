@@ -25,6 +25,29 @@
 // (the webhook then left a tombstone). Records written before verification
 // existed (no `verified` marker) are ignored and replaced; their devices and
 // any client-chosen expiry are dropped.
+//
+// Live status (1.80.0): with the App Store Server API configured
+// (APPLE_IAP_KEY_ID / APPLE_IAP_ISSUER_ID / APPLE_IAP_PRIVATE_KEY, see
+// apple-api.js), an iPhone JWS is only the key to the question: Apple's live
+// answer decides. Expired, revoked or refunded => no entitlement (even if the
+// JWS sent still runs); a renewal the JWS predates counts. Apple unreachable
+// or 5xx => the verified JWS, never past its own expiresDate, marked
+// `recheck` so the app asks again soon. 401 / 403 => a logged config error
+// and the same as not configured: the verified JWS alone, as before.
+//
+// Purchase binding (1.80.0): the app buys with an anonymous per-vault id
+// (state.purchaseId, a random UUID; the store gets its UUIDv3 form as Apple's
+// appAccountToken / Play's obfuscatedExternalAccountId) and sends that same
+// form as `accountToken`. The first verify records the purchase's account on
+// ai_sub: the store-signed value when there is one, else the app's. A later
+// verify whose token differs (a new phone set up without the old vault, a
+// reinstall, a CSV move) is NOT refused and is never treated as proof of
+// anything: it is a new device claim inside the same 3-device cap, exactly
+// as before. The only difference is which device makes room when the cap is
+// full: a claim from another vault pushes out the oldest device that was
+// also not bound to the purchase's vault, if there is one, before touching
+// the purchasing vault's own devices. A matching token is not a key either:
+// the store's signed transaction always is.
 
 const crypto = require("crypto");
 const { MAX_DEVICES } = require("./models");
@@ -32,6 +55,7 @@ const { store, keys, currentPeriodKey, testMode, SUB_TTL_S } = require("./kv");
 const { signDeviceToken, clientIpHash, rateLimit, send, readBody } = require("./auth");
 const { formatStatus } = require("./status");
 const { verifyAppleJws, JwsError } = require("./apple-jws");
+const { liveSubscription } = require("./apple-api");
 const {
   VERIFIED,
   USE_TTL_S,
@@ -63,6 +87,25 @@ const androidSubId = (purchaseToken) => `and_${hash20(purchaseToken)}`;
 
 function sandboxAllowed() {
   return process.env.AI_IOS_ALLOW_SANDBOX === "1";
+}
+
+// The anonymous purchase id, in the UUID form the store carries (Apple's
+// appAccountToken, Play's obfuscatedExternalAccountId). Anything else is "".
+function normalizeAccountToken(v) {
+  const s = typeof v === "string" ? v.trim().toLowerCase() : "";
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s) ? s : "";
+}
+
+// Which device makes room when all MAX_DEVICES slots are taken. A claim from
+// the purchasing vault (`bound`) takes the oldest slot, as before; a claim
+// from any other vault takes the oldest slot that is not bound either, if
+// there is one. Never refuses: a claim always gets a slot.
+function evictIndex(devices, bound) {
+  if (!bound) {
+    const i = devices.findIndex((d) => d && !d.bound);
+    if (i >= 0) return i;
+  }
+  return 0;
 }
 
 // "Production" always; "Sandbox" only when the deployment allows it.
@@ -106,6 +149,7 @@ function verifyIosTransaction(jws, { now = Date.now(), allowInactive = false } =
     revoked,
     sandbox,
     txId: typeof tx.transactionId === "string" ? tx.transactionId : String(tx.transactionId || ""),
+    account: normalizeAccountToken(tx.appAccountToken),
     active: !revoked && expiresAt > now,
   };
 }
@@ -209,6 +253,7 @@ async function verifyAndroidPlaySubscription(purchaseToken, { acknowledge = fals
     acknowledged,
     sandbox: false,
     txId: typeof data.latestOrderId === "string" ? data.latestOrderId : "",
+    account: normalizeAccountToken(data.externalAccountIdentifiers && data.externalAccountIdentifiers.obfuscatedExternalAccountId),
   };
 }
 
@@ -232,9 +277,11 @@ async function verifyStoreReceipt(body) {
 
   if (platform === "ios") {
     if (!jws) return { error: "invalid-ios-jws" };
-    const v = verifyIosTransaction(jws);
+    // Read even an expired / revoked JWS: Apple's live answer may know of a
+    // renewal since. Without that answer, those are refused exactly as before.
+    const v = verifyIosTransaction(jws, { allowInactive: true });
     if (v.error) return { error: v.error };
-    return {
+    const fromJws = {
       subId: v.subId,
       platform: "ios",
       plan: v.plan,
@@ -243,7 +290,27 @@ async function verifyStoreReceipt(body) {
       storeEventAt: Number(v.tx.signedDate) || 0,
       txId: v.txId,
       sandbox: v.sandbox,
+      account: v.account,
     };
+    const inactive = () => ({ error: v.revoked ? "sub-revoked" : "sub-expired" });
+    const live = await liveSubscription(v.tx.originalTransactionId, { sandbox: v.sandbox });
+    if (live.state === "ok") {
+      // Apple's word, as of the moment it was asked.
+      if (!live.active) return { error: live.revoked ? "sub-revoked" : "sub-expired" };
+      return {
+        ...fromJws,
+        plan: live.plan || v.plan,
+        expiresAt: live.expiresAt,
+        storeEventAt: live.checkedAt,
+        txId: live.txId || v.txId,
+        account: normalizeAccountToken(live.appAccountToken) || v.account,
+        live: true,
+      };
+    }
+    if (!v.active) return inactive();
+    // Apple unreachable: the JWS alone, never past its own expiresDate, and
+    // asked again soon. Not configured / config error / unknown: as before.
+    return live.state === "unreachable" ? { ...fromJws, recheck: true } : fromJws;
   }
 
   if (platform === "android") {
@@ -283,6 +350,15 @@ async function handleVerifySub(req, res) {
   const now = Date.now();
   const ent = await loadEntitlement(kv, verified.subId, now);
 
+  // The purchase's account: what the store signed, else what was recorded
+  // first, else (first verify of a purchase the store carries no id for) the
+  // app's own. See "Purchase binding" above: it decides nothing but eviction.
+  const claimToken = normalizeAccountToken(body.accountToken);
+  const account = normalizeAccountToken(verified.account)
+    || normalizeAccountToken(ent.subRaw && ent.subRaw.account)
+    || claimToken;
+  const bound = !!(account && claimToken && claimToken === account);
+
   let record = capSandboxExpiry({
     subId: verified.subId,
     platform: verified.platform,
@@ -293,11 +369,13 @@ async function handleVerifySub(req, res) {
     txId: verified.txId || "",
     sandbox: !!verified.sandbox,
     verified: VERIFIED,
+    ...(account ? { account } : {}),
+    ...(verified.recheck ? { recheck: true } : {}),
     updatedAt: now,
   }, now);
   // Of two verified receipts, the newer one's store fields stay.
   if (ent.subRaw && Number(ent.subRaw.storeEventAt) > record.storeEventAt) {
-    record = { ...ent.subRaw, updatedAt: now };
+    record = { ...ent.subRaw, ...(account ? { account } : {}), updatedAt: now };
   }
   // A store notification newer than the receipt (a refund, a revoke, an
   // expiry, or a tombstone for one) decides; see entitlement.js.
@@ -312,11 +390,14 @@ async function handleVerifySub(req, res) {
   let slot = requestedSlot ? devices.find((d) => d.slotId === requestedSlot) : null;
 
   if (!slot) {
-    slot = { slotId: crypto.randomBytes(9).toString("base64url"), label, addedAt: now };
-    if (devices.length >= MAX_DEVICES) devices.shift();
+    // A new device claim, bound to the purchasing vault or not: always within
+    // the cap, never refused (see "Purchase binding" above).
+    slot = { slotId: crypto.randomBytes(9).toString("base64url"), label, addedAt: now, bound };
+    while (devices.length >= MAX_DEVICES) devices.splice(evictIndex(devices, bound), 1);
     devices.push(slot);
   } else {
     slot.label = label;
+    slot.bound = bound;
   }
 
   // Moving a pre-verification record over: keep this month's meters (never
@@ -338,6 +419,9 @@ async function handleVerifySub(req, res) {
     ok: true,
     subToken,
     slotId: slot.slotId,
+    bound,
+    // Apple couldn't be asked: the app sends its receipt again soon.
+    ...(verified.recheck ? { recheck: true } : {}),
     status: formatStatus({ sub: effective, devices, usage, periodKey }, now),
   });
 }
@@ -349,6 +433,8 @@ module.exports = {
   iosEnvironmentError,
   iosSubId,
   androidSubId,
+  normalizeAccountToken,
+  evictIndex,
   BUNDLE_ID,
   IOS_PRODUCTS,
   ANDROID_PRODUCTS,

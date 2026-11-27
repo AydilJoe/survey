@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.79.0";
+const APP_VERSION = "1.80.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -90,6 +90,12 @@ const emptyState = () => ({
   aiPlusDisclosureSeen: false,
   aiPlusPreviewedKinds: {},
   aiSub: null,
+  // Anonymous purchase id: a random UUID, never derived from personal data.
+  // The stores get its UUID form (Apple's appAccountToken, Play's
+  // obfuscatedAccountId) so the server can tell this vault's purchase from a
+  // claim by another vault. Made on first store use (pro.js); carried by
+  // cloud backup; kept by the importing device on CSV import.
+  purchaseId: "",
   guideSeen: false,
   deviceId: "",
   lastEditedAt: "",
@@ -371,6 +377,7 @@ function coerceState(parsed) {
         ? parsed.aiPlusPreviewedKinds
         : {},
       aiSub: parsed.aiSub && typeof parsed.aiSub === "object" && !Array.isArray(parsed.aiSub) ? parsed.aiSub : null,
+      purchaseId: typeof parsed.purchaseId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parsed.purchaseId) ? parsed.purchaseId.toLowerCase() : "",
       guideSeen: !!parsed.guideSeen,
       deviceId: typeof parsed.deviceId === "string" ? parsed.deviceId : "",
       lastEditedAt: typeof parsed.lastEditedAt === "string" ? parsed.lastEditedAt : "",
@@ -7788,6 +7795,10 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.80.0": [
+    "<strong>Duitful AI+ on iPhone</strong> — AI+ can now be bought and restored in the iPhone app, and every iPhone purchase uses Apple's newer StoreKit.",
+    "<strong>Steadier purchases</strong> — opening the app or tapping Restore no longer shows the Pro welcome again. Each purchase now carries a random id kept in your encrypted data (never your name or email), so restoring on a new phone simply adds it to your devices.",
+  ],
   "1.79.0": [
     "<strong>Duitful AI+ helps in more places</strong> — with AI+ on, it can read a bank statement your phone couldn't balance, tidy payee names, fill empty boxes from a Borang EA or a loan letter, work out who paid when a split credit matches several people, and tidy messy items on a by-item split. It only uses figures printed on the page, and you check everything before it's saved.",
   ],

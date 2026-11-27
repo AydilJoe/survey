@@ -133,7 +133,7 @@ verifies. See [app/script.js:1728-1772](app/script.js:1728).
 
 ## 3. In-app purchase review
 
-Native IAP via `cordova-plugin-purchase` v13. See
+Native IAP via `cordova-plugin-purchase` v13 at the time of this audit (since 1.80.0 its Capacitor build, `capacitor-plugin-cdv-purchase`, StoreKit 2 on iOS; see `app/pro.js`). See
 [app/script.js:1497-1518](app/script.js:1497).
 
 - **Product:** `duitful_pro`, NON_CONSUMABLE, both Apple App Store and
