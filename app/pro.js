@@ -1270,12 +1270,8 @@ async function purchasePro(sku = PRODUCT_ID) {
   // with the real outcome; bridge them back to here.
   const settlement = new Promise((resolve) => { purchaseSettler = resolve; });
   purchasePendingSku = sku;
-  // A sheet that never answers (Ask to Buy waiting on a parent) frees the
-  // paywall after 30 s; the purchase still lands through approved later.
   const TIMEOUT_MS = 30_000;
-  const timer = setTimeout(() => {
-    if (purchaseSettler) settlePurchase({ ok: false, message: tr("Verification timed out. Tap Restore if you completed the payment.") });
-  }, TIMEOUT_MS);
+  let timer = 0;
   settlement.then(() => clearTimeout(timer));
 
   try {
@@ -1286,6 +1282,12 @@ async function purchasePro(sku = PRODUCT_ID) {
     if (err && err.isError) {
       const cancelled = err.code === sdk.ErrorCode?.PAYMENT_CANCELLED || /cancel/i.test(String(err.message || ""));
       settlePurchase({ ok: false, cancelled, message: cancelled ? null : (err.message || tr("Purchase failed. Try again.")) });
+    } else if (purchaseSettler) {
+      // Start the timeout only after the native payment sheet closes so Face ID
+      // or Apple ID password entry never trips a false timeout.
+      timer = setTimeout(() => {
+        if (purchaseSettler) settlePurchase({ ok: false, message: tr("Verification timed out. Tap Restore if you completed the payment.") });
+      }, TIMEOUT_MS);
     }
   } catch (e) {
     settlePurchase({ ok: false, cancelled: true, message: e && e.message });
@@ -1607,9 +1609,11 @@ document.getElementById("paywall-buy")?.addEventListener("click", async () => {
   const originalLabel = buyBtn ? buyBtn.textContent : "Unlock Pro";
   if (buyBtn) { buyBtn.disabled = true; buyBtn.textContent = tr("Verifying…"); }
   if (status) { status.textContent = tr("Confirm the purchase in the store sheet…"); status.hidden = false; }
+  if (typeof showKiraPurchaseLoading === "function") showKiraPurchaseLoading(tr("Completing purchase…"));
   try {
     const sku = activePromo && nativePlatform() !== "ios" ? activePromo.sku : PRODUCT_ID;
     const outcome = await purchasePro(sku);
+    if (typeof hideKiraPurchaseLoading === "function") hideKiraPurchaseLoading();
     if (outcome.ok) {
       // Read the price before closePaywall() resets the applied promo.
       const paidLabel = activePromo ? activePromo.priceLabel : PRO_PRICE_LABEL;
@@ -1624,6 +1628,7 @@ document.getElementById("paywall-buy")?.addEventListener("click", async () => {
       status.hidden = false;
     }
   } finally {
+    if (typeof hideKiraPurchaseLoading === "function") hideKiraPurchaseLoading();
     if (buyBtn) { buyBtn.disabled = false; buyBtn.textContent = originalLabel; }
   }
 });

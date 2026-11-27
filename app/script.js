@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.82.0";
+const APP_VERSION = "1.83.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -7876,6 +7876,10 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.83.0": [
+    "<strong>Interactive purchase waiting</strong> — Kira now keeps you company while the store verifies your purchase (tap Kira while you wait!), then dances and bows to say thank you once it's active.",
+    "<strong>Cleaner Pro &amp; AI+ card</strong> — Duitful Pro and Duitful AI+ are now merged into one tidy Settings card showing your AI+ active-until date.",
+  ],
   "1.82.0": [
     "<strong>Voice hears Malaysian words better</strong> — saying \"nasi\", \"roti canai\" or \"Touch 'n Go\" now comes out right, and \"ringgit\" never ends up in the note. Sheets no longer hide under the iPhone's clock, and a split request is simpler: your name is asked once, the QR waits behind Show QR, and the rest sits under More options.",
   ],
