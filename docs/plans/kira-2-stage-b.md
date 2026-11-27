@@ -6,30 +6,39 @@ Owner's words: "the voice listening, make it more like Siri style, with waves an
 
 ## 1. The voice screen (replaces the look of `#voice-dialog`)
 
-Behaviour stays: partial text fills the input and previews live, the final text runs `parseVoiceSentence` + `parseVoiceSmart` (AI+), nothing is saved until the tap, Cancel drops what was heard, a refused mic shows one line and typing still works. Only the presentation changes.
+Behaviour: partial text fills the live chat bubble and previews live, the final text runs local navigation / `parseVoiceSentence` first (0 AI+ quota), then `parseVoiceSmart` / `kira-ask` (AI+) when needed. **Reads & navigation run immediately** (e.g., open receipt scanner, open Tax Relief, show an assistant answer); **money writes** (spend, income, split, pay debt) **always require a 1-tap Confirm card + Cancel** before saving. Cancel drops what was heard; a refused mic shows one line and typing still works.
 
+- **Hold-to-pop entry (Free & Paid):** Both Free (**+**) and Paid/Pro/Trial (**Kira**) support **tap** (soft bloop + light haptic → opens 4-bubble Jelly capsule arc: **Scan**, **Money out** [Spend/Split/Pay debt], **Income**, **Kira/Docs** — no separate "Talk" radial bubble) and **tap-and-hold** (bloop → swell & vibrate → **POP!**). On Paid/Pro/Trial, Kira physically floats up from the popped center bubble into the full-screen listening stage; on Free, the **+** pops into a clean mic orb (on-device speech & offline parser only).
+- **Discoverability cues (hold-to-talk):**
+  - A tiny pill above the center bubble on first opens (`Hold to talk to Kira` / `Hold to talk`) that **disappears permanently** after the user's first successful hold-pop.
+  - Subtle idle breathing/blink on Kira inside the bubble (respects `prefers-reduced-motion`).
+  - One-time post-manual-save chip after a user's first manual spend: *"Faster next time — hold Kira and say it."*
 - **Full-screen blur.** Opening the sheet blurs and dims the app behind it (`backdrop-filter`, with a plain dim fallback). Safe areas respected (top and bottom insets; see 1.82.0's sheet rules).
-- **Kira in the middle.** Large `listening` Kira (the existing mood) centred, with the festive outfit. Idle: she breathes. Hearing: eyes up and a nod per new word (existing `.is-hearing`). After the final text she turns proud when a spend was understood.
+- **Kira in the middle.** Large `listening` Kira (the existing mood) centred, with the festive outfit (or clean mic orb on Free). Idle: she breathes. Hearing: eyes up and a nod per new word (existing `.is-hearing`). After the final text she turns proud when an action/answer is ready.
 - **Waves around Kira.** Soft colour waves (three SVG or canvas layers, tokens only: `--primary`, `--accent-3`, `--paid`, `color-mix()` tints) whose height follows the voice level.
   - **Level:** DuitfulKit gets a `speechLevel` event `{ level }` (0 to 1, about 20 per second) on both platforms. Android: `RecognitionListener.onRmsChanged` (normalise roughly −2…10 dB). iPhone: RMS of the buffer in the existing `AVAudioEngine` tap in `DuitfulSpeech.swift`. **Only the number is sent to JS; no audio is kept or sent anywhere.**
   - **No level available** (Web Speech in a browser, older Android): a gentle idle wave that does **not** pretend to follow the voice.
   - **Reduced motion:** no moving waves; a single ring beside Kira that grows and shrinks with the level (or stays still without it).
-- **What you said, as a chat.** The heard text sits in one speech bubble above Kira (live-updating). When it grows past about four lines it scrolls to the latest words and **fades out at the top** (`mask-image` gradient), never clipping mid-line. The text is `user-select`able, never editable in this mode; tap the bubble (or "Edit") to switch to the existing text field for typing.
+- **What you said, as a chat + session multi-turn.** The heard text sits in one speech bubble above Kira (live-updating). When it grows past about four lines it scrolls to the latest words and **fades out at the top** (`mask-image` gradient), never clipping mid-line. The text is `user-select`able, never editable in this mode; tap the bubble (or "Edit") to switch to the existing text field for typing. For `kira-ask` assistant Q&A (LHDN tax relief gaps, debt payoff strategy, spending Q&A), keep a **session multi-turn** follow-up mic/type bar capped at the **last 4–6 turns** with fresh live redacted local numbers on each turn, plus 1-tap action chips (e.g. "Open Tax Relief", "Log RM300 SSPN"); history clears when the overlay closes (no persistent chat storage).
 - **Result card & tactile save feedback** under Kira: the existing preview (amount · category · note · wallet, and the split line), then **Cancel** and **Save**. Same `#voice-preview` / `#voice-save` / `#voice-cancel` ids and handlers. **Every confirmed action must show clear cause-and-effect feedback:** a save animation (soft sound/haptic + Kira happy hop/sparkle) and a visible highlight showing **where it landed** (new row slides & pulses into Today/Monthly, Balance/Debt totals visibly tick to the new figure, or a 1-tap "Added to … → View" chip if on another tab).
-- **Entry points** unchanged: the radial's Talk, holding the bubble, holding Kira on Home, Siri / Assistant deep link (`duitful://action/voice?text=`).
+- **Sound & haptic Settings toggles:** Two separate Settings toggles — **Bubble & save sounds** and **Haptics** — both **ON by default** (respecting the device silent/mute switch).
+- **Entry points:** holding the center bubble (Free `+` or Paid `Kira`), holding Kira on Home, Siri / Assistant deep link (`duitful://action/voice?text=`), and "Ask Kira" inside the unified Kira/Docs hub.
 - **No sempoa.** The sempoa remains for on-device AI only. While AI+ cloud parsing runs, keep whatever the AI+ code already shows.
 - Strings in EN, MS and ZH (`scripts/i18n/locales/*`), 360px with no overflow, Pastel and dark.
 
-## 2. The Kira meter (tiers from `kira-tiers.md`)
+## 2. Unified Kira / Docs hub & meter (tiers from `kira-tiers.md`)
 
 - Tier comes from the AI+ server's `status` op (`tier`, `text {used, limit}`, `scan {used, limit}`, `resetsAt`); `kiraTier()` / `kiraQuota()` in `kira-bubble.js` already read it where it exists. **Never show a number the server didn't send**; unknown means no meter.
-- **Where:** the Kira sheet (a new small sheet opened from the bubble's long-press-free "Kira" row in the radial, or from the ☰ menu: "Kira"): what Kira does and never does, the meter ("Kira this month: 14 of 20 left · resets 1 Dec"), and the upgrade paths. Reuse `#ai-info-dialog`'s structure.
+- **Where:** Tapping the **4th radial bubble** (**Kira** on Paid/Pro/Trial, **Docs** on Free) — or "Kira" in the ☰ menu — opens a **unified Kira/Docs hub sheet**:
+  - **Top:** Compact Kira meter ("Kira this month: 14 of 20 left · resets 1 Dec") + what Kira does and never does (or a quiet "Get Kira" card on Free with live prices from `proPriceLabel()` and the AI+ price helper; iPhone never shows LAUNCH100).
+  - **Below:** All document imports (Bank Statement, EA Form / Tax Doc, etc.) — powered by AI+ reading for Paid/Pro/Trial (1 scan per doc), local-only parsers for Free.
+- **Local-first metering:** Simple navigation (`open scanner`, `go to tax`) and rule-based statement matching run on-device for **0 quota**. Smart voice parsing and `kira-ask` Q&A count as **1 text action** each; AI+ receipt/statement/EA reading counts as **1 scan**.
 - **At the cap or offline:** quiet fallback to on-device AI and rules with one line; never block logging. Pro taste ends quietly; Lifetime Pro is never reduced.
 - Calm style, a thin bar, no countdown pressure.
 
 ## 3. Paywall and trial wiring
 
-- **Free:** the bubble is the big **+**. The radial's Talk uses on-device speech and the offline parser only. A quiet "Get Kira" row in the Kira sheet explains Pro (taste) and AI+ with prices from `proPriceLabel()` and the AI+ price helper (no hard-coded prices; iPhone never shows LAUNCH100).
+- **Free:** the bubble is the big **+** (tap for radial menu, hold-to-pop for on-device voice mic orb). A quiet "Get Kira" card in the unified Docs hub explains Pro (taste) and AI+ with live store prices (no hard-coded prices; iPhone never shows LAUNCH100).
 - **Pro trial (14 days):** full Kira up to the trial cap from `kira-tiers.md`. **Day 12:** one Home card, "Kira's recap": counts from a local `state.kiraStats` (spends logged by voice or Kira, receipts read, split payments matched; counted on the device, in the vault, in the CSV settings if it must round-trip), then the existing trial-end banner (`trialEndChanges`) names what changes for this user.
 - Follow the four no-bait-and-switch rules in `CLAUDE.md` (opt-in trial, limits only stop adding, one price, the limit shows before the wall).
 
