@@ -8388,6 +8388,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.89.0": [
+    "<strong>Several spends in one go</strong> — Tell Kira \"12 ringgit nasi lemak, 5 ringgit teh tarik, 2 ringgit roti canai\" and you get three spends to check, each with its own category. Remove any you didn't mean, then save them all with one tap. Kira also hears \"log my\" and \"two ringgit\" better.",
+  ],
   "1.88.0": [
     "<strong>Siri-style voice stage with live waves</strong> — Hold the centre bubble for a blurred full-screen listening stage with waves that respond to your voice, a top-fading chat bubble for longer phrases, and Kira in the middle (or a clean mic orb on Free). Only the volume level is read on device; no audio is recorded or sent.",
     "<strong>Kira assistant, tactile save highlights and Day-12 recap</strong> — Ask Kira about monthly spending, debt strategies or tax relief caps with 1-tap action chips, see where new entries land with subtle pulses and jump chips, and review your Day-12 trial recap.",
