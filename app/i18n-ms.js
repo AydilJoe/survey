@@ -1898,6 +1898,7 @@
   "Verification timed out. Tap Restore if you completed the payment.": "Pengesahan tamat masa. Ketik Pulihkan jika anda sudah selesai membayar.",
   "Could not start checkout": "Tidak dapat mulakan pembayaran",
   "Automatic backup to iCloud is a Pro feature. Back up now and Export CSV in Settings stay free.": "Sandaran automatik ke iCloud ialah ciri Pro. Sandarkan sekarang dan Eksport CSV dalam Tetapan kekal percuma.",
+  "Duitful AI+ is active.": "Duitful AI+ aktif.",
   "Welcome": "Selamat datang",
   "What comes in each month?": "Berapa yang masuk setiap bulan?",
   "Your salary. A rough figure is fine.": "Gaji anda. Anggaran kasar pun boleh.",

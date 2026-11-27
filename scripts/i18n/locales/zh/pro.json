@@ -220,5 +220,6 @@
   "Pro has no price from the store yet. (Store: {info})": "商店暂未返回 Pro 价格。（商店：{info}）",
   "Verification timed out. Tap Restore if you completed the payment.": "验证超时。如果已完成付款，请点“恢复购买”。",
   "Could not start checkout": "无法开始结账",
-  "Automatic backup to iCloud is a Pro feature. Back up now and Export CSV in Settings stay free.": "自动备份到 iCloud 是 Pro 功能。设置里的“立即备份”和“导出 CSV”仍然免费。"
+  "Automatic backup to iCloud is a Pro feature. Back up now and Export CSV in Settings stay free.": "自动备份到 iCloud 是 Pro 功能。设置里的“立即备份”和“导出 CSV”仍然免费。",
+  "Duitful AI+ is active.": "Duitful AI+ 已启用。"
 }

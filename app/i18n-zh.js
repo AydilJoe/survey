@@ -1898,6 +1898,7 @@
   "Verification timed out. Tap Restore if you completed the payment.": "验证超时。如果已完成付款，请点“恢复购买”。",
   "Could not start checkout": "无法开始结账",
   "Automatic backup to iCloud is a Pro feature. Back up now and Export CSV in Settings stay free.": "自动备份到 iCloud 是 Pro 功能。设置里的“立即备份”和“导出 CSV”仍然免费。",
+  "Duitful AI+ is active.": "Duitful AI+ 已启用。",
   "Welcome": "欢迎",
   "What comes in each month?": "每个月进账多少？",
   "Your salary. A rough figure is fine.": "你的工资，大概数字就行。",
