@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.86.0";
+const APP_VERSION = "1.87.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -1243,12 +1243,13 @@ function autoRecurFromLastMonth() {
     copied++;
   }
   for (const ex of sourceExpenses) {
-    const key = `${ex.name}|${ex.amount}`;
+    const tmplAmt = Number.isFinite(Number(ex.plannedAmount)) ? Number(ex.plannedAmount) : ex.amount;
+    const key = `${ex.name}|${tmplAmt}`;
     if (existsExp.has(key)) continue;
     state.expenses.push({
       id: uid(),
       name: ex.name,
-      amount: ex.amount,
+      amount: tmplAmt,
       month: cur,
       day: ex.day ?? null,
       repeatNext: true,
@@ -2462,10 +2463,13 @@ function renderFlow() {
         // Edit, Split and Delete sit behind one ⋯, as on the debt list: three
         // icon buttons pushed the amount onto its own line on a phone, and
         // Delete sat one thumb-slip from Edit.
+        const paidTag = kind === "expense" && it.paidDate
+          ? ` <span class="bill-paid-tag" title="${escapeHtml(tr("Paid on {date}", { date: it.paidDate }))}">✓ ${tr("Paid")}</span>`
+          : "";
         return `
           <li data-id="${it.id}">
             ${chip}
-            <span class="name" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
+            <span class="name" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}${paidTag}</span>
             <span class="amount ${kind === "income" ? "pos" : "neg"}">${fmtMoney(it.amount)}${renderFxBadge(it.fx)}</span>
             <button class="ghost icon-btn row-more" data-action="row-menu" data-id="${it.id}" aria-expanded="false" aria-haspopup="true" aria-label="${tr("More actions for {name}", { name: escapeHtml(it.name) })}" title="${tr("More")}">⋯</button>
             <div class="row-menu" hidden>
@@ -5282,7 +5286,7 @@ function upcomingReminders(daysAhead) {
   }
   for (const ex of state.expenses) {
     if (ex.month !== thisMonthISO) continue;
-    if (!ex.day) continue;
+    if (!ex.day || ex.paidDate) continue;
     pushIf(ex.day, {
       kind: "expense", id: ex.id, name: ex.name,
       amount: Number(ex.amount) || 0, direction: "out",
@@ -6771,9 +6775,10 @@ $("#btn-copy-prev").addEventListener("click", () => {
     added++;
   }
   for (const it of prevExpenses) {
-    const key = `${it.name}|${it.amount}`;
+    const tmplAmt = Number.isFinite(Number(it.plannedAmount)) ? Number(it.plannedAmount) : it.amount;
+    const key = `${it.name}|${tmplAmt}`;
     if (existsExp.has(key)) continue;
-    state.expenses.push({ id: uid(), name: it.name, amount: it.amount, month: selectedMonth, day: it.day ?? null });
+    state.expenses.push({ id: uid(), name: it.name, amount: tmplAmt, month: selectedMonth, day: it.day ?? null });
     existsExp.add(key);
     added++;
   }
@@ -8359,6 +8364,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.87.0": [
+    "<strong>Smart bank statement reconciliation</strong> — Imported bank statements now automatically match debt payments (lowering your debt balance instead of double-counting) and recurring bills (marking them Paid and updating this month's actual while keeping next month's template untouched), with 1-tap override to log as a regular spend.",
+  ],
   "1.86.0": [
     "<strong>Native haptics</strong> — Tapping and holding the Jelly Bubble now triggers native haptic feedback with escalating bubble pulses, a crisp pop, and a confirmation pulse when you save.",
   ],

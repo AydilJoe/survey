@@ -1,4 +1,7 @@
 {
+  "1.87.0": [
+    "<strong>Penyelarasan penyata bank pintar</strong> — Penyata bank yang diimport kini memadankan bayaran hutang (mengurangkan baki hutang tanpa kira dua kali) dan bil berulang (menandakan Dibayar serta mengemas kini jumlah sebenar bulan ini sambil mengekalkan templat bulan depan), dengan pilihan 1 ketikan untuk catat sebagai belanja biasa."
+  ],
   "1.86.0": [
     "<strong>Haptik asli</strong> — Mengetik dan menekan lama Gelembung Jeli kini mencetuskan getaran haptik asli dengan denyutan gelembung yang meningkat, letupan jelas, dan denyutan pengesahan apabila anda menyimpan."
   ],

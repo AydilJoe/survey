@@ -36,13 +36,13 @@ Shared files (`app/script.js`, `app/styles.css`, `app/index.html`, `scripts/i18n
 
 | What | Owner | State |
 |---|---|---|
-| PR #478 — v1.82.0: sheets clear the clock, voice hears Malaysian words, lighter split request | Claude | Merged (beta only) |
-| 2.0 stage A | Antigravity | in progress on `feat/duitful-2-stage-a` (building on top of Claude's `56030ba`, aligning with PR #481 + Jelly Bubble mockup) |
+| 2.0 stage A (v1.84.0) + Free Debt Strategy Library (v1.85.0) + Native Haptics (v1.86.0) | Antigravity | shipped to TestFlight & Play Beta |
+| Statement ↔ Recurring & Debt reconciliation (`app/statement.js`, v1.87.0) — **in 2.0** | Antigravity | PR open — auto-links matched rows to `state.debts` & `state.expenses` (variable bills update this month's actual only, template untouched) with 1-tap override |
+| Country-aware Tax Relief Packs (`MYS` + `SGP` + `HKG` + Global Tax Receipt Vault) — **in 2.0** | Antigravity | spec ready (`tax-country-packs`) |
 | Pro taste (20 actions + 3 scans a month) and attested trial quota on the AI+ server | Antigravity | spec in `kira-tiers.md` |
-| Statement ↔ Recurring & Debt reconciliation (`app/statement.js`) — **in 2.0** | Antigravity | auto-links matched rows to `state.debts` (records payment) and `state.expenses` (marks bill paid; variable bills update this month's actual only, template untouched) with 1-tap override to New Spend or Skip; building now in parallel with Stage A |
-| Kira real-assistant tools (`kira-ask`: tax relief advisor, debt strategist, spending Q&A + full app actions) — **in 2.0 (Stage B)** | Antigravity | local redacted summaries + structured intent router on `/api/ai`; no raw PII leaves phone |
+| 2.0 stage B (floating Kira voice, native `speechLevel` waves, `kira-ask` assistant tools, tactile save animations) | Antigravity | unblocked now that Stage A is merged; spec in `kira-2-stage-b.md` |
 | Boost Bank alert wording (user email, 26 Nov) | Claude | asked the user for a screenshot; add the pattern when it arrives |
-| Real-device test of "Talk to Kira" and the StoreKit 2 sandbox | Owner | |
+| Real-device test of "Talk to Kira", iOS Taptic Engine haptics, and StoreKit 2 sandbox | Owner | |
 
 ## Calendar (target)
 
