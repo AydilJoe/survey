@@ -36,13 +36,12 @@ Shared files (`app/script.js`, `app/styles.css`, `app/index.html`, `scripts/i18n
 
 | What | Owner | State |
 |---|---|---|
-| 2.0 stage A (v1.84.0) + Free Debt Strategy Library (v1.85.0) + Native Haptics (v1.86.0) | Antigravity | shipped to TestFlight & Play Beta |
-| Statement ↔ Recurring & Debt reconciliation (`app/statement.js`, v1.87.0) — **in 2.0** | Antigravity | PR open — auto-links matched rows to `state.debts` & `state.expenses` (variable bills update this month's actual only, template untouched) with 1-tap override |
+| 2.0 stage A (v1.84.0) + Free Debt Strategy Library (v1.85.0) + Native Haptics (v1.86.0) + Statement Reconciliation (v1.87.0) | Antigravity | shipped to TestFlight & Play Beta |
+| 2.0 stage B (floating Kira voice stage, native `speechLevel` waves, `kira-ask` assistant tools, tactile save animations, Day-12 recap, v1.88.0) | Antigravity | in progress on `feat/duitful-2-stage-b` |
 | Country-aware Tax Relief Packs (`MYS` + `SGP` + `HKG` + Global Tax Receipt Vault) — **in 2.0** | Antigravity | spec ready (`tax-country-packs`) |
 | Pro taste (20 actions + 3 scans a month) and attested trial quota on the AI+ server | Antigravity | spec in `kira-tiers.md` |
-| 2.0 stage B (floating Kira voice, native `speechLevel` waves, `kira-ask` assistant tools, tactile save animations) | Antigravity | unblocked now that Stage A is merged; spec in `kira-2-stage-b.md` |
 | Boost Bank alert wording (user email, 26 Nov) | Claude | asked the user for a screenshot; add the pattern when it arrives |
-| Real-device test of "Talk to Kira", iOS Taptic Engine haptics, and StoreKit 2 sandbox | Owner | |
+| Real-device test of "Talk to Kira", Siri-style voice waves, iOS Taptic Engine haptics, and StoreKit 2 sandbox | Owner | |
 
 ## Calendar (target)
 

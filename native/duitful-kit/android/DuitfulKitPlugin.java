@@ -511,6 +511,11 @@ public class DuitfulKitPlugin extends Plugin {
             }
 
             @Override
+            public void level(float level) {
+                notifyListeners("speechLevel", new JSObject().put("level", level));
+            }
+
+            @Override
             public void done(String text) {
                 call.resolve(new JSObject().put("text", text));
             }

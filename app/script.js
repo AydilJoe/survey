@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.87.0";
+const APP_VERSION = "1.88.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -109,6 +109,7 @@ const emptyState = () => ({
   recentSearches: [],
   lastSeenVersion: "",
   proTrialStartedAt: 0,
+  kiraStats: { voiceLogged: 0, receiptsRead: 0, splitsMatched: 0, day12Dismissed: false },
   // When this device's vault was first set up. Drives the pacing of first-week
   // asks (the trial banner waits a day, the reminders ask waits until day 3).
   firstRunAt: 0,
@@ -420,6 +421,14 @@ function coerceState(parsed) {
         : [],
       lastSeenVersion: typeof parsed.lastSeenVersion === "string" ? parsed.lastSeenVersion : "",
       proTrialStartedAt: Number.isFinite(Number(parsed.proTrialStartedAt)) ? Number(parsed.proTrialStartedAt) : 0,
+      kiraStats: parsed.kiraStats && typeof parsed.kiraStats === "object"
+        ? {
+            voiceLogged: Math.max(0, Math.round(Number(parsed.kiraStats.voiceLogged) || 0)),
+            receiptsRead: Math.max(0, Math.round(Number(parsed.kiraStats.receiptsRead) || 0)),
+            splitsMatched: Math.max(0, Math.round(Number(parsed.kiraStats.splitsMatched) || 0)),
+            day12Dismissed: !!parsed.kiraStats.day12Dismissed,
+          }
+        : { voiceLogged: 0, receiptsRead: 0, splitsMatched: 0, day12Dismissed: false },
       firstRunAt: Number.isFinite(Number(parsed.firstRunAt)) ? Number(parsed.firstRunAt) : 0,
       proNudgeUntil: Number.isFinite(Number(parsed.proNudgeUntil)) ? Number(parsed.proNudgeUntil) : 0,
       milestones: parsed.milestones && typeof parsed.milestones === "object" && !Array.isArray(parsed.milestones)
@@ -3896,6 +3905,8 @@ function renderAll() {
   renderGreeting();
   if (typeof renderFeatureSpotlight === "function") renderFeatureSpotlight();
   renderTrialBanner();
+  if (typeof renderKiraRecap === "function") renderKiraRecap();
+  if (typeof syncBubbleHoldHint === "function") syncBubbleHoldHint();
   renderReminderAsk();
   renderDashboard();
   renderFlow();
@@ -4555,7 +4566,7 @@ function syncAiThinkingUi() {
 function aiThinkStart(timeoutMs = AI_THINK_TIMEOUT_MS, opts) {
   const token = ++aiThinkSeq;
   const timer = setTimeout(() => aiThinkEnd(token), timeoutMs);
-  aiThinkTokens.set(token, { timer, overlay: !!(opts && opts.overlay), label: (opts && opts.label) || "" });
+  aiThinkTokens.set(token, { timer, overlay: !!(opts && opts.overlay), label: (opts && opts.label) || "", cloud: !!(opts && opts.cloud) });
   syncAiThinkingUi();
   return token;
 }
@@ -6697,9 +6708,12 @@ function handleIncomeSubmit(e, opts) {
 $("#form-income").addEventListener("submit", (e) => handleIncomeSubmit(e));
 document.getElementById("form-income-quick")?.addEventListener("submit", (e) => {
   handleIncomeSubmit(e, {
-    onSaved: () => {
+    onSaved: (entry) => {
       if (typeof closeIncomeModal === "function") closeIncomeModal();
       if (typeof kiraPlaySaveFeedback === "function") kiraPlaySaveFeedback();
+      if (typeof kiraHighlightLanding === "function") {
+        kiraHighlightLanding({ kind: "income", id: entry && entry.id, tab: "flow", label: tr("Added to Monthly → View") });
+      }
     },
   });
 });
@@ -6905,6 +6919,14 @@ $("#form-daily").addEventListener("submit", (e) => {
   } else toast(`${tr("Spending added")} · ${amountLabel}`);
   // Kira hops on the toast with a coin: once, motion-safe (kira.js).
   if (typeof kiraHop === "function") kiraHop();
+  if (typeof kiraHighlightLanding === "function") {
+    const destTab = type === "debt" ? "debts" : (type === "saving" ? "savings" : "dashboard");
+    const chipLabel = type === "debt"
+      ? tr("Paid debt → View")
+      : (type === "saving" ? tr("Added to Savings → View") : tr("Added to Today → View"));
+    kiraHighlightLanding({ kind: type, id, tab: destTab, label: chipLabel });
+  }
+  if (type === "expense" && typeof maybeShowVoiceNudge === "function") maybeShowVoiceNudge();
 });
 
 /* pill buttons + quick amount chips */
@@ -7079,12 +7101,14 @@ function syncSearchRows() {
 }
 
 /* go-to-tab buttons in empty states */
+function switchTab(tabName) {
+  const tabBtn = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  if (tabBtn) tabBtn.click();
+}
 document.addEventListener("click", (e) => {
   const btn = e.target instanceof HTMLElement ? e.target.closest("[data-go-tab]") : null;
   if (!btn) return;
-  const tabName = btn.getAttribute("data-go-tab");
-  const tabBtn = document.querySelector(`.tab[data-tab="${tabName}"]`);
-  if (tabBtn) tabBtn.click();
+  switchTab(btn.getAttribute("data-go-tab"));
 });
 
 function setDebtKind(kind) {
@@ -8364,6 +8388,10 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.88.0": [
+    "<strong>Siri-style voice stage with live waves</strong> — Hold the centre bubble for a blurred full-screen listening stage with waves that respond to your voice, a top-fading chat bubble for longer phrases, and Kira in the middle (or a clean mic orb on Free). Only the volume level is read on device; no audio is recorded or sent.",
+    "<strong>Kira assistant, tactile save highlights and Day-12 recap</strong> — Ask Kira about monthly spending, debt strategies or tax relief caps with 1-tap action chips, see where new entries land with subtle pulses and jump chips, and review your Day-12 trial recap.",
+  ],
   "1.87.0": [
     "<strong>Smart bank statement reconciliation</strong> — Imported bank statements now automatically match debt payments (lowering your debt balance instead of double-counting) and recurring bills (marking them Paid and updating this month's actual while keeping next month's template untouched), with 1-tap override to log as a regular spend.",
   ],

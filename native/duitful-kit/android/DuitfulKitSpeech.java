@@ -35,6 +35,7 @@ final class DuitfulKitSpeech {
 
     interface Callback {
         void partial(String text);
+        void level(float level);
         void done(String text);
         void error(String code, String message);
     }
@@ -168,6 +169,7 @@ final class DuitfulKitSpeech {
 
     private final class Listener implements RecognitionListener {
         private final boolean onDevice;
+        private long lastLevelMs = 0L;
 
         Listener(boolean onDevice) {
             this.onDevice = onDevice;
@@ -175,7 +177,16 @@ final class DuitfulKitSpeech {
 
         @Override public void onReadyForSpeech(Bundle params) { }
         @Override public void onBeginningOfSpeech() { }
-        @Override public void onRmsChanged(float rmsdB) { }
+        @Override
+        public void onRmsChanged(float rmsdB) {
+            if (cb == null) return;
+            long now = android.os.SystemClock.uptimeMillis();
+            if (now - lastLevelMs < 48L) return;
+            lastLevelMs = now;
+            // Normalise roughly -2..10 dB to 0..1; only the float goes to JS.
+            float norm = Math.max(0f, Math.min(1f, (rmsdB + 2f) / 12f));
+            cb.level(norm);
+        }
         @Override public void onBufferReceived(byte[] buffer) { }
         @Override public void onEndOfSpeech() { }
         @Override public void onEvent(int eventType, Bundle params) { }

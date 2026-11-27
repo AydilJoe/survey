@@ -16504,7 +16504,7 @@ check('the brand catalogue makes no network calls at all',
   // The answer is kept for the session: reload for a kit that says yes.
   await tp.reload();
   await tp.waitForTimeout(1500);
-  await tp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  await tp.evaluate(() => { document.querySelectorAll('dialog[open]').forEach((d) => d.close()); state.pro = true; renderAll(); });
   await stub({ speech: true, available: true, finalText: 'RM 12.50 nasi lemak' });
   const micShown = await openSheet(false);
   const idle = await tp.evaluate(() => ({
@@ -16596,9 +16596,9 @@ check('the brand catalogue makes no network calls at all',
   await tp.waitForTimeout(150);
   const cancelled = await tp.evaluate(() => ({ open: document.getElementById('voice-dialog').open, input: document.getElementById('voice-input').value, stops: __sp.calls.filter((c) => c[0] === 'stop').length }));
 
-  // Hold Kira on Home: a long press opens the sheet already listening; a
-  // short tap is only the giggle.
-  await tp.evaluate(() => { __sp.calls = []; __sp.finalText = 'dua belas ringgit nasi lemak'; document.getElementById('tabbtn-dashboard')?.click(); window.scrollTo(0, 0); });
+  // Hold Kira on Home (Free keeps Today's Kira on Home; holding it opens Voice
+  // already listening with the Free mic orb, letting go stops and previews).
+  await tp.evaluate(() => { state.pro = false; renderAll(); __sp.calls = []; __sp.finalText = 'dua belas ringgit nasi lemak'; document.getElementById('tabbtn-dashboard')?.click(); window.scrollTo(0, 0); });
   await tp.waitForTimeout(150);
   const kiraBox = async () => tp.evaluate(() => {
     const b = document.querySelector('#today-kira svg.kira .kira-body');
@@ -16628,7 +16628,7 @@ check('the brand catalogue makes no network calls at all',
       return {
         open: document.getElementById('voice-dialog').open,
         starts: __sp.calls.filter((c) => c[0] === 'start').length,
-        listening: !!document.querySelector('#voice-kira svg.kira--listening'),
+        listening: document.getElementById('voice-dialog').classList.contains('is-listening') && !document.getElementById('voice-orb').hidden,
         input: document.getElementById('voice-input').value,
         focused: document.activeElement && document.activeElement.id,
       };
@@ -16639,7 +16639,7 @@ check('the brand catalogue makes no network calls at all',
       stops: __sp.calls.filter((c) => c[0] === 'stop').length,
       input: document.getElementById('voice-input').value,
       preview: document.getElementById('voice-preview-spend').textContent,
-      proud: !!document.querySelector('#voice-kira svg.kira--proud'),
+      ready: !document.getElementById('voice-save').disabled,
     }));
     await shot('6-home-hold-released.png');
   }
@@ -16648,11 +16648,12 @@ check('the brand catalogue makes no network calls at all',
   check('Talk to Kira (1.80.0): holding Home\'s Kira opens Voice already listening (no keyboard); letting go stops and previews; a short tap only giggles',
     !!kb && tap && !tap.open && tap.starts === 0 && tap.tapped
     && hold && hold.open && hold.starts === 1 && hold.listening && hold.input === 'dua belas ringgit' && hold.focused !== 'voice-input'
-    && released && released.stops === 1 && released.input === 'dua belas ringgit nasi lemak' && /12\.00/.test(released.preview) && released.proud,
+    && released && released.stops === 1 && released.input === 'dua belas ringgit nasi lemak' && /12\.00/.test(released.preview) && released.ready,
     JSON.stringify({ kb, tap, hold, released }));
   await closeSheet();
 
   // Reduced motion: listening Kira sits still (no ear pulse, no nod).
+  await tp.evaluate(() => { state.pro = true; renderAll(); });
   await tp.emulateMedia({ reducedMotion: 'reduce' });
   await openSheet(false);
   await tp.click('#voice-mic-btn');
@@ -16772,6 +16773,7 @@ check('the brand catalogue makes no network calls at all',
 
   // Voice: the stand-in kit records the hints and answers what the iPhone heard.
   await fp.evaluate(() => {
+    state.pro = true;
     state.wallets = [{ id: 'w-mae', name: 'MAE', type: 'ewallet', opening: 0 }];
     state.split.me = '';
     state.split.out = state.split.out || [];
@@ -19409,6 +19411,253 @@ check('the brand catalogue makes no network calls at all',
     && recRes.reDups.every((x) => x[1] === true && x[2] === false)
     && recRes.csvOk && recRes.rolledAmt === 180,
     JSON.stringify(recRes));
+}
+
+// ── v1.88.0: Duitful 2.0 Stage B — Siri-style voice waves, speechLevel,
+//    top-fading transcript, Free orb vs Paid Kira, kira-ask session multi-turn,
+//    no sempoa for cloud AI+, discoverability cues, landing jump chip & Day-12 recap ──
+{
+  const read = (f) => readFileSync(path.join(REPO_ROOT, f), 'utf8');
+  const swiftSpeech = read('native/duitful-kit/ios/Sources/DuitfulKitPlugin/DuitfulSpeech.swift');
+  const swiftKit = read('native/duitful-kit/ios/Sources/DuitfulKitPlugin/DuitfulKitPlugin.swift');
+  const javaSpeech = read('native/duitful-kit/android/DuitfulKitSpeech.java');
+  const javaKit = read('native/duitful-kit/android/DuitfulKitPlugin.java');
+  const tasksIdx = read('api/_lib/ai/tasks/index.js');
+  const kiraAskTask = read('api/_lib/ai/tasks/kira-ask.js');
+  check('v1.88.0: native DuitfulKit emits speechLevel (~20 Hz RMS on iOS & onRmsChanged on Android) and registers kira-ask task',
+    swiftSpeech.includes('onLevel') && swiftSpeech.includes('floatChannelData') && swiftKit.includes('notifyListeners("speechLevel"')
+    && javaSpeech.includes('onRmsChanged') && javaSpeech.includes('cb.level(') && javaKit.includes('notifyListeners("speechLevel"')
+    && tasksIdx.includes('"kira-ask"') && kiraAskTask.includes('name: "kira-ask"'));
+
+  const sbCtx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  const sp = await sbCtx.newPage();
+  const sbErr = [];
+  sp.on('pageerror', (e) => sbErr.push(e.message));
+  await sp.goto(`${BASE}/app/index.html`);
+  await sp.waitForTimeout(500);
+  await sp.click('#btn-start-open');
+  await sp.waitForTimeout(1500);
+  await sp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+
+  // Stub native speech with BOTH speechPartial and speechLevel listeners.
+  await sp.evaluate(() => {
+    const st = window.__sb = { partial: [], level: [], res: null };
+    window.Capacitor = {
+      isNativePlatform: () => true,
+      getPlatform: () => 'ios',
+      Plugins: {
+        DuitfulKit: {
+          speechAvailable: async () => ({ available: true, onDevice: true }),
+          speechStart: () => new Promise((res) => { st.res = res; }),
+          speechStop: async () => { const r = st.res; st.res = null; if (r) setTimeout(() => r({ text: '' }), 20); return { ok: true }; },
+          addListener: async (ev, fn) => {
+            if (ev === 'speechPartial') st.partial.push(fn);
+            if (ev === 'speechLevel') st.level.push(fn);
+            return {
+              remove: () => {
+                if (ev === 'speechPartial') st.partial = st.partial.filter((f) => f !== fn);
+                if (ev === 'speechLevel') st.level = st.level.filter((f) => f !== fn);
+              },
+            };
+          },
+        },
+      },
+    };
+  });
+
+  // 1) Free mic orb vs Paid/Trial/AI+ Kira + waves (idle vs live speechLevel) + reduced motion.
+  const modes = await sp.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    state.pro = false; state.proTrialStartedAt = 0; state.aiSub = null; renderAll();
+    openVoiceEntry('');
+    await wait(120);
+    const freeMode = {
+      mode: document.getElementById('voice-dialog').dataset.voiceMode,
+      orbVisible: !document.getElementById('voice-orb').hidden,
+      kiraHidden: document.getElementById('voice-kira').hidden,
+    };
+    document.getElementById('voice-dialog').close();
+
+    state.pro = true; renderAll();
+    openVoiceEntry('', { listen: true, fromBubble: true });
+    await wait(140);
+    const idleMode = document.getElementById('voice-stage-center').dataset.waveMode;
+    const flatD = 'M0 60 Q 80 60 160 60 T 320 60';
+    // Emit live speechLevel events and verify wave paths deform away from flat.
+    window.__sb.level.forEach((fn) => fn({ level: 0.85 }));
+    await wait(90);
+    const liveMode = document.getElementById('voice-stage-center').dataset.waveMode;
+    const wave1D = document.getElementById('voice-wave-1').getAttribute('d');
+    const paidMode = {
+      mode: document.getElementById('voice-dialog').dataset.voiceMode,
+      kiraVisible: !document.getElementById('voice-kira').hidden,
+      orbHidden: document.getElementById('voice-orb').hidden,
+      sempoa: !!document.querySelector('#voice-kira .sempoa, #voice-kira .ai-bead'),
+    };
+    document.getElementById('voice-dialog').close();
+    return { freeMode, paidMode, idleMode, liveMode, waveMoved: wave1D !== flatD };
+  });
+  check('v1.88.0: Free shows clean mic orb while Paid shows Kira (no sempoa); waves idle without level and follow stubbed speechLevel events',
+    modes.freeMode.mode === 'orb' && modes.freeMode.orbVisible && modes.freeMode.kiraHidden
+    && modes.paidMode.mode === 'kira' && modes.paidMode.kiraVisible && modes.paidMode.orbHidden && !modes.paidMode.sempoa
+    && modes.idleMode === 'idle' && modes.liveMode === 'live' && modes.waveMoved,
+    JSON.stringify(modes));
+
+  // Reduced motion: waves hidden, single ring scales with speechLevel.
+  await sp.emulateMedia({ reducedMotion: 'reduce' });
+  const rmWave = await sp.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    openVoiceEntry('', { listen: true });
+    await wait(120);
+    const wavesDisplay = getComputedStyle(document.getElementById('voice-waves')).display;
+    const ringDisplay = getComputedStyle(document.getElementById('voice-rm-ring')).display;
+    const beforeScale = document.getElementById('voice-rm-ring').style.getPropertyValue('--voice-level');
+    window.__sb.level.forEach((fn) => fn({ level: 0.8 }));
+    await wait(60);
+    const afterScale = document.getElementById('voice-rm-ring').style.getPropertyValue('--voice-level');
+    document.getElementById('voice-dialog').close();
+    return { wavesDisplay, ringDisplay, beforeScale, afterScale };
+  });
+  await sp.emulateMedia({ reducedMotion: 'no-preference' });
+  check('v1.88.0: under reduced motion moving waves hide and single ring scales with speechLevel',
+    rmWave.wavesDisplay === 'none' && rmWave.ringDisplay === 'block' && Number(rmWave.beforeScale) === 1 && Number(rmWave.afterScale) > 1.2,
+    JSON.stringify(rmWave));
+
+  // 2) Short vs long transcript top-fade (.is-overflow) + scroll to newest words.
+  const transcript = await sp.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    openVoiceEntry('');
+    await wait(80);
+    const input = document.getElementById('voice-input');
+    const box = document.getElementById('voice-transcript');
+    input.value = 'RM 12 nasi lemak';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await wait(60);
+    const shortOverflow = box.classList.contains('is-overflow');
+    input.value = 'RM 48.50 lunch with colleagues at Bangsar South including teh tarik, nasi lemak ayam berempah, kuih muih, parking fee and split equally with Ali, Siti, Mei Ling and Rajendran after the meeting finished late in the afternoon';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await wait(80);
+    const longOverflow = box.classList.contains('is-overflow');
+    const scrolled = box.scrollTop > 0;
+    const mask = getComputedStyle(box).maskImage || getComputedStyle(box).webkitMaskImage || '';
+    document.getElementById('voice-dialog').close();
+    return { shortOverflow, longOverflow, scrolled, hasMask: /gradient/i.test(mask) };
+  });
+  check('v1.88.0: long transcript scrolls to newest words and fades at top; short transcript does not fade',
+    !transcript.shortOverflow && transcript.longOverflow && transcript.scrolled && transcript.hasMask,
+    JSON.stringify(transcript));
+
+  // 3) Local-first nav command (0 quota), session multi-turn kira-ask (clears on close),
+  //    quota cap fallback (never blocks logging), and cloud AI+ never shows sempoa.
+  const assistant = await sp.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    state.debts = [{ id: 'd-sb', name: 'Maybank Card', balance: 2000, apr: 18, minPayment: 100 }];
+    state.dailyExpenses = [{ id: 'e-sb', date: todayISO(), amount: 35, category: 'Food', note: 'Lunch', kind: 'expense', createdAt: Date.now() }];
+    renderAll();
+
+    // Cloud AI+ token must NEVER show sempoa on Kira's bubble.
+    const cloudTok = aiThinkStart(5000, { cloud: true });
+    const cloudSempoa = !!document.querySelector('#kira-bubble svg.kira--counting .sempoa');
+    aiThinkEnd(cloudTok);
+
+    // Local-first navigation command ("open tax") switches tab immediately without cloud.
+    openVoiceEntry('');
+    await wait(80);
+    const input = document.getElementById('voice-input');
+    input.value = 'open tax';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    document.getElementById('voice-ask-btn').click();
+    await wait(80);
+    const navToTax = document.querySelector('#tab-tax.active') !== null && !document.getElementById('voice-dialog').open;
+
+    // Session multi-turn Q&A with local fallback + quota cap notice + clears on close.
+    openVoiceEntry('');
+    await wait(80);
+    await voiceAskKira('How much did I spend this month?');
+    await voiceAskKira('Which debt should I pay first?');
+    const turnsOpen = document.querySelectorAll('#voice-thread .voice-turn').length;
+    const hasChip = document.querySelectorAll('#voice-thread .voice-action-chip').length >= 2;
+    window.dispatchEvent(new CustomEvent('duitful:ai-quota', { detail: {} }));
+    const capStatus = document.getElementById('voice-status').textContent;
+    // Still logs normally after cap notice!
+    input.value = 'RM 22 kopi';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    const canStillSave = !document.getElementById('voice-save').disabled;
+    const saved = voiceSaveConfirmed();
+    const turnsAfterClose = document.querySelectorAll('#voice-thread .voice-turn').length;
+    const jumpVisible = !document.getElementById('save-jump-chip').hidden;
+
+    // CSV round-trip of state.kiraStats.
+    const csv = toCSV();
+    const back = fromCSV(csv);
+    return {
+      cloudSempoa, navToTax, turnsOpen, hasChip, capStatus, canStillSave,
+      savedOk: !!(saved && saved.expense && saved.expense.amount === 22),
+      turnsAfterClose, jumpVisible,
+      kiraStatsCsv: back.kiraStats && back.kiraStats.voiceLogged >= 1,
+    };
+  });
+  check('v1.88.0: cloud AI+ never shows sempoa; local nav runs at 0 quota; session multi-turn clears on close; quota cap never blocks saving; jump chip & kiraStats CSV work',
+    !assistant.cloudSempoa && assistant.navToTax && assistant.turnsOpen === 4 && assistant.hasChip
+    && /monthly limit/i.test(assistant.capStatus) && assistant.canStillSave && assistant.savedOk
+    && assistant.turnsAfterClose === 0 && assistant.jumpVisible && assistant.kiraStatsCsv,
+    JSON.stringify(assistant));
+
+  // 4) Hold-to-talk discoverability pill + Day-12 trial recap (appears once, dismissible).
+  const cues = await sp.evaluate(() => {
+    localStorage.removeItem('duitful.holdTalkDone');
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    switchTab('dashboard');
+    state.pro = false;
+    state.aiSub = null;
+    state.proTrialStartedAt = Date.now() - 12 * 86400000; // Day 12 of 14-day trial
+    state.kiraStats = { voiceLogged: 5, receiptsRead: 2, splitsMatched: 1, day12Dismissed: false };
+    renderAll();
+    const hintBefore = !document.getElementById('bubble-hold-hint').hidden;
+    markHoldTalkDone();
+    syncBubbleHoldHint();
+    const hintAfter = document.getElementById('bubble-hold-hint').hidden;
+
+    const recapShown = !document.getElementById('kira-recap-card').hidden;
+    const recapText = document.getElementById('kira-recap-stats').textContent;
+    const recapChanges = document.getElementById('kira-recap-changes').textContent;
+    document.getElementById('kira-recap-close').click();
+    const recapAfterDismiss = document.getElementById('kira-recap-card').hidden && state.kiraStats.day12Dismissed === true;
+    return { hintBefore, hintAfter, recapShown, recapText, recapChanges, recapAfterDismiss };
+  });
+  check('v1.88.0: hold-to-talk pill disappears permanently after first hold-pop; Day-12 trial recap shows kiraStats + trialEndChanges once and dismisses cleanly',
+    cues.hintBefore && cues.hintAfter && cues.recapShown
+    && /5 spends logged by voice/.test(cues.recapText) && /2 receipts read/.test(cues.recapText)
+    && cues.recapChanges.length > 10 && cues.recapAfterDismiss,
+    JSON.stringify(cues));
+
+  // 5) Dark & Pastel themes at 360px with safe-area insets: zero overflow.
+  await sp.setViewportSize({ width: 360, height: 780 });
+  await sp.addStyleTag({ content: ':root { --sat: 47px !important; --sab: 34px !important; }' });
+  const themesFit = await sp.evaluate(async () => {
+    const out = {};
+    state.pro = true; renderAll();
+    for (const th of ['dark', 'pastel']) {
+      applyTheme(th);
+      openVoiceEntry('RM 18.50 nasi kandar');
+      await new Promise((r) => setTimeout(r, 80));
+      const d = document.getElementById('voice-dialog').getBoundingClientRect();
+      out[th] = {
+        topOk: Math.round(d.top) >= 47,
+        bottomOk: Math.round(d.bottom) <= innerHeight - 34,
+        noXOverflow: document.documentElement.scrollWidth <= innerWidth + 1,
+      };
+      document.getElementById('voice-dialog').close();
+    }
+    applyTheme('system');
+    return out;
+  });
+  check('v1.88.0: Stage B full-screen voice stage respects safe areas at 360px in Dark and Pastel with zero overflow',
+    themesFit.dark.topOk && themesFit.dark.bottomOk && themesFit.dark.noXOverflow
+    && themesFit.pastel.topOk && themesFit.pastel.bottomOk && themesFit.pastel.noXOverflow,
+    JSON.stringify(themesFit));
+  check('v1.88.0: no page errors in Stage B suite', sbErr.length === 0, JSON.stringify(sbErr));
+  await sbCtx.close();
 }
 
 await b.close();

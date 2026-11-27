@@ -142,6 +142,24 @@ function aiCloudCheck(task, input, output) {
     if (!items.length) return null;
     return output.status === "Check" ? { items, status: "Check" } : { items };
   }
+  if (task === "kira-ask") {
+    if (typeof output.reply !== "string" || !output.reply.trim()) return null;
+    const reply = output.reply.replace(/\s+/g, " ").trim().slice(0, 600);
+    const allowed = new Set(["open_tax", "open_debts", "open_reports", "open_savings", "open_monthly", "open_scan", "open_statement", "prefill_spend"]);
+    const actions = Array.isArray(output.actions)
+      ? output.actions
+          .slice(0, 3)
+          .filter((a) => a && typeof a === "object" && allowed.has(a.kind) && typeof a.label === "string" && a.label.trim())
+          .map((a) => {
+            const row = { kind: a.kind, label: a.label.trim().slice(0, 48) };
+            if (a.kind === "prefill_spend" && typeof a.sentence === "string" && a.sentence.trim()) {
+              row.sentence = a.sentence.trim().slice(0, 140);
+            }
+            return row;
+          })
+      : [];
+    return actions.length ? { reply, actions } : { reply };
+  }
   // statement-read, ea-read, loan-read: require non-empty object; domain guards
   // (reconcileStatement, ea-extract totalCheck, Add Debt form) validate further.
   return Object.keys(output).length ? output : null;
@@ -149,16 +167,22 @@ function aiCloudCheck(task, input, output) {
 
 function aiMergeStatusSnapshot(status) {
   if (!status || typeof state === "undefined" || !state) return;
+  const textUsed = status.text && typeof status.text.used === "number" ? status.text.used : status.textUsed;
+  const textLimit = status.text && typeof status.text.limit === "number" ? status.text.limit : status.textLimit;
+  const scansUsed = status.scan && typeof status.scan.used === "number" ? status.scan.used : status.scansUsed;
+  const scansLimit = status.scan && typeof status.scan.limit === "number" ? status.scan.limit : status.scansLimit;
   state.aiSub = {
     ...(state.aiSub || {}),
-    active: !!status.active,
+    active: status.active !== undefined ? !!status.active : !!(state.aiSub && state.aiSub.active),
+    tier: typeof status.tier === "string" ? status.tier : (state.aiSub && state.aiSub.tier) || "",
     plan: status.plan || (state.aiSub && state.aiSub.plan) || "",
-    expiresAt: Number(status.expiresAt) || 0,
+    expiresAt: Number(status.expiresAt) || (state.aiSub && Number(state.aiSub.expiresAt)) || 0,
+    resetsAt: status.resetsAt || (state.aiSub && state.aiSub.resetsAt) || "",
     periodKey: status.periodKey || "",
-    scansUsed: Number(status.scansUsed) || 0,
-    scansLimit: Number(status.scansLimit) || 100,
-    textUsed: Number(status.textUsed) || 0,
-    textLimit: Number(status.textLimit) || 1000,
+    scansUsed: Number(scansUsed) || 0,
+    scansLimit: Number(scansLimit) || 0,
+    textUsed: Number(textUsed) || 0,
+    textLimit: Number(textLimit) || 0,
     devicesCount: Number(status.devicesCount) || 0,
     maxDevices: Number(status.maxDevices) || 3,
     devices: Array.isArray(status.devices) ? status.devices : [],
@@ -166,6 +190,7 @@ function aiMergeStatusSnapshot(status) {
   };
   if (typeof save === "function") save();
   renderAiCloudSettings();
+  if (typeof kiraBubbleSync === "function") kiraBubbleSync();
 }
 
 /* ---------- First-send-per-kind redacted preview ---------- */
@@ -173,14 +198,14 @@ function aiTaskKind(task) {
   if (task === "receipt-read") return "receipt";
   if (task === "statement-read") return "statement";
   if (task === "ea-read" || task === "loan-read") return "document";
-  if (task === "voice-entry") return "voice";
+  if (task === "voice-entry" || task === "kira-ask") return "voice";
   if (task === "split-match" || task === "split-items") return "split";
   return "payee";
 }
 
 function aiBuildRedactedPreview(task, redacted) {
   if (!redacted || typeof redacted !== "object") return "";
-  const snippet = redacted.ocrText || redacted.text || redacted.sentence || redacted.lines || redacted.raw || redacted.sender || "";
+  const snippet = redacted.ocrText || redacted.text || redacted.sentence || redacted.question || redacted.lines || redacted.raw || redacted.sender || "";
   const imgNote = redacted.image ? "[downscaled image <=1280px]\n" : "";
   return (imgNote + String(snippet).slice(0, 400)).trim() || task;
 }
@@ -265,7 +290,12 @@ async function aiCloudRun(task, input, opts) {
       if (timer) clearTimeout(timer);
     }
     if (data && data.status) aiMergeStatusSnapshot(data.status);
-    if (r.status === 429 && data && data.error === "quota") {
+    if (r.status === 429 && data && (data.error === "quota" || data.reason === "quota")) {
+      try {
+        window.dispatchEvent(new CustomEvent("duitful:ai-quota", {
+          detail: { resetsAt: data.resetsAt || (data.status && data.status.resetsAt) || "" },
+        }));
+      } catch {}
       if (typeof showToast === "function") {
         showToast(typeof tr === "function"
           ? tr("Monthly Cloud AI limit reached — using on-device fallback.")
@@ -280,6 +310,7 @@ async function aiCloudRun(task, input, opts) {
   try {
     if (typeof withAiThinking === "function") {
       return await withAiThinking(doFetch, {
+        cloud: true,
         overlay: !!(opts && opts.overlay),
         label: typeof tr === "function" ? tr("Duitful AI+ (cloud)") : "Duitful AI+ (cloud)",
         timeoutMs: AI_CLOUD_TIMEOUT_MS,
@@ -299,6 +330,7 @@ const aiCloudReadLoan = (input, opts) => aiCloudRun("loan-read", input, { overla
 const aiCloudMatchSplit = (input, opts) => aiCloudRun("split-match", input, opts);
 const aiCloudTidySplitItems = (input, opts) => aiCloudRun("split-items", input, opts);
 const aiCloudCleanPayee = (raw, opts) => aiCloudRun("payee-clean", { raw: String(raw || "").slice(0, 120) }, opts);
+const aiCloudKiraAsk = (input, opts) => aiCloudRun("kira-ask", input, opts);
 
 /* ---------- Pairing & status ---------- */
 async function aiPairStart() {
@@ -992,6 +1024,7 @@ if (typeof window !== "undefined") {
   window.aiCloudMatchSplit = aiCloudMatchSplit;
   window.aiCloudTidySplitItems = aiCloudTidySplitItems;
   window.aiCloudCleanPayee = aiCloudCleanPayee;
+  window.aiCloudKiraAsk = aiCloudKiraAsk;
   window.pickPlayOffer = pickPlayOffer;
 }
 

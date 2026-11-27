@@ -145,6 +145,91 @@ document.getElementById("trial-banner-later")?.addEventListener("click", () => {
   renderTrialBanner();
 });
 
+/* ---------- 2.0 Stage B: Kira local stats & Day-12 trial recap ---------- */
+function kiraBumpStat(key) {
+  if (typeof state === "undefined" || !state) return;
+  if (!["voiceLogged", "receiptsRead", "splitsMatched"].includes(key)) return;
+  if (!state.kiraStats || typeof state.kiraStats !== "object") {
+    state.kiraStats = { voiceLogged: 0, receiptsRead: 0, splitsMatched: 0, day12Dismissed: false };
+  }
+  state.kiraStats[key] = (Number(state.kiraStats[key]) || 0) + 1;
+}
+
+function kiraRecapStatsText() {
+  const ks = (state && state.kiraStats) || {};
+  const bits = [];
+  const v = Number(ks.voiceLogged) || 0;
+  const r = Number(ks.receiptsRead) || 0;
+  const s = Number(ks.splitsMatched) || 0;
+  if (v > 0) bits.push(trn(v, "{n} spend logged by voice", "{n} spends logged by voice"));
+  if (r > 0) bits.push(trn(r, "{n} receipt read", "{n} receipts read"));
+  if (s > 0) bits.push(trn(s, "{n} split payment matched", "{n} split payments matched"));
+  if (!bits.length) return "";
+  if (bits.length === 1) return bits[0];
+  return tr("{a} and {b}", { a: bits.slice(0, -1).join(", "), b: bits[bits.length - 1] });
+}
+
+// Shown once on Home from Day 12 of the 14-day Pro trial (calendarDaysSince >= 11).
+// Uses local state.kiraStats + trialEndChanges() + live store price helpers.
+function renderKiraRecap() {
+  const card = document.getElementById("kira-recap-card");
+  if (!card) return;
+  const ks = (state && state.kiraStats) || {};
+  const activeTrial = typeof isTrialActive === "function" && isTrialActive()
+    && !state.pro
+    && !(typeof aiSubIsActive === "function" && aiSubIsActive(state.aiSub));
+  const dayIndex = activeTrial && typeof calendarDaysSince === "function"
+    ? calendarDaysSince(state.proTrialStartedAt)
+    : 0;
+  const show = activeTrial && dayIndex >= 11 && !ks.day12Dismissed;
+  card.hidden = !show;
+  if (!show) return;
+
+  const statsEl = document.getElementById("kira-recap-stats");
+  const changesEl = document.getElementById("kira-recap-changes");
+  const slot = document.getElementById("kira-recap-kira");
+  const statsLine = kiraRecapStatsText();
+  if (statsEl) {
+    statsEl.textContent = statsLine
+      ? tr("So far in your trial: {list}.", { list: statsLine })
+      : tr("Your 14-day trial with Kira ends soon.");
+  }
+  if (changesEl) {
+    const aiPrice = typeof aiPriceLabel === "function" ? aiPriceLabel("monthly") : "";
+    const keepLine = aiPrice
+      ? tr("Keep Pro for {price}, or full Kira with AI+ from {ai}.", { price: proPriceLabel(), ai: aiPrice })
+      : tr("Keep Pro for {price}, once.", { price: proPriceLabel() });
+    changesEl.textContent = `${trialEndText()} ${keepLine}`;
+  }
+  if (slot) {
+    // Respect "one Kira on Home": if the center bubble already shows Kira, keep copy clean.
+    const quiet = document.body.classList.contains("bubble-kira");
+    const want = quiet ? "" : "proud";
+    if (slot.dataset.mood !== want) {
+      slot.dataset.mood = want;
+      slot.innerHTML = want && typeof kiraSvg === "function" ? kiraSvg("proud", { moment: true }) : "";
+    }
+  }
+}
+
+document.getElementById("kira-recap-close")?.addEventListener("click", () => {
+  if (!state) return;
+  if (!state.kiraStats || typeof state.kiraStats !== "object") {
+    state.kiraStats = { voiceLogged: 0, receiptsRead: 0, splitsMatched: 0, day12Dismissed: true };
+  } else {
+    state.kiraStats.day12Dismissed = true;
+  }
+  save();
+  renderKiraRecap();
+});
+document.getElementById("kira-recap-keep")?.addEventListener("click", () => {
+  if (typeof openAiPaywall === "function" && typeof aiPlusFlagOn === "function" && aiPlusFlagOn()) {
+    openAiPaywall();
+  } else {
+    openPaywall();
+  }
+});
+
 /* ---------- Pro tier ----------
    The web version (GitHub Pages / plain browser) is fully unlocked so people
    can try everything. In the native Capacitor build, features are gated and
@@ -253,7 +338,8 @@ function canOcr() {
 }
 function trackOcrUsage() {
   if (isTrialActive()) bumpTrialUsage("scans");
-  if (isPro()) return;
+  kiraBumpStat("receiptsRead");
+  if (isPro()) { save(); return; }
   const m = currentMonthISO();
   if (!state.ocrUsage || state.ocrUsage.month !== m) {
     state.ocrUsage = { month: m, scans: 0 };

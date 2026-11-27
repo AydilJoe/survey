@@ -229,6 +229,15 @@
   logs the payment as a real expense. Presented as a planning estimate,
   not a fatwa — final figures should be confirmed with the user's state
   zakat authority.
+- **Siri-style Voice stage & Kira assistant** (since v1.88.0): hold the
+  centre bubble (`+` on Free for a clean mic orb with on-device speech,
+  Kira on Pro/Trial/AI+) for a full-screen blurred listening stage with
+  three-layer reactive voice waves driven purely by a numeric on-device
+  volume level (no audio recorded or uploaded). Local navigation runs
+  immediately for zero cloud quota; money writes (spend, split, income,
+  debt payment) always require a 1-tap Confirm card. Session-only Kira
+  Q&A answers spending, debt strategy, and LHDN tax relief questions
+  from live local numbers and clears when closed.
 
 ## Key URLs
 

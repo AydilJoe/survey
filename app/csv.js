@@ -264,6 +264,15 @@ function toCSV() {
   if (state.payoffStrategy && state.payoffStrategy !== "avalanche") {
     rows.push(blank(["setting", "payoffStrategy", state.payoffStrategy]));
   }
+  const ks = state.kiraStats;
+  if (ks && (ks.voiceLogged || ks.receiptsRead || ks.splitsMatched || ks.day12Dismissed)) {
+    rows.push(blank(["setting", "kiraStats", JSON.stringify({
+      voiceLogged: Number(ks.voiceLogged) || 0,
+      receiptsRead: Number(ks.receiptsRead) || 0,
+      splitsMatched: Number(ks.splitsMatched) || 0,
+      day12Dismissed: !!ks.day12Dismissed,
+    })]));
+  }
   // Shariah / zakat preferences. Each is its own `setting` row so an older
   // build that doesn't know these keys just skips them.
   {
@@ -824,6 +833,19 @@ function fromCSV(text) {
     } else if (type === "setting" && name.toLowerCase() === "payoffstrategy") {
       const rawStrat = iAmount >= 0 ? (row[iAmount] || "").toString().trim().toLowerCase() : "";
       next.payoffStrategy = typeof normalizePayoffStrategy === "function" ? normalizePayoffStrategy(rawStrat) : "avalanche";
+    } else if (type === "setting" && name.toLowerCase() === "kirastats") {
+      const rawStats = iAmount >= 0 ? (row[iAmount] || "").toString().trim() : "";
+      try {
+        const ks = JSON.parse(rawStats);
+        if (ks && typeof ks === "object") {
+          next.kiraStats = {
+            voiceLogged: Math.max(0, Math.round(Number(ks.voiceLogged) || 0)),
+            receiptsRead: Math.max(0, Math.round(Number(ks.receiptsRead) || 0)),
+            splitsMatched: Math.max(0, Math.round(Number(ks.splitsMatched) || 0)),
+            day12Dismissed: !!ks.day12Dismissed,
+          };
+        }
+      } catch {}
     } else if (type === "setting" && ZAKAT_SETTING_KEYS.has(name.toLowerCase())) {
       // Shariah settings arrive as one row per key. Values ride in the
       // `amount` column for numbers and the `name`-adjacent amount cell as a

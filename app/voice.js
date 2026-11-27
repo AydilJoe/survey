@@ -374,12 +374,28 @@
       work = work.replace(new RegExp(wHit.matched.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), " ");
     }
 
-    const category = voiceInferCategory(work + " " + raw);
+    // Detect money-write intent: income vs debt payment vs spend (all still confirm before saving).
+    const isIncome = /\b(received|receive|earned|earn|salary|bonus|freelance|dividend|refund|gaji|dapat|terima|pendapatan|bonus)\b|[工资薪水收入收到赚了]/i.test(raw)
+      && !/\b(split|bahagi|kongsi)\b/i.test(raw);
+    const isDebtPay = !isIncome && /\b(pay\s+debt|paid\s+debt|debt\s+payment|loan\s+payment|bayar\s+hutang|bayar\s+pinjaman|bayar\s+kereta|bayar\s+rumah)\b|[还贷还债还卡]/i.test(raw);
+    let debtId = "";
+    let debtName = "";
+    if (isDebtPay && typeof state === "object" && state && Array.isArray(state.debts)) {
+      const lowerRaw = raw.toLowerCase();
+      const matchedDebt = state.debts.find((d) => d && d.balance > 0 && d.name && lowerRaw.includes(String(d.name).toLowerCase()))
+        || state.debts.find((d) => d && d.balance > 0);
+      if (matchedDebt) {
+        debtId = matchedDebt.id;
+        debtName = matchedDebt.name;
+      }
+    }
+
+    const category = isIncome ? "Income" : (isDebtPay ? "Debt" : voiceInferCategory(work + " " + raw));
 
     // Strip leading command boilerplate ("log my", "add", "rekod", "belanja", "spent") to leave a clean note.
     let note = work
-      .replace(/^\s*(?:please\s+)?(?:log|add|record|track|spent|spend|paid|pay|beli|belanja|rekod|tambah|记一笔|花了|买了)\b\s*/i, "")
-      .replace(/^\s*(?:my|for|on|at|untuk|di|saya)\b\s*/i, "")
+      .replace(/^\s*(?:please\s+)?(?:log|add|record|track|spent|spend|paid|pay|received|receive|earned|earn|beli|belanja|rekod|tambah|dapat|terima|bayar|记一笔|花了|买了|收到|还了)\b\s*/i, "")
+      .replace(/^\s*(?:my|for|on|at|untuk|di|saya|hutang|debt)\b\s*/i, "")
       .replace(/\b(?:spending|expense|expenses|in\s+duitful|dalam\s+duitful|and|dan)\s*$/i, "")
       // Currency words are never the note ("RM 40 ringgit nasi" → "Nasi").
       .replace(/(?:^|\s)(?:ringgit|rm|myr|sen)(?=\s|[,.]|$)/gi, " ")
@@ -387,16 +403,20 @@
       .replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "")
       .trim();
     if (note) note = note.charAt(0).toUpperCase() + note.slice(1);
+    else if (debtName) note = debtName;
     else if (category !== "Others") note = category;
 
     return {
       raw,
+      entryKind: isIncome ? "income" : (isDebtPay && debtId ? "debt" : "expense"),
       amount,
       category,
       note: note.slice(0, 80),
       walletId: wHit ? wHit.wallet.id : "",
       walletName: wHit ? wHit.wallet.name : "",
-      split,
+      debtId,
+      debtName,
+      split: isIncome || isDebtPay ? null : split,
       source: "local",
     };
   }
@@ -421,6 +441,7 @@
   async function parseVoiceSmart(rawText) {
     const local = parseVoiceSentence(rawText);
     if (!rawText || typeof window.aiCloudRun !== "function") return local;
+    if (local.entryKind === "income" || local.entryKind === "debt") return local;
     try {
       const wallets = (state && Array.isArray(state.wallets) ? state.wallets : []).map((w) => w.name).filter(Boolean);
       const categories = typeof scanAllCategories === "function" ? scanAllCategories() : [];
@@ -460,11 +481,14 @@
       }
       return {
         raw: rawText,
+        entryKind: local.entryKind || "expense",
         amount: amt,
         category: cat,
         note,
         walletId: wHit ? wHit.wallet.id : local.walletId,
         walletName: wHit ? wHit.wallet.name : local.walletName,
+        debtId: local.debtId || "",
+        debtName: local.debtName || "",
         split,
         source: "cloud-ai",
       };
@@ -473,19 +497,349 @@
     }
   }
 
-  /* ---------- UI: #voice-dialog & Home mic button ----------
-     Two ways to hear a spend (1.80.0, "Talk to Kira"):
-       - native: inside the iPhone / Android app, DuitfulKit's speech methods
-         (speechAvailable / speechStart / speechStop + "speechPartial"
-         events). iPhone hears it on the phone only (a language that can't be
-         is reported unavailable and the mic stays hidden); Android asks for
-         its on-device recogniser first. WebViews don't have Web Speech, so
-         inside the app this is the only path.
-       - web: the browser's Web Speech API, where the browser has one.
-     Partial text fills the box as it comes; the final text runs the same
-     parse (and AI+, when on) as typing. A refused microphone shows one line
-     and the keyboard still works. Holding Kira on Home opens the sheet
-     already listening; letting go stops and shows the preview. */
+  /* ---------- 2.0 Stage B: Local-First Commands & Kira Assistant Q&A ----------
+     Navigation and simple reads run locally for 0 AI+ quota.
+     Money writes ALWAYS go through the 1-tap Confirm card (#voice-preview).
+     Session multi-turn Q&A is kept in memory only (capped at 6 messages) and
+     wiped as soon as #voice-dialog closes. */
+
+  const VOICE_MAX_TURNS = 6;
+  let voiceTurns = [];
+  let voiceAskBusy = false;
+
+  function voiceMatchLocalCommand(rawText) {
+    const t = String(rawText || "").trim();
+    if (!t || /\d/.test(t)) return null;
+    if (/^(?:please\s+)?(?:open|show|go\s+to|launch|buka|tunjuk|pergi|打开|进入)?\s*(?:the\s+)?(?:receipt\s+)?(?:scanner|scan\s+receipt|imbas\s+resit|扫描收据)\b/i.test(t)) {
+      return { kind: "open_scan" };
+    }
+    if (/^(?:please\s+)?(?:open|show|go\s+to|buka|tunjuk|打开)\s+(?:my\s+)?(?:bank\s+)?(?:statement|penyata\s+bank|银行账单)\b/i.test(t)
+        || /^import\s+(?:bank\s+)?statement\b/i.test(t)) {
+      return { kind: "open_statement" };
+    }
+    if (/^(?:please\s+)?(?:open|show|go\s+to|buka|tunjuk|打开)\s+(?:my\s+)?(?:tax|tax\s+relief|lhdn|cukai|pelepasan\s+cukai|税务|扣税)\b/i.test(t)) {
+      return { kind: "open_tax" };
+    }
+    if (/^(?:please\s+)?(?:open|show|go\s+to|buka|tunjuk|打开)\s+(?:my\s+)?(?:debts?|debt\s+strategy|payoff|hutang|债务)\b/i.test(t)) {
+      return { kind: "open_debts" };
+    }
+    if (/^(?:please\s+)?(?:open|show|go\s+to|buka|tunjuk|打开)\s+(?:my\s+)?(?:savings?|goals?|wallets?|simpanan|tabung|dompet|储蓄|钱包)\b/i.test(t)) {
+      return { kind: "open_savings" };
+    }
+    if (/^(?:please\s+)?(?:open|show|go\s+to|buka|tunjuk|打开)\s+(?:my\s+)?(?:reports?|charts?|laporan|报告)\b/i.test(t)) {
+      return { kind: "open_reports" };
+    }
+    if (/^(?:please\s+)?(?:open|show|go\s+to|buka|tunjuk|打开)\s+(?:my\s+)?(?:monthly|bills?|bulanan|bil|月度|账单)\b/i.test(t)) {
+      return { kind: "open_monthly" };
+    }
+    return null;
+  }
+
+  function voiceLooksLikeQuestion(rawText) {
+    const t = String(rawText || "").trim();
+    if (!t) return false;
+    if (/\?$/.test(t)) return true;
+    return /\b(how\s+much|what(?:'s|s|\s+is)|which\s+debt|where\s+did|can\s+i|should\s+i|left\s+(?:for|this|in)|tax\s+relief|relief\s+left|payoff|strategy|spent\s+this|spending\s+this|biggest\s+spend|balance|berapa|belanja\s+bulan|pelepasan\s+cukai|hutang\s+mana|baki\s+bulan|策略|花了多少|税务减免|先还哪|余额多少)\b/i.test(t);
+  }
+
+  function voiceRunAction(action) {
+    if (!action || !action.kind) return false;
+    const dlg = document.getElementById("voice-dialog");
+    if (action.kind === "prefill_spend" && action.sentence) {
+      const input = document.getElementById("voice-input");
+      if (input) {
+        input.value = action.sentence;
+        voiceSyncTranscript(action.sentence);
+        renderVoicePreview(parseVoiceSentence(action.sentence));
+      }
+      return true;
+    }
+    voiceStopListening({ cancel: true });
+    if (dlg && dlg.open) dlg.close();
+    if (action.kind === "open_scan") {
+      setTimeout(() => document.getElementById("btn-scan")?.click(), 60);
+      return true;
+    }
+    if (action.kind === "open_statement" && typeof openStatementImport === "function") {
+      setTimeout(() => openStatementImport(), 60);
+      return true;
+    }
+    const tabMap = {
+      open_tax: "tax",
+      open_debts: "debts",
+      open_savings: "savings",
+      open_reports: "reports",
+      open_monthly: "flow",
+    };
+    if (tabMap[action.kind] && typeof switchTab === "function") {
+      switchTab(tabMap[action.kind]);
+      return true;
+    }
+    return false;
+  }
+
+  function buildKiraLocalSnapshot() {
+    const out = {
+      month: typeof selectedMonth === "string" && selectedMonth ? selectedMonth : (typeof currentMonthISO === "function" ? currentMonthISO() : new Date().toISOString().slice(0, 7)),
+      currency: typeof currentCurrency === "function" ? currentCurrency() : "MYR",
+      income: 0,
+      spent: 0,
+      balance: 0,
+      topCats: [],
+      debtsCount: 0,
+      debtsTotal: 0,
+      strategy: (state && state.payoffStrategy) || "avalanche",
+      topDebt: null,
+      debtFreeMonth: "",
+      taxClaimed: 0,
+      taxGaps: [],
+    };
+    if (typeof state !== "object" || !state) return out;
+    const m = out.month;
+    const inc = (state.income || []).filter((x) => x && x.month === m).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+    const bills = (state.expenses || []).filter((x) => x && x.month === m).reduce((s, x) => s + (Number(x.amount) || 0), 0);
+    const daily = (state.dailyExpenses || []).filter((x) => x && String(x.date || "").startsWith(m) && x.kind === "expense");
+    const dailySum = daily.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+    out.income = voiceRound2(inc);
+    out.spent = voiceRound2(bills + dailySum);
+    out.balance = voiceRound2(inc - out.spent);
+
+    const catMap = new Map();
+    for (const d of daily) {
+      const c = d.category || "Others";
+      catMap.set(c, (catMap.get(c) || 0) + (Number(d.amount) || 0));
+    }
+    out.topCats = [...catMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([name, amount]) => ({ name, amount: voiceRound2(amount) }));
+
+    const activeDebts = (state.debts || []).filter((d) => d && Number(d.balance) > 0);
+    out.debtsCount = activeDebts.length;
+    out.debtsTotal = voiceRound2(activeDebts.reduce((s, d) => s + (Number(d.balance) || 0), 0));
+    if (activeDebts.length) {
+      const sorted = [...activeDebts].sort((a, b) => {
+        if (out.strategy === "snowball") return (Number(a.balance) || 0) - (Number(b.balance) || 0);
+        if (out.strategy === "cfi") {
+          const ca = (Number(a.minPayment) || 1) > 0 ? (Number(a.balance) || 0) / (Number(a.minPayment) || 1) : 1e9;
+          const cb = (Number(b.minPayment) || 1) > 0 ? (Number(b.balance) || 0) / (Number(b.minPayment) || 1) : 1e9;
+          return ca - cb;
+        }
+        return (Number(b.apr) || 0) - (Number(a.apr) || 0);
+      });
+      const first = sorted[0];
+      const extraEffect = typeof debtExtraEffect === "function" ? debtExtraEffect(first) : "reduces_interest";
+      out.topDebt = {
+        label: first.name ? `Debt 1 (${first.kind || "standard"})` : "Debt 1",
+        displayName: first.name || voiceT("Debt"),
+        apr: Number(first.apr) || 0,
+        balance: voiceRound2(first.balance),
+        extraEffect,
+      };
+      if (typeof simulateDebtStrategy === "function") {
+        try {
+          const sim = simulateDebtStrategy(activeDebts, Number(state.extraMonthly) || 0, out.strategy);
+          if (sim && sim.debtFreeDate) out.debtFreeMonth = String(sim.debtFreeDate);
+        } catch {}
+      }
+    }
+
+    // Tax relief headroom (local LHDN totals only, no personal identifiers).
+    if (typeof TAX_RELIEFS !== "undefined" && Array.isArray(TAX_RELIEFS) && state.tax) {
+      const yr = state.tax.year || new Date().getFullYear();
+      const claims = Array.isArray(state.tax.claims) ? state.tax.claims.filter((c) => c && Number(c.year) === Number(yr)) : [];
+      const byGroup = new Map();
+      let claimedTotal = 0;
+      for (const c of claims) {
+        const amt = Number(c.amount) || 0;
+        claimedTotal += amt;
+        byGroup.set(c.groupId, (byGroup.get(c.groupId) || 0) + amt);
+      }
+      out.taxClaimed = voiceRound2(claimedTotal);
+      for (const g of TAX_RELIEFS.slice(0, 8)) {
+        if (!g || !(Number(g.cap) > 0)) continue;
+        const used = byGroup.get(g.id) || 0;
+        const left = voiceRound2(Math.max(0, Number(g.cap) - used));
+        if (left > 0) out.taxGaps.push({ title: g.title || g.id, left, cap: Number(g.cap) });
+      }
+      out.taxGaps = out.taxGaps.slice(0, 3);
+    }
+    return out;
+  }
+
+  function buildKiraSummaryString(snap) {
+    const fmt = (n) => (typeof fmtMoney === "function" ? fmtMoney(n) : `${snap.currency} ${Number(n || 0).toFixed(2)}`);
+    const lines = [
+      `Month: ${snap.month}`,
+      `Income: ${fmt(snap.income)} | Total spent: ${fmt(snap.spent)} | Balance: ${fmt(snap.balance)}`,
+    ];
+    if (snap.topCats.length) {
+      lines.push(`Top spending categories: ${snap.topCats.map((c) => `${c.name} ${fmt(c.amount)}`).join(", ")}`);
+    }
+    if (snap.debtsCount > 0) {
+      lines.push(`Active debts: ${snap.debtsCount} totaling ${fmt(snap.debtsTotal)} (strategy: ${snap.strategy}${snap.debtFreeMonth ? `, projected debt-free ${snap.debtFreeMonth}` : ""})`);
+      if (snap.topDebt) {
+        lines.push(`Priority debt: ${snap.topDebt.label}, balance ${fmt(snap.topDebt.balance)}, APR ${snap.topDebt.apr}%, extra-payment effect: ${snap.topDebt.extraEffect}`);
+      }
+    } else {
+      lines.push("Active debts: 0");
+    }
+    if (snap.taxClaimed > 0 || snap.taxGaps.length) {
+      lines.push(`Tax relief claimed: ${fmt(snap.taxClaimed)}. Remaining room: ${snap.taxGaps.map((g) => `${g.title} ${fmt(g.left)} left`).join(", ")}`);
+    }
+    return lines.join("\n");
+  }
+
+  function kiraLocalAnswer(question, snap) {
+    const q = String(question || "").toLowerCase();
+    const fmt = (n) => (typeof fmtMoney === "function" ? fmtMoney(n) : `RM ${Number(n || 0).toFixed(2)}`);
+
+    if (/\b(tax|lhdn|relief|cukai|pelepasan|sspn|pcb)\b|[税扣]/.test(q)) {
+      if (snap.taxGaps.length) {
+        const g = snap.taxGaps[0];
+        return {
+          reply: voiceT("You have claimed {claimed} in tax relief so far. You still have {left} left under {group}.", {
+            claimed: fmt(snap.taxClaimed),
+            left: fmt(g.left),
+            group: g.title,
+          }),
+          actions: [{ kind: "open_tax", label: voiceT("Open Tax Relief") }],
+        };
+      }
+      return {
+        reply: voiceT("You have claimed {claimed} in tax relief so far. Open Tax Relief to check remaining caps.", { claimed: fmt(snap.taxClaimed) }),
+        actions: [{ kind: "open_tax", label: voiceT("Open Tax Relief") }],
+      };
+    }
+
+    if (/\b(debt|loan|payoff|strategy|avalanche|snowball|hutang|pinjaman)\b|[债贷]/.test(q)) {
+      if (!snap.debtsCount || !snap.topDebt) {
+        return {
+          reply: voiceT("You have no active debts right now."),
+          actions: [{ kind: "open_debts", label: voiceT("Open Debts") }],
+        };
+      }
+      const effectNote = snap.topDebt.extraEffect === "full_settlement_only"
+        ? voiceT("Extra payments do not cut monthly interest on fixed loans — save towards full settlement.")
+        : snap.topDebt.extraEffect === "no_savings"
+          ? voiceT("This 0% plan saves no interest from paying early.")
+          : voiceT("Extra payments go straight to principal and cut interest.");
+      return {
+        reply: `${voiceT("Under your {strategy} strategy, focus on {name} ({bal}, {apr}% APR) first.", {
+          strategy: snap.strategy,
+          name: snap.topDebt.displayName,
+          bal: fmt(snap.topDebt.balance),
+          apr: snap.topDebt.apr,
+        })} ${effectNote}`,
+        actions: [{ kind: "open_debts", label: voiceT("Open Debts") }],
+      };
+    }
+
+    // Default: spending / balance summary for current month.
+    if (snap.topCats.length) {
+      const top = snap.topCats[0];
+      return {
+        reply: voiceT("This month you spent {spent} with {bal} left. Biggest category: {cat} ({top}).", {
+          spent: fmt(snap.spent),
+          bal: fmt(snap.balance),
+          cat: voiceT(top.name),
+          top: fmt(top.amount),
+        }),
+        actions: [{ kind: "open_reports", label: voiceT("Open Reports") }],
+      };
+    }
+    return {
+      reply: voiceT("This month you spent {spent} with {bal} left.", {
+        spent: fmt(snap.spent),
+        bal: fmt(snap.balance),
+      }),
+      actions: [{ kind: "open_reports", label: voiceT("Open Reports") }],
+    };
+  }
+
+  function renderVoiceThread() {
+    const el = document.getElementById("voice-thread");
+    if (!el) return;
+    if (!voiceTurns.length) {
+      el.hidden = true;
+      el.innerHTML = "";
+      return;
+    }
+    el.hidden = false;
+    el.innerHTML = "";
+    for (const turn of voiceTurns) {
+      const row = document.createElement("div");
+      row.className = `voice-turn voice-turn--${turn.role}`;
+      const bubble = document.createElement("p");
+      bubble.className = "voice-turn-text";
+      bubble.textContent = turn.text;
+      row.appendChild(bubble);
+      if (turn.role === "kira" && Array.isArray(turn.actions) && turn.actions.length) {
+        const chips = document.createElement("div");
+        chips.className = "voice-turn-actions";
+        for (const a of turn.actions) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "ghost voice-action-chip";
+          btn.textContent = a.label;
+          btn.addEventListener("click", () => voiceRunAction(a));
+          chips.appendChild(btn);
+        }
+        row.appendChild(chips);
+      }
+      el.appendChild(row);
+    }
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function pushVoiceTurn(turn) {
+    voiceTurns.push(turn);
+    if (voiceTurns.length > VOICE_MAX_TURNS) {
+      voiceTurns = voiceTurns.slice(voiceTurns.length - VOICE_MAX_TURNS);
+    }
+    renderVoiceThread();
+  }
+
+  function clearVoiceThread() {
+    voiceTurns = [];
+    renderVoiceThread();
+  }
+
+  async function voiceAskKira(question) {
+    const q = String(question || "").trim();
+    if (!q || voiceAskBusy) return;
+    voiceAskBusy = true;
+    pushVoiceTurn({ role: "user", text: q });
+    const input = document.getElementById("voice-input");
+    if (input) input.value = "";
+    voiceSyncTranscript("");
+    renderVoicePreview(null);
+    voiceStatus(voiceT("Thinking…"), "");
+
+    const snap = buildKiraLocalSnapshot();
+    const summary = buildKiraSummaryString(snap);
+    const lang = (window.I18N && window.I18N.lang) || "en";
+    const history = voiceTurns.slice(-5, -1).map((t) => `${t.role === "user" ? "User" : "Kira"}: ${t.text}`.slice(0, 240));
+
+    let answer = null;
+    if (typeof window.aiCloudKiraAsk === "function" && typeof aiCloudAllowed === "function" && aiCloudAllowed()) {
+      try {
+        answer = await window.aiCloudKiraAsk({ question: q.slice(0, 300), lang, summary, history });
+      } catch {
+        answer = null;
+      }
+    }
+    if (!answer) {
+      answer = kiraLocalAnswer(q, snap);
+    }
+    voiceAskBusy = false;
+    const statusEl = document.getElementById("voice-status");
+    if (statusEl && statusEl.dataset.tone !== "warn") voiceStatus("");
+    pushVoiceTurn({ role: "kira", text: answer.reply, actions: answer.actions || [] });
+    voiceKiraMood("proud");
+  }
+
+  /* ---------- UI: #voice-dialog Siri-style stage, waves & mic ---------- */
 
   let voiceCurrent = null;
   let voiceRec = null;
@@ -493,6 +847,121 @@
   let voiceStarting = null;
   let voiceHearTimer = 0;
   const voiceNativeCache = {};
+
+  // Reactive 3-layer SVG waves driven by native speechLevel (~20 Hz, 0..1 float).
+  let waveRaf = 0;
+  let wavePhase = 0;
+  let waveTarget = 0;
+  let waveSmooth = 0;
+  let waveHasLiveLevel = false;
+
+  function voiceReducedMotion() {
+    try { return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); } catch { return false; }
+  }
+
+  function voiceWavePath(amp, freq, phase) {
+    const w = 320;
+    const mid = 60;
+    const pts = [];
+    const steps = 16;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const x = Math.round(t * w);
+      // Taper smoothly to 0 at left & right edges (Hann window).
+      const env = Math.sin(Math.PI * t);
+      const y = mid + Math.sin(t * Math.PI * 2 * freq + phase) * amp * env;
+      pts.push(`${i === 0 ? "M" : "L"}${x} ${y.toFixed(1)}`);
+    }
+    return pts.join(" ");
+  }
+
+  function voiceApplyLevelRing(level) {
+    const ring = document.getElementById("voice-rm-ring");
+    if (!ring) return;
+    const scale = 1 + Math.max(0, Math.min(1, Number(level) || 0)) * 0.35;
+    ring.style.setProperty("--voice-level", scale.toFixed(3));
+  }
+
+  function voiceWaveReset() {
+    const p1 = document.getElementById("voice-wave-1");
+    const p2 = document.getElementById("voice-wave-2");
+    const p3 = document.getElementById("voice-wave-3");
+    const flat = "M0 60 Q 80 60 160 60 T 320 60";
+    if (p1) p1.setAttribute("d", flat);
+    if (p2) p2.setAttribute("d", flat);
+    if (p3) p3.setAttribute("d", flat);
+    voiceApplyLevelRing(0);
+  }
+
+  function voiceWaveTick() {
+    waveRaf = 0;
+    const dlg = document.getElementById("voice-dialog");
+    if (!dlg || !dlg.open || !voiceListening()) {
+      voiceWaveReset();
+      return;
+    }
+    if (voiceReducedMotion()) {
+      voiceApplyLevelRing(waveHasLiveLevel ? waveTarget : 0);
+      return;
+    }
+    const target = waveHasLiveLevel ? (0.14 + waveTarget * 0.86) : 0.16;
+    waveSmooth += (target - waveSmooth) * (waveHasLiveLevel ? 0.28 : 0.08);
+    wavePhase += waveHasLiveLevel ? (0.09 + waveSmooth * 0.1) : 0.035;
+
+    const p1 = document.getElementById("voice-wave-1");
+    const p2 = document.getElementById("voice-wave-2");
+    const p3 = document.getElementById("voice-wave-3");
+    if (p1) p1.setAttribute("d", voiceWavePath(44 * waveSmooth, 1.8, wavePhase));
+    if (p2) p2.setAttribute("d", voiceWavePath(34 * waveSmooth, 2.3, -wavePhase * 0.85 + 1.2));
+    if (p3) p3.setAttribute("d", voiceWavePath(24 * waveSmooth, 1.4, wavePhase * 0.65 + 2.5));
+
+    waveRaf = requestAnimationFrame(voiceWaveTick);
+  }
+
+  function voiceWaveStart() {
+    waveHasLiveLevel = false;
+    waveTarget = 0;
+    waveSmooth = 0.08;
+    const center = document.getElementById("voice-stage-center");
+    if (center) {
+      center.dataset.waveMode = "idle";
+      center.style.setProperty("--voice-amp", "0");
+    }
+    voiceApplyLevelRing(0);
+    if (voiceReducedMotion()) return;
+    if (!waveRaf) waveRaf = requestAnimationFrame(voiceWaveTick);
+  }
+
+  function voiceWaveStop() {
+    if (waveRaf) {
+      cancelAnimationFrame(waveRaf);
+      waveRaf = 0;
+    }
+    waveHasLiveLevel = false;
+    waveTarget = 0;
+    waveSmooth = 0;
+    const center = document.getElementById("voice-stage-center");
+    if (center) {
+      center.dataset.waveMode = "idle";
+      center.style.setProperty("--voice-amp", "0");
+    }
+    voiceWaveReset();
+  }
+
+  function voiceOnSpeechLevel(rawLevel) {
+    const level = Math.max(0, Math.min(1, Number(rawLevel) || 0));
+    waveHasLiveLevel = true;
+    waveTarget = level;
+    const center = document.getElementById("voice-stage-center");
+    if (center) {
+      center.dataset.waveMode = "live";
+      center.style.setProperty("--voice-amp", level.toFixed(3));
+    }
+    voiceApplyLevelRing(level);
+    if (!voiceReducedMotion() && !waveRaf && voiceListening()) {
+      waveRaf = requestAnimationFrame(voiceWaveTick);
+    }
+  }
 
   function voiceSpeechCtor() {
     return window.SpeechRecognition || window.webkitSpeechRecognition || null;
@@ -548,19 +1017,36 @@
     return !!(voiceRec || voiceNative);
   }
 
-  // The sheet's Kira: happy at rest, listening while the mic is open (a nod
-  // per new word), proud once there is a spend to save. Never the sempoa.
+  function voiceUseKiraFace() {
+    return typeof kiraTier === "function" ? kiraTier() !== "free" : true;
+  }
+
+  // The sheet's centerpiece: Kira on Paid/Pro/Trial (happy at rest, listening
+  // while mic is open, proud once action/answer is ready — never the sempoa),
+  // or a clean mic orb on Free.
   function voiceKiraMood(mood) {
+    const dlg = document.getElementById("voice-dialog");
     const slot = document.getElementById("voice-kira");
-    if (!slot || typeof kiraSvg !== "function") return;
+    const orb = document.getElementById("voice-orb");
+    const isKira = voiceUseKiraFace();
+    if (dlg) dlg.dataset.voiceMode = isKira ? "kira" : "orb";
+    if (orb) orb.hidden = isKira;
+    if (!slot) return;
+    slot.hidden = !isKira;
+    if (!isKira) {
+      slot.dataset.mood = "";
+      slot.innerHTML = "";
+      return;
+    }
+    if (typeof kiraSvg !== "function") return;
     if (slot.dataset.mood === mood) return;
     slot.dataset.mood = mood;
-    slot.innerHTML = kiraSvg(mood, { moment: true });
+    slot.innerHTML = kiraSvg(mood, { idle: mood === "happy", moment: mood !== "happy" });
   }
 
   function voiceKiraSync() {
     if (voiceListening()) { voiceKiraMood("listening"); return; }
-    voiceKiraMood(voiceCurrent && voiceCurrent.amount > 0 ? "proud" : "happy");
+    voiceKiraMood((voiceCurrent && voiceCurrent.amount > 0) || voiceTurns.length ? "proud" : "happy");
   }
 
   function voiceKiraHear() {
@@ -571,6 +1057,32 @@
     svg.classList.add("is-hearing");
     clearTimeout(voiceHearTimer);
     voiceHearTimer = setTimeout(() => svg.classList.remove("is-hearing"), 700);
+  }
+
+  // Live speech bubble above Kira / orb: auto-scrolls to newest words and fades
+  // out cleanly at the top when overflowing ~4 lines; never fades short text.
+  function voiceSyncTranscript(text) {
+    const wrap = document.getElementById("voice-transcript-wrap");
+    const box = document.getElementById("voice-transcript");
+    const askBtn = document.getElementById("voice-ask-btn");
+    const clean = String(text || "").trim();
+    if (askBtn) askBtn.hidden = !clean;
+    if (!wrap || !box) return;
+    if (!clean) {
+      wrap.hidden = true;
+      box.textContent = "";
+      box.classList.remove("is-overflow");
+      return;
+    }
+    wrap.hidden = false;
+    box.textContent = clean;
+    const updateFade = () => {
+      const overflowing = box.scrollHeight > box.clientHeight + 2;
+      box.classList.toggle("is-overflow", overflowing);
+      if (overflowing) box.scrollTop = box.scrollHeight;
+    };
+    updateFade();
+    requestAnimationFrame(updateFade);
   }
 
   function voiceStatus(text, tone) {
@@ -594,8 +1106,11 @@
       btn.setAttribute("aria-label", on ? voiceT("Stop listening") : voiceT("Start voice input"));
     }
     if (dlg) dlg.classList.toggle("is-listening", !!on);
-    if (on) voiceStatus(voiceT("Listening…"), "");
-    else {
+    if (on) {
+      voiceStatus(voiceT("Listening…"), "");
+      voiceWaveStart();
+    } else {
+      voiceWaveStop();
       const el = document.getElementById("voice-status");
       if (el && el.dataset.tone !== "warn") voiceStatus("");
     }
@@ -628,32 +1143,63 @@
   function voiceFill(text) {
     const input = document.getElementById("voice-input");
     if (!input) return;
-    input.value = voiceCorrectHeard(text);
-    renderVoicePreview(parseVoiceSentence(text));
+    const corrected = voiceCorrectHeard(text);
+    input.value = corrected;
+    voiceSyncTranscript(corrected);
+    renderVoicePreview(parseVoiceSentence(corrected));
   }
 
-  // The words are in: the same parse as typing, then AI+ when it's on.
+  // Final words arrived: check local instant navigation first (0 quota),
+  // then money write preview (offline first, AI+ upgrade when on),
+  // or Kira Q&A assistant when it's a question.
   function voiceAfterSpeech() {
     const input = document.getElementById("voice-input");
-    if (!input || !input.value.trim()) { voiceKiraSync(); return; }
-    renderVoicePreview(parseVoiceSentence(input.value));
-    parseVoiceSmart(input.value).then((smart) => {
-      if (input.value.trim() === smart.raw.trim()) renderVoicePreview(smart);
+    const raw = input ? input.value.trim() : "";
+    if (!raw) { voiceKiraSync(); return; }
+    voiceSyncTranscript(raw);
+
+    const nav = voiceMatchLocalCommand(raw);
+    if (nav) {
+      voiceRunAction(nav);
+      return;
+    }
+
+    const local = parseVoiceSentence(raw);
+    if (local.amount > 0) {
+      renderVoicePreview(local);
+      parseVoiceSmart(raw).then((smart) => {
+        if (input && input.value.trim() === smart.raw.trim()) renderVoicePreview(smart);
+      }).catch(() => {});
+      return;
+    }
+
+    if (voiceLooksLikeQuestion(raw)) {
+      voiceAskKira(raw);
+      return;
+    }
+
+    renderVoicePreview(local);
+    parseVoiceSmart(raw).then((smart) => {
+      if (input && input.value.trim() === smart.raw.trim()) renderVoicePreview(smart);
     }).catch(() => {});
   }
 
   async function voiceStartNative(kit) {
-    const session = { kit, cancelled: false, handle: null };
+    const session = { kit, cancelled: false, partialHandle: null, levelHandle: null };
     voiceNative = session;
     voiceSetListening(true);
     try {
       if (typeof kit.addListener === "function") {
-        session.handle = await Promise.resolve(kit.addListener("speechPartial", (d) => {
+        session.partialHandle = await Promise.resolve(kit.addListener("speechPartial", (d) => {
           if (session.cancelled || voiceNative !== session) return;
           const t = String((d && d.text) || "").trim();
           if (!t) return;
           voiceFill(t);
           voiceKiraHear();
+        }));
+        session.levelHandle = await Promise.resolve(kit.addListener("speechLevel", (d) => {
+          if (session.cancelled || voiceNative !== session) return;
+          if (d && typeof d.level === "number") voiceOnSpeechLevel(d.level);
         }));
       }
     } catch {}
@@ -665,7 +1211,8 @@
     } catch (e) {
       denied = /DENIED|PERMISSION|NOT[-_ ]?ALLOWED/i.test(String((e && (e.code || e.message)) || ""));
     }
-    try { if (session.handle && typeof session.handle.remove === "function") session.handle.remove(); } catch {}
+    try { if (session.partialHandle && typeof session.partialHandle.remove === "function") session.partialHandle.remove(); } catch {}
+    try { if (session.levelHandle && typeof session.levelHandle.remove === "function") session.levelHandle.remove(); } catch {}
     if (voiceNative === session) { voiceNative = null; voiceSetListening(false); }
     if (session.cancelled) return;
     if (denied) voiceShowDenied();
@@ -741,7 +1288,7 @@
       box.hidden = true;
       saveBtn.disabled = true;
       saveBtn.textContent = typeof tr === "function" ? tr("Save spend") : "Save spend";
-      if (hint) hint.hidden = false;
+      if (hint) hint.hidden = voiceTurns.length > 0;
       voiceKiraSync();
       return;
     }
@@ -751,8 +1298,10 @@
     saveBtn.disabled = false;
 
     const money = typeof fmtMoney === "function" ? fmtMoney(parsed.amount) : `RM ${parsed.amount.toFixed(2)}`;
-    const catLabel = typeof tr === "function" ? tr(parsed.category) : parsed.category;
-    const parts = [money, catLabel, parsed.note, parsed.walletName].filter(Boolean);
+    const kindTag = parsed.entryKind === "income"
+      ? voiceT("Income")
+      : (parsed.entryKind === "debt" ? voiceT("Pay debt") : voiceT(parsed.category));
+    const parts = [money, kindTag, parsed.entryKind === "debt" ? (parsed.debtName || parsed.note) : parsed.note, parsed.walletName].filter(Boolean);
     spendLine.textContent = parts.join(" · ");
 
     if (splitBox) {
@@ -772,7 +1321,13 @@
       } else {
         splitBox.hidden = true;
         splitBox.textContent = "";
-        saveBtn.textContent = typeof tr === "function" ? tr("Save spend") : "Save spend";
+        if (parsed.entryKind === "income") {
+          saveBtn.textContent = voiceT("Save income");
+        } else if (parsed.entryKind === "debt") {
+          saveBtn.textContent = voiceT("Record payment");
+        } else {
+          saveBtn.textContent = voiceT("Save spend");
+        }
       }
     }
     voiceKiraSync();
@@ -782,48 +1337,99 @@
     const p = voiceCurrent;
     if (!p || !(p.amount > 0) || !state) return null;
     const date = typeof todayISO === "function" ? todayISO() : new Date().toISOString().slice(0, 10);
-    const expense = {
-      id: typeof uid === "function" ? uid() : `v-${Date.now()}`,
-      date,
-      amount: p.amount,
-      category: p.category || "Others",
-      note: p.note || p.category || "",
-      kind: "expense",
-      createdAt: Date.now(),
-    };
-    if (p.walletId) expense.walletId = p.walletId;
-    state.dailyExpenses = state.dailyExpenses || [];
-    state.dailyExpenses.push(expense);
-
+    const id = typeof uid === "function" ? uid() : `v-${Date.now()}`;
+    let expense = null;
     let splitRec = null;
-    if (p.split && Array.isArray(p.split.people) && p.split.people.length && typeof coerceSplitOut === "function" && typeof splitOutList === "function") {
-      splitRec = coerceSplitOut({
-        id: typeof uid === "function" ? uid() : `vs-${Date.now()}`,
-        kind: "split",
-        title: p.note || p.category || "Split",
-        date,
-        total: p.amount,
-        expenseId: expense.id,
-        people: p.split.people.map((person) => ({
-          id: typeof splitShortId === "function" ? splitShortId() : `p-${Math.random().toString(36).slice(2, 8)}`,
-          name: person.name,
-          amount: person.amount,
-          status: "open",
-          repayments: [],
-        })),
-      });
-      splitOutList().push(splitRec);
-      if (typeof splitRememberName === "function") {
-        for (const person of splitRec.people) splitRememberName(person.name);
+    let destTab = "dashboard";
+    let destLabel = voiceT("Added to Today → View");
+
+    if (p.entryKind === "income") {
+      const month = date.slice(0, 7);
+      const day = Number(date.slice(8, 10)) || 1;
+      const inc = {
+        id,
+        name: p.note || voiceT("Income"),
+        amount: p.amount,
+        month,
+        day,
+        repeatNext: false,
+      };
+      if (p.walletId) inc.walletId = p.walletId;
+      state.income = state.income || [];
+      state.income.push(inc);
+      expense = inc;
+      destTab = "flow";
+      destLabel = voiceT("Added to Monthly → View");
+    } else if (p.entryKind === "debt" && p.debtId) {
+      const debt = (state.debts || []).find((d) => d && d.id === p.debtId);
+      if (debt) {
+        const applied = Math.min(p.amount, Number(debt.balance) || 0);
+        debt.balance = Math.max(0, voiceRound2((Number(debt.balance) || 0) - applied));
+        expense = {
+          id,
+          date,
+          amount: p.amount,
+          kind: "debt",
+          debtId: debt.id,
+          debtName: debt.name,
+          note: p.note || debt.name,
+          createdAt: Date.now(),
+        };
+        if (p.walletId) expense.walletId = p.walletId;
+        state.dailyExpenses = state.dailyExpenses || [];
+        state.dailyExpenses.push(expense);
+        destTab = "debts";
+        destLabel = voiceT("Paid debt → View");
       }
     }
 
+    if (!expense) {
+      expense = {
+        id,
+        date,
+        amount: p.amount,
+        category: p.category || "Others",
+        note: p.note || p.category || "",
+        kind: "expense",
+        createdAt: Date.now(),
+      };
+      if (p.walletId) expense.walletId = p.walletId;
+      state.dailyExpenses = state.dailyExpenses || [];
+      state.dailyExpenses.push(expense);
+
+      if (p.split && Array.isArray(p.split.people) && p.split.people.length && typeof coerceSplitOut === "function" && typeof splitOutList === "function") {
+        splitRec = coerceSplitOut({
+          id: typeof uid === "function" ? uid() : `vs-${Date.now()}`,
+          kind: "split",
+          title: p.note || p.category || "Split",
+          date,
+          total: p.amount,
+          expenseId: expense.id,
+          people: p.split.people.map((person) => ({
+            id: typeof splitShortId === "function" ? splitShortId() : `p-${Math.random().toString(36).slice(2, 8)}`,
+            name: person.name,
+            amount: person.amount,
+            status: "open",
+            repayments: [],
+          })),
+        });
+        splitOutList().push(splitRec);
+        if (typeof splitRememberName === "function") {
+          for (const person of splitRec.people) splitRememberName(person.name);
+        }
+      }
+    }
+
+    if (typeof kiraBumpStat === "function") kiraBumpStat("voiceLogged");
     if (typeof save === "function") save();
     if (typeof renderAll === "function") renderAll();
 
     const dlg = document.getElementById("voice-dialog");
     voiceStopListening({ cancel: true });
+    clearVoiceThread();
     if (dlg && dlg.open) dlg.close();
+
+    if (typeof kiraPlaySaveFeedback === "function") kiraPlaySaveFeedback();
 
     if (splitRec && typeof splitOpenShare === "function") {
       splitOpenShare(splitRec.id, 0).catch(() => {});
@@ -833,29 +1439,49 @@
       // Kira hops on the toast, like a typed spend (kira.js).
       if (typeof kiraHop === "function") kiraHop();
     }
+    if (typeof kiraHighlightLanding === "function") {
+      kiraHighlightLanding({ kind: p.entryKind || "expense", id, tab: destTab, label: destLabel });
+    }
     return { expense, splitRec };
   }
 
-  // opts.listen: open already listening (holding Kira on Home).
+  // opts.listen: open already listening (holding Kira on Home or bubble hold-pop).
+  // opts.fromBubble: float Kira / orb up from the popped center bubble.
   function openVoiceEntry(initialText, opts) {
     const o = opts || {};
     const dlg = document.getElementById("voice-dialog");
     const input = document.getElementById("voice-input");
     if (!dlg || !input) return;
     voiceStatus("");
+    clearVoiceThread();
     const micReady = voiceSyncMic();
     input.value = String(initialText || "").trim();
+    voiceSyncTranscript(input.value);
     const slot = document.getElementById("voice-kira");
     if (slot) { slot.dataset.mood = ""; slot.innerHTML = ""; }
+    const title = document.getElementById("voice-dialog-title");
+    if (title) {
+      title.textContent = voiceUseKiraFace() ? voiceT("Talk to Kira") : voiceT("Voice entry");
+    }
     if (!dlg.open && typeof dlg.showModal === "function") dlg.showModal();
+
+    const center = document.getElementById("voice-stage-center");
+    if (center && o.fromBubble && !voiceReducedMotion()) {
+      center.classList.remove("is-pop-in");
+      void center.offsetWidth;
+      center.classList.add("is-pop-in");
+      setTimeout(() => center.classList.remove("is-pop-in"), 460);
+    }
+
     if (input.value) {
-      renderVoicePreview(parseVoiceSentence(input.value));
+      const parsed = parseVoiceSentence(input.value);
+      renderVoicePreview(parsed);
       parseVoiceSmart(input.value).then((smart) => {
         if (input.value.trim() === smart.raw.trim()) renderVoicePreview(smart);
       }).catch(() => {});
     } else {
       renderVoicePreview(null);
-      // Holding Kira: no keyboard over the sheet while listening.
+      // Holding Kira / bubble: no keyboard over the sheet while listening.
       if (!o.listen) setTimeout(() => { try { input.focus(); } catch {} }, 40);
     }
     if (o.listen) {
@@ -932,20 +1558,65 @@
     const dlg = document.getElementById("voice-dialog");
     const input = document.getElementById("voice-input");
     const micBtn = document.getElementById("voice-mic-btn");
+    const askBtn = document.getElementById("voice-ask-btn");
     const saveBtn = document.getElementById("voice-save");
     const cancelBtn = document.getElementById("voice-cancel");
+    const closeX = document.getElementById("voice-close-x");
+    const transcriptEl = document.getElementById("voice-transcript");
+    const editBtn = document.getElementById("voice-edit-btn");
+
+    const closeVoice = () => {
+      voiceStopListening({ cancel: true });
+      clearVoiceThread();
+      if (dlg && dlg.open) dlg.close();
+    };
 
     if (openBtn) openBtn.addEventListener("click", () => openVoiceEntry(""));
-    if (cancelBtn) cancelBtn.addEventListener("click", () => { voiceStopListening({ cancel: true }); if (dlg && dlg.open) dlg.close(); });
-    if (dlg) dlg.addEventListener("close", () => { voiceStopListening({ cancel: true }); voiceStatus(""); });
+    if (cancelBtn) cancelBtn.addEventListener("click", closeVoice);
+    if (closeX) closeX.addEventListener("click", closeVoice);
+    if (dlg) {
+      dlg.addEventListener("close", () => {
+        // The close event arrives asynchronously a task after close(); ignore
+        // a stale close if #voice-dialog has already been reopened.
+        if (dlg.open) return;
+        voiceStopListening({ cancel: true });
+        voiceStatus("");
+        clearVoiceThread();
+        if (typeof syncBubbleHoldHint === "function") syncBubbleHoldHint();
+      });
+    }
+
+    const focusEdit = () => {
+      if (!input) return;
+      try { input.focus(); input.setSelectionRange(input.value.length, input.value.length); } catch {}
+    };
+    if (transcriptEl) transcriptEl.addEventListener("click", focusEdit);
+    if (editBtn) editBtn.addEventListener("click", focusEdit);
+
+    const submitInputText = () => {
+      const val = input ? input.value.trim() : "";
+      if (!val) return;
+      const nav = voiceMatchLocalCommand(val);
+      if (nav) { voiceRunAction(nav); return; }
+      if (voiceCurrent && voiceCurrent.amount > 0) {
+        voiceSaveConfirmed();
+        return;
+      }
+      if (voiceLooksLikeQuestion(val)) {
+        voiceAskKira(val);
+      }
+    };
+
+    if (askBtn) askBtn.addEventListener("click", submitInputText);
 
     if (input) {
       let timer = null;
       input.addEventListener("input", () => {
         const val = input.value;
+        voiceSyncTranscript(val);
         renderVoicePreview(parseVoiceSentence(val));
         clearTimeout(timer);
-        if (val.trim().length >= 4 && typeof window.aiCloudRun === "function") {
+        if (val.trim().length >= 4 && typeof window.aiCloudRun === "function" && !voiceLooksLikeQuestion(val) && !voiceMatchLocalCommand(val)) {
           timer = setTimeout(() => {
             parseVoiceSmart(val).then((smart) => {
               if (input.value.trim() === smart.raw.trim()) renderVoicePreview(smart);
@@ -954,9 +1625,9 @@
         }
       });
       input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && !e.shiftKey && voiceCurrent && voiceCurrent.amount > 0) {
+        if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault();
-          voiceSaveConfirmed();
+          submitInputText();
         }
       });
     }
@@ -968,6 +1639,12 @@
       });
     }
 
+    window.addEventListener("duitful:ai-quota", () => {
+      if (dlg && dlg.open) {
+        voiceStatus(voiceT("Kira reached the monthly limit — using on-device voice."), "warn");
+      }
+    });
+
     initVoiceHold();
 
     if (saveBtn) saveBtn.addEventListener("click", () => voiceSaveConfirmed());
@@ -977,6 +1654,9 @@
   window.voiceCorrectHeard = voiceCorrectHeard;
   window.voiceSpeechHints = voiceSpeechHints;
   window.parseVoiceSmart = parseVoiceSmart;
+  window.voiceMatchLocalCommand = voiceMatchLocalCommand;
+  window.voiceAskKira = voiceAskKira;
+  window.voiceOnSpeechLevel = voiceOnSpeechLevel;
   window.openVoiceEntry = openVoiceEntry;
   window.voiceSaveConfirmed = voiceSaveConfirmed;
   window.voiceStopListening = voiceStopListening;

@@ -34,6 +34,7 @@ final class DuitfulSpeech {
     private var task: SFSpeechRecognitionTask?
     private var recognizer: SFSpeechRecognizer?
     private var onPartial: ((String) -> Void)?
+    private var onLevel: ((Double) -> Void)?
     private var onFinish: ((Result<String, Failure>) -> Void)?
     private var lastText = ""
     private var maxTimer: Timer?
@@ -105,10 +106,13 @@ final class DuitfulSpeech {
         return out
     }
 
-    /// Main queue only.
+    /// Main queue only. `level` receives a single normalised 0..1 float (~20 Hz)
+    /// computed from the buffer's RMS so the UI can animate waves; no audio is
+    /// stored or sent anywhere.
     func start(lang: String,
                hints: [String] = [],
                partial: @escaping (String) -> Void,
+               level: ((Double) -> Void)? = nil,
                finish: @escaping (Result<String, Failure>) -> Void) {
         guard onFinish == nil else {
             finish(.failure(Failure(code: "BUSY", message: "Already listening")))
@@ -120,6 +124,7 @@ final class DuitfulSpeech {
         }
         generation += 1
         onPartial = partial
+        onLevel = level
         onFinish = finish
         lastText = ""
         recognizer = r
@@ -149,9 +154,29 @@ final class DuitfulSpeech {
             end(.failure(Failure(code: "SPEECH", message: "No microphone input")))
             return
         }
+        let mine = generation
+        var lastLevelAt: CFAbsoluteTime = 0
         input.removeTap(onBus: 0)
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak req] buffer, _ in
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self, weak req] buffer, _ in
             req?.append(buffer)
+            guard let self = self, let ch = buffer.floatChannelData?[0] else { return }
+            let count = Int(buffer.frameLength)
+            guard count > 0 else { return }
+            let now = CFAbsoluteTimeGetCurrent()
+            guard now - lastLevelAt >= 0.048 else { return }
+            lastLevelAt = now
+            var sum: Float = 0
+            for i in 0..<count {
+                let s = ch[i]
+                sum += s * s
+            }
+            let rms = sqrtf(sum / Float(count))
+            let db = 20.0 * log10(max(Double(rms), 1e-6))
+            let norm = max(0.0, min(1.0, (db + 50.0) / 42.0))
+            DispatchQueue.main.async {
+                guard self.generation == mine, self.onFinish != nil else { return }
+                self.onLevel?(norm)
+            }
         }
         engine.prepare()
         do {
@@ -161,7 +186,6 @@ final class DuitfulSpeech {
             return
         }
 
-        let mine = generation
         task = r.recognitionTask(with: req) { [weak self] result, error in
             DispatchQueue.main.async {
                 guard let self = self, self.generation == mine, self.onFinish != nil else { return }
@@ -220,6 +244,7 @@ final class DuitfulSpeech {
         guard let finish = onFinish else { return }
         onFinish = nil
         onPartial = nil
+        onLevel = nil
         maxTimer?.invalidate()
         maxTimer = nil
         silenceTimer?.invalidate()
