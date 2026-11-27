@@ -754,5 +754,15 @@
   "Say or type a spend, split, income, or question. Nothing is saved until you tap Save.": "说出或输入一笔消费、分账、收入或提问。点保存前不会写入任何记录。",
   "e.g. RM 12 nasi lemak, or ask about spending": "例：RM 12 椰浆饭，或问本月花了多少",
   "Reads receipts, statements, Borang EA, loan letters, voice entries, split matches, and Kira questions (tagged AI+).": "读取收据、银行结单、EA 表格、贷款信、语音记账、分账匹配和 Kira 问答（标有 AI+）。",
-  "The microphone level is read as a number only to draw the voice waves; no audio is recorded or sent.": "仅读取麦克风音量数值用于绘制声波；绝不录音或上传音频。"
+  "The microphone level is read as a number only to draw the voice waves; no audio is recorded or sent.": "仅读取麦克风音量数值用于绘制声波；绝不录音或上传音频。",
+  "{n} spend · {a}": "{n} 笔消费 · {a}",
+  "{n} spends · {a}": "{n} 笔消费 · {a}",
+  "Save {n} spend": "保存 {n} 笔消费",
+  "Save {n} spends": "保存 {n} 笔消费",
+  "Saved {n} spend · {a}": "已保存 {n} 笔消费 · {a}",
+  "Saved {n} spends · {a}": "已保存 {n} 笔消费 · {a}",
+  "Save {n} entry": "保存 {n} 笔记录",
+  "Save {n} entries": "保存 {n} 笔记录",
+  "Saved {n} entry": "已保存 {n} 笔记录",
+  "Saved {n} entries": "已保存 {n} 笔记录"
 }

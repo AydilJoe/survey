@@ -239,7 +239,7 @@
   Q&A answers spending, debt strategy, and country-aware tax relief
   questions from live local numbers and clears when closed.
 - **Country-aware Tax Relief Packs & Global Tax Receipt Vault** (since
-  v1.89.0): built-in on-device packs for Malaysia (LHDN, MYR), Singapore
+  v1.90.0): built-in on-device packs for Malaysia (LHDN, MYR), Singapore
   (IRAS Resident, SGD — preceding-year basis, S$80,000 overall personal
   relief cap with 250% IPC donations outside the cap), and Hong Kong
   (IRD Salaries Tax, HKD — split Apr–Mar fiscal years 2025/26 & 2026/27,

@@ -10295,6 +10295,51 @@ html[data-theme="dark"] .streak-day.is-done .streak-day-dot { color: var(--stage
   color: var(--ink2);
 }
 .voice-preview-split[hidden] { display: none; }
+/* Several spends in one sentence (1.89.0): one row each, a remove button,
+   the count and total above; scrolls inside after about four rows. */
+.voice-preview-items {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.15rem;
+  max-height: 11.5rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.voice-preview-items[hidden] { display: none; }
+.voice-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-top: 0.15rem;
+  border-top: 0.5px solid var(--line);
+}
+.voice-item:first-child { border-top: 0; }
+.voice-item-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.92rem;
+  color: var(--ink2);
+  overflow-wrap: anywhere;
+}
+.voice-item-text b { color: var(--text); font-weight: 600; }
+.voice-item.is-income .voice-item-text b { color: var(--gain); }
+.voice-item-split { display: block; font-size: 0.82rem; }
+.voice-item-drop {
+  flex: none;
+  width: 44px;
+  min-height: 44px;
+  margin-right: -0.5rem;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--ink2);
+}
+.voice-item-drop svg { width: 16px; height: 16px; }
+.voice-preview.is-multi .voice-preview-spend { font-size: 0.86rem; color: var(--ink2); }
 /* Talk to Kira (1.80.0): Kira beside the sheet's title — happy at rest,
    listening while the mic is open, proud once there is a spend to save —
    and one status line ("Listening…", or the microphone note). */
