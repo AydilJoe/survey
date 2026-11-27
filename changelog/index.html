@@ -153,6 +153,16 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-87-0">
+    <span class="release-date">November 2026 &middot; v1.87.0</span>
+    <h2 class="release-title">Smart bank statement reconciliation for debts &amp; recurring bills</h2>
+    <ul>
+      <li><span class="tag feat">feat</span><strong>Auto-reconcile debt payments:</strong> bank statement rows matching an active debt (by name, Malaysian bank/biller aliases, amount, or due day) automatically pre-tag as <strong>Pay debt</strong> — lowering your debt balance and logging a real debt payment instead of double-counting as a daily spend.</li>
+      <li><span class="tag feat">feat</span><strong>Auto-reconcile recurring bills:</strong> rows matching a Monthly recurring bill (including variable utilities like TNB, Unifi, Air Selangor, telcos) pre-tag as <strong>Mark bill paid</strong>, showing a quiet <strong>&check; Paid</strong> badge on Monthly and updating <em>this month&rsquo;s actual only</em> while keeping your recurring template untouched for next month.</li>
+      <li><span class="tag feat">ui</span><strong>1-tap override &amp; CSV lossless round-trip:</strong> tap <strong>Log as spend</strong> on any auto-linked row (or untick to skip), and pick any debt or bill target manually; reconciled bills round-trip cleanly in CSV backups.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-86-0">
     <span class="release-date">November 2026 &middot; v1.86.0</span>
     <h2 class="release-title">Native haptics on iPhone &amp; Android</h2>

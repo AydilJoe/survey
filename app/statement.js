@@ -718,7 +718,57 @@ function reconcileStatement(parsed) {
 
 const STMT_CARD_PAYMENT = /\b(?:PAYMENT\s*-?\s*THANK YOU|THANK YOU|PAYMENT RECEIVED|FUNDS TRANSFER|IBFT|IBG|TOP-?UP|RPP|AUTO\s*DEBIT|BAYARAN)\b/i;
 const STMT_REBATE = /\b(?:CASH ?REBATE|REBATE|CASHBACK|CASH BACK|REFUND|REVERSAL)\b/i;
+const STMT_DEBT_HINT = /\b(?:LOAN|HIRE PURCHASE|HP\b|FINANCING|PEMBIAYAAN|CARD|KAD|PTPTN|INSTALL?MENT|ANSURAN|AUTO\s*DEBIT|STANDING\s*INSTRUCTION|SI\s+PYMT|BAYARAN|PAYMENT|REPAYMENT)\b/i;
+const STMT_BILLER_ALIASES = [
+  ["TNB", "TENAGA NASIONAL", "TENAGA"],
+  ["TM", "UNIFI", "TELEKOM", "STREAMYX"],
+  ["SYABAS", "AIR SELANGOR", "PENGURUSAN AIR", "SAJ", "PBA", "SADA", "LAP", "PAIP", "SAMB", "SATU", "AKSB", "SAINS"],
+  ["IWK", "INDAH WATER"],
+  ["MAXIS", "HOTLINK"],
+  ["CELCOM", "DIGI", "CELCOMDIGI"],
+  ["UMOBILE", "U MOBILE"],
+  ["TIME", "TIME DOTCOM", "TIME FIBRE"],
+  ["PTPTN", "PERBADANAN TABUNG"],
+  ["MAYBANK", "MBB", "MAE", "MALAYAN BANKING"],
+  ["CIMB", "CIMB BANK", "CIMB ISLAMIC"],
+  ["PUBLIC BANK", "PBB", "PBE"],
+  ["RHB", "RHB BANK"],
+  ["HONG LEONG", "HLB", "HLBB"],
+  ["AMBANK", "AMISLAMIC"],
+  ["BANK ISLAM", "BIMB"],
+  ["AFFIN", "AFFIN BANK"],
+  ["BSN", "BANK SIMPANAN"],
+  ["STANDARD CHARTERED", "SCB"],
+  ["ATOME"],
+  ["SPAYLATER", "SHOPEE PAYLATER"],
+  ["GRAB PAYLATER", "PAYLATER"],
+  ["ICLOUD", "APPLE COM BILL"],
+];
+const STMT_STOP_WORDS = new Set(["BANK", "SDN", "BHD", "BERHAD", "PAYMENT", "PAY", "BILL", "AUTO", "DEBIT", "TRANSFER", "DUITNOW", "JOMPAY", "ONLINE", "MYR", "MALAYSIA", "CARD", "LOAN", "PLAN", "MONTHLY"]);
+
 function stmtNorm(s) { return String(s || "").toUpperCase().replace(/[^A-Z0-9 ]+/g, " ").replace(/\s+/g, " ").trim(); }
+function stmtTokens(s) {
+  return stmtNorm(s).split(" ").filter((w) => w.length >= 3 && !STMT_STOP_WORDS.has(w) && !/^\d+$/.test(w));
+}
+function stmtAliasGroups(s) {
+  const n = ` ${stmtNorm(s)} `;
+  const out = [];
+  for (let g = 0; g < STMT_BILLER_ALIASES.length; g++) {
+    if (STMT_BILLER_ALIASES[g].some((a) => n.includes(` ${a} `))) out.push(g);
+  }
+  return out;
+}
+function stmtNameMatch(haystack, target) {
+  const H = stmtNorm(haystack), T = stmtNorm(target);
+  if (!H || !T) return false;
+  if (T.length >= 3 && H.includes(T)) return true;
+  if (H.length >= 4 && T.includes(H)) return true;
+  const gH = stmtAliasGroups(H), gT = stmtAliasGroups(T);
+  if (gH.length && gT.some((g) => gH.includes(g))) return true;
+  const tH = new Set(stmtTokens(H));
+  const tT = stmtTokens(T);
+  return tT.length > 0 && tT.some((w) => w.length >= 3 && tH.has(w));
+}
 function stmtSimilar(a, b) {
   const A = stmtNorm(a), B = stmtNorm(b);
   if (!A || !B) return false;
@@ -727,20 +777,134 @@ function stmtSimilar(a, b) {
   return A.split(" ").some((w) => w.length >= 4 && tb.has(w));
 }
 function stmtDayDiff(a, b) { return Math.abs((Date.parse(a) - Date.parse(b)) / 86400000); }
+function stmtDomDiff(isoDate, dueDay) {
+  if (!isoDate || !Number.isFinite(Number(dueDay))) return Infinity;
+  const d = Number(isoDate.slice(8, 10));
+  const dd = Number(dueDay);
+  if (!d || !dd) return Infinity;
+  const raw = Math.abs(d - dd);
+  return Math.min(raw, 30 - raw);
+}
 
-/* Each parsed row → a review item: { kind: "spend" | "income" | "move",
+function stmtDebtExpectedPay(d) {
+  if (!d) return 0;
+  if (typeof isIslamic === "function" && isIslamic(d) && typeof islamicInstalment === "function") {
+    return islamicInstalment(d) || Number(d.minPayment) || 0;
+  }
+  return Number(d.installment) || Number(d.minPayment) || 0;
+}
+
+function stmtMatchDebt(r, debts, usedDebtKeys) {
+  const active = (debts || []).filter((d) => (Number(d.balance) || 0) > 0);
+  if (!active.length || !r.date) return null;
+  const ym = r.date.slice(0, 7);
+  const text = `${r.payee || ""} ${r.desc || ""}`;
+  const hasHint = STMT_DEBT_HINT.test(text);
+  let best = null;
+  let bestScore = 0;
+
+  for (const d of active) {
+    const key = `${d.id}|${ym}`;
+    // Allow multiple payments on revolving cards, but avoid double-matching fixed instalments.
+    if (usedDebtKeys.has(key) && (d.kind === "installment" || (typeof isIslamic === "function" && isIslamic(d)))) continue;
+    const min = stmtDebtExpectedPay(d);
+    const bal = Number(d.balance) || 0;
+    const nameHit = stmtNameMatch(text, d.name);
+    const exactMin = min > 0 && Math.abs(r.amount - min) <= Math.max(0.5, min * 0.01);
+    const closeMin = min > 0 && Math.abs(r.amount - min) <= Math.max(5, min * 0.05);
+    const exactBal = bal > 0 && Math.abs(r.amount - bal) <= Math.max(1, bal * 0.01);
+    const nearDue = stmtDomDiff(r.date, d.dueDay) <= 4;
+
+    let score = 0;
+    if (nameHit && (exactMin || exactBal)) score = 100;
+    else if (nameHit && closeMin) score = 88;
+    else if (nameHit && hasHint && r.amount <= bal * 1.15) score = 78;
+    else if (exactMin && nearDue) {
+      // Cryptic bank ref (e.g. "AUTODEBIT 88219"): require unique amount match across active debts.
+      const sameAmt = active.filter((x) => {
+        const m = stmtDebtExpectedPay(x);
+        return m > 0 && Math.abs(r.amount - m) <= 0.5;
+      });
+      if (sameAmt.length === 1) score = 72;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = d;
+    }
+  }
+  return bestScore >= 70 ? best : null;
+}
+
+function stmtBillsForMonth(expenses, ym) {
+  const list = expenses || [];
+  const inMonth = list.filter((x) => x.month === ym);
+  if (inMonth.length) return { bills: inMonth, isTemplate: false };
+  // Statement for a month not yet rolled over: fall back to latest repeating bills.
+  const months = [...new Set(list.map((x) => x.month).filter(Boolean))].sort();
+  const latest = months[months.length - 1];
+  if (!latest) return { bills: [], isTemplate: false };
+  return { bills: list.filter((x) => x.month === latest && x.repeatNext !== false), isTemplate: true };
+}
+
+function stmtMatchBill(r, expenses, usedBillIds) {
+  if (!r.date || !(expenses && expenses.length)) return null;
+  const ym = r.date.slice(0, 7);
+  const { bills, isTemplate } = stmtBillsForMonth(expenses, ym);
+  if (!bills.length) return null;
+  const text = `${r.payee || ""} ${r.desc || ""}`;
+  let best = null;
+  let bestScore = 0;
+
+  for (const ex of bills) {
+    if (usedBillIds.has(`${ex.id}|${ym}`)) continue;
+    const baseAmt = Number(ex.plannedAmount ?? ex.amount) || 0;
+    const nameHit = stmtNameMatch(text, ex.name);
+    const exactAmt = baseAmt > 0 && Math.abs(r.amount - baseAmt) <= 0.5;
+    // Utilities (TNB, water, phone) vary month to month: allow ±35% or ±RM 50 on a name match.
+    const varAmt = baseAmt > 0 && (Math.abs(r.amount - baseAmt) <= Math.max(50, baseAmt * 0.35));
+    const nearDue = stmtDomDiff(r.date, ex.day) <= 4;
+
+    let score = 0;
+    if (nameHit && exactAmt) score = 96;
+    else if (nameHit && varAmt && nearDue) score = 86;
+    else if (nameHit && varAmt) score = 76;
+    else if (exactAmt && nearDue && !ex.paidDate) {
+      const sameAmt = bills.filter((x) => Math.abs(r.amount - (Number(x.plannedAmount ?? x.amount) || 0)) <= 0.5);
+      if (sameAmt.length === 1) score = 72;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = { ex, isTemplate, ym };
+    }
+  }
+  return bestScore >= 70 ? best : null;
+}
+
+/* Each parsed row → a review item: { kind: "spend" | "debt" | "bill" | "income" | "move",
    on (ticked), note }. Card payments are money moving from your own account,
    so they import as nothing; a row naming a saved own-account name is a move
-   too. Rows already in Duitful (± 1 day, same amount, similar name — typed,
-   captured from an alert, or waiting as a pending card) start unticked. */
+   too. Debit rows matching an active debt or recurring bill auto-link to
+   reconcile instead of double-counting (with 1-tap override to New Spend or
+   Skip). Rows already in Duitful start unticked. */
 function statementItems(parsed, recon) {
   const own = (typeof state !== "undefined" && state.ownAccounts) || [];
   const isOwn = (desc) => own.some((n) => n && stmtNorm(desc).includes(stmtNorm(n)));
-  const spends = (state.dailyExpenses || []).filter((e) => e.kind === "expense");
-  const pend = (state.pendingTxns || []);
+  const dailyAll = (typeof state !== "undefined" && state && state.dailyExpenses) || [];
+  const spends = dailyAll.filter((e) => e.kind === "expense");
+  const debtPays = dailyAll.filter((e) => e.kind === "debt");
+  const pend = (typeof state !== "undefined" && state && state.pendingTxns) || [];
+  const debts = (typeof state !== "undefined" && state && state.debts) || [];
+  const expenses = (typeof state !== "undefined" && state && state.expenses) || [];
   const cats = typeof scanAllCategories === "function" ? scanAllCategories() : [];
+  const usedDebtKeys = new Set();
+  const usedBillIds = new Set();
+
   return parsed.rows.map((r, i) => {
     let kind = "spend", note = "", label = "";
+    let debtId = "", billId = "", billName = "", billPlanned = null, autoMatched = "";
+
     if (parsed.kind === "card") {
       if (r.dir === "credit") {
         if (STMT_CARD_PAYMENT.test(r.desc) && !STMT_REBATE.test(r.desc)) { kind = "move"; note = tr("Card payment · not counted"); }
@@ -748,15 +912,44 @@ function statementItems(parsed, recon) {
       }
     } else if (r.dir === "credit") kind = "income";
     if (kind !== "move" && isOwn(r.desc)) { kind = "move"; note = tr("Between your accounts"); }
+
+    // Auto-match debit rows against active debts & recurring bills before classifying as a plain spend.
+    if (kind === "spend" && r.date) {
+      const mDebt = stmtMatchDebt(r, debts, usedDebtKeys);
+      if (mDebt) {
+        kind = "debt";
+        debtId = mDebt.id;
+        autoMatched = "debt";
+        usedDebtKeys.add(`${mDebt.id}|${r.date.slice(0, 7)}`);
+      } else {
+        const mBill = stmtMatchBill(r, expenses, usedBillIds);
+        if (mBill) {
+          kind = "bill";
+          billId = mBill.ex.id;
+          billName = mBill.ex.name;
+          billPlanned = Number(mBill.ex.plannedAmount ?? mBill.ex.amount) || 0;
+          autoMatched = "bill";
+          usedBillIds.add(`${mBill.ex.id}|${mBill.ym}`);
+        }
+      }
+    }
+
     let dup = false;
-    if (kind === "spend") {
+    if (kind === "debt") {
+      dup = debtPays.some((e) => e.debtId === debtId && Math.abs(Number(e.amount) - r.amount) < 0.005 && e.date && stmtDayDiff(e.date, r.date) <= 2);
+    } else if (kind === "bill") {
+      const ym = r.date.slice(0, 7);
+      const existing = expenses.find((x) => x.id === billId && x.month === ym);
+      dup = !!(existing && existing.paidDate && stmtDayDiff(existing.paidDate, r.date) <= 2 && Math.abs(Number(existing.amount) - r.amount) < 0.005);
+    } else if (kind === "spend") {
       dup = spends.some((e) => Math.abs(Number(e.amount) - r.amount) < 0.005 && e.date && stmtDayDiff(e.date, r.date) <= 1 && (stmtSimilar(e.note, r.payee) || stmtSimilar(e.category, r.payee) || stmtDayDiff(e.date, r.date) === 0))
         || pend.some((p) => !p.kind && Math.abs(Number(p.amount) - r.amount) < 0.005 && stmtDayDiff(new Date(p.createdAt).toISOString().slice(0, 10), r.date) <= 1);
     } else if (kind === "income") {
-      dup = (state.income || []).some((x) => Math.abs(Number(x.amount) - r.amount) < 0.005 && x.month === r.date.slice(0, 7) && Math.abs(Number(x.day || 0) - Number(r.date.slice(8, 10))) <= 1)
+      dup = ((typeof state !== "undefined" && state && state.income) || []).some((x) => Math.abs(Number(x.amount) - r.amount) < 0.005 && x.month === r.date.slice(0, 7) && Math.abs(Number(x.day || 0) - Number(r.date.slice(8, 10))) <= 1)
         || pend.some((p) => p.kind === "income" && Math.abs(Number(p.amount) - r.amount) < 0.005 && stmtDayDiff(new Date(p.createdAt).toISOString().slice(0, 10), r.date) <= 1);
     }
     if (dup) note = tr("Already in Duitful");
+
     let category = "";
     if (kind === "spend") {
       try { category = (typeof scanGuessCategory === "function" ? scanGuessCategory(r.payee, r.desc) : "") || ""; } catch { category = ""; }
@@ -765,6 +958,7 @@ function statementItems(parsed, recon) {
     return {
       id: `stmt-${i}`, row: r, date: r.date, payee: r.payee || r.desc.slice(0, 40), amount: r.amount,
       kind, label, category, note, dup, flagged: !!(recon && recon.badRows && recon.badRows.has(r)),
+      debtId, billId, billName, billPlanned, autoMatched,
       on: kind !== "move" && !dup && !!r.date,
     };
   });
@@ -942,7 +1136,7 @@ async function statementCloudRead() {
 function stmtCarryEdits(prev, next) {
   const used = new Set();
   for (const old of prev || []) {
-    if (!(old.userPayee || old.userCat || old.userOn || old.userKind)) continue;
+    if (!(old.userPayee || old.userCat || old.userOn || old.userKind || old.userTarget)) continue;
     const dir = old.row && old.row.dir;
     const hit = next.find((n) => !used.has(n) && n.date === old.date && n.row.dir === dir && Math.abs(n.amount - Number(old.amount)) < 0.005);
     if (!hit) continue;
@@ -950,6 +1144,7 @@ function stmtCarryEdits(prev, next) {
     if (old.userPayee) { hit.payee = old.payee; hit.userPayee = true; hit.aiPlus = false; }
     if (old.userCat) { hit.category = old.category; hit.userCat = true; }
     if (old.userKind) { hit.kind = old.kind; hit.userKind = true; if (hit.kind === "move") hit.on = false; }
+    if (old.userTarget) { hit.debtId = old.debtId; hit.billId = old.billId; hit.billName = old.billName; hit.billPlanned = old.billPlanned; hit.userTarget = true; }
     if (old.userOn) { hit.on = hit.kind === "move" ? false : old.on; hit.userOn = true; }
   }
 }
@@ -998,16 +1193,79 @@ async function stmtRunAi(items) {
   try { await statementAiSuggest(items, opts); } catch { /* ditto */ }
 }
 
-/* Books the ticked items. Spends go where daily spending goes; income goes to
-   state.income like captured income (one-off, not copied into next month);
-   moves book nothing. Every row is marked as from a statement. */
+/* Books the ticked items. Spends go where daily spending goes; debt matches
+   record a real debt payment and lower the debt balance; bill matches mark
+   that month's recurring bill paid (updating this month's actual while keeping
+   the template amount for future months); income goes to state.income like
+   captured income; moves book nothing. Every row is marked from a statement. */
 function importStatementItems(items, bankName, walletId) {
-  let spends = 0, incomes = 0;
+  let spends = 0, incomes = 0, debts = 0, bills = 0;
   // One wallet for the whole statement (picked once, or none).
   const w = walletId && typeof walletById === "function" && walletById(walletId) ? { walletId } : {};
+  const debtPool = typeof findSystemDebtPool === "function" ? findSystemDebtPool() : null;
+
   for (const it of items) {
     if (!it.on || it.kind === "move" || !it.date || !(it.amount > 0)) continue;
-    if (it.kind === "spend") {
+
+    if (it.kind === "debt") {
+      const debt = (state.debts || []).find((d) => d.id === it.debtId);
+      if (debt) {
+        const applied = Math.min(it.amount, Number(debt.balance) || 0);
+        debt.balance = Math.max(0, +((Number(debt.balance) || 0) - applied).toFixed(2));
+        const entry = {
+          id: uid(), createdAt: Date.now(), kind: "debt", date: it.date, amount: it.amount,
+          debtId: debt.id, debtName: debt.name, note: it.payee || "", source: "statement", ...w,
+        };
+        if (debtPool) { entry.budgetPoolId = debtPool.id; entry.budgetPoolName = debtPool.name; }
+        state.dailyExpenses.push(entry);
+        debts++;
+        continue;
+      }
+      // Fallback if debt was deleted mid-review: record as a plain spend.
+      state.dailyExpenses.push({ id: uid(), createdAt: Date.now(), kind: "expense", date: it.date, amount: it.amount,
+        category: it.category || "Others", note: it.payee || "", source: "statement", ...w });
+      spends++;
+    } else if (it.kind === "bill") {
+      const ym = it.date.slice(0, 7);
+      const list = state.expenses || [];
+      let target = list.find((x) => x.id === it.billId && x.month === ym);
+      if (!target) {
+        const tmpl = list.find((x) => x.id === it.billId);
+        if (tmpl) {
+          // Check if a same-name bill already exists in this month.
+          target = list.find((x) => x.month === ym && stmtNorm(x.name) === stmtNorm(tmpl.name));
+          if (!target) {
+            target = {
+              id: uid(),
+              name: tmpl.name,
+              amount: Number(tmpl.plannedAmount ?? tmpl.amount) || it.amount,
+              month: ym,
+              day: tmpl.day ?? Number(it.date.slice(8, 10)),
+              repeatNext: tmpl.repeatNext !== false,
+              ...(tmpl.fx ? { fx: { ...tmpl.fx } } : {}),
+              ...(tmpl.budgetPoolId ? { budgetPoolId: tmpl.budgetPoolId, budgetPoolName: tmpl.budgetPoolName } : {}),
+            };
+            state.expenses.push(target);
+          }
+        }
+      }
+      if (target) {
+        const basePlanned = Number(target.plannedAmount ?? target.amount);
+        if (Number.isFinite(basePlanned) && Math.abs(basePlanned - it.amount) >= 0.01) {
+          target.plannedAmount = basePlanned;
+        }
+        target.amount = it.amount;
+        target.paidDate = it.date;
+        target.source = "statement";
+        if (w.walletId) target.walletId = w.walletId;
+        bills++;
+        continue;
+      }
+      // Fallback if bill target no longer exists: record as plain spend.
+      state.dailyExpenses.push({ id: uid(), createdAt: Date.now(), kind: "expense", date: it.date, amount: it.amount,
+        category: it.category || "Others", note: it.payee || "", source: "statement", ...w });
+      spends++;
+    } else if (it.kind === "spend") {
       state.dailyExpenses.push({ id: uid(), createdAt: Date.now(), kind: "expense", date: it.date, amount: it.amount,
         category: it.category || "Others", note: it.payee || "", source: "statement", ...w });
       spends++;
@@ -1018,7 +1276,7 @@ function importStatementItems(items, bankName, walletId) {
       incomes++;
     }
   }
-  return { spends, incomes };
+  return { spends, incomes, debts, bills };
 }
 
 /* ---------- every month ----------
@@ -1219,12 +1477,42 @@ function renderStatementReview() {
   stmtCloudRefresh();
   stmtRenderWallet();
   const cats = typeof scanAllCategories === "function" ? scanAllCategories() : [];
+  const debts = (typeof state !== "undefined" && state && state.debts) || [];
+  const expenses = (typeof state !== "undefined" && state && state.expenses) || [];
+
   list.innerHTML = stmtUi.items.map((it, i) => {
-    const sign = it.kind === "income" ? "+" : it.kind === "spend" ? "−" : "";
+    const sign = it.kind === "income" ? "+" : (it.kind === "spend" || it.kind === "debt" || it.kind === "bill") ? "−" : "";
     const tag = it.note ? `<span class="stmt-tag">${escapeHtml(it.note)}</span>` : it.flagged ? `<span class="stmt-tag is-warn">${tr("Check this row")}</span>` : "";
     const catSel = it.kind === "spend"
       ? `<select data-stmt-cat="${i}" aria-label="${tr("Category")}" translate="no">${["", ...cats].map((c) => `<option value="${escapeHtml(c)}"${c === it.category ? " selected" : ""}>${c ? escapeHtml(c) : tr("Category")}</option>`).join("")}</select>` : "";
-    return `<li class="stmt-row${it.on ? "" : " is-off"}${it.flagged ? " is-flagged" : ""}">
+
+    let targetSel = "";
+    let reconBar = "";
+    if (it.kind === "debt" && debts.length) {
+      targetSel = `<select data-stmt-target="${i}" aria-label="${tr("Debt")}">${debts.map((d) => `<option value="${escapeHtml(d.id)}"${d.id === it.debtId ? " selected" : ""}>${escapeHtml(d.name)}</option>`).join("")}</select>`;
+      const linked = debts.find((d) => d.id === it.debtId);
+      const pillText = linked ? tr("Reconciles debt: {name}", { name: linked.name }) : tr("Pay debt");
+      reconBar = `<div class="stmt-recon"><span class="stmt-link-pill is-debt">↓ ${escapeHtml(pillText)}</span><button type="button" class="stmt-override-btn" data-stmt-override="${i}">${tr("Log as spend")}</button></div>`;
+    } else if (it.kind === "bill" && expenses.length) {
+      const ym = (it.date || "").slice(0, 7);
+      const { bills } = stmtBillsForMonth(expenses, ym);
+      const billOpts = bills.length ? bills : expenses;
+      targetSel = `<select data-stmt-target="${i}" aria-label="${tr("Recurring bill")}">${billOpts.map((b) => `<option value="${escapeHtml(b.id)}"${b.id === it.billId ? " selected" : ""}>${escapeHtml(b.name)}</option>`).join("")}</select>`;
+      const linked = billOpts.find((b) => b.id === it.billId) || expenses.find((b) => b.id === it.billId);
+      const planned = linked ? Number(linked.plannedAmount ?? linked.amount) : Number(it.billPlanned);
+      const diffNote = Number.isFinite(planned) && Math.abs(planned - it.amount) >= 0.01
+        ? ` · ${tr("this month only (template stays {a})", { a: fmtMoney(planned) })}`
+        : "";
+      const pillText = linked ? `${tr("Marks bill paid: {name}", { name: linked.name })}${diffNote}` : tr("Mark bill paid");
+      reconBar = `<div class="stmt-recon"><span class="stmt-link-pill is-bill">✓ ${escapeHtml(pillText)}</span><button type="button" class="stmt-override-btn" data-stmt-override="${i}">${tr("Log as spend")}</button></div>`;
+    }
+
+    const debtOpt = (debts.length || it.kind === "debt")
+      ? `<option value="debt"${it.kind === "debt" ? " selected" : ""}>${tr("Pay debt")}</option>` : "";
+    const billOpt = (expenses.length || it.kind === "bill")
+      ? `<option value="bill"${it.kind === "bill" ? " selected" : ""}>${tr("Mark bill paid")}</option>` : "";
+
+    return `<li class="stmt-row${it.on ? "" : " is-off"}${it.flagged ? " is-flagged" : ""}${it.kind === "debt" || it.kind === "bill" ? " is-linked" : ""}">
       <input type="checkbox" data-stmt-on="${i}" aria-label="${tr("Import {name}", { name: escapeHtml(it.payee) })}"${it.on ? " checked" : ""}${it.kind === "move" ? " disabled" : ""} />
       <div class="stmt-main">
         <div class="stmt-top">
@@ -1233,14 +1521,16 @@ function renderStatementReview() {
             ? `<input class="stmt-amt-in ${it.kind}" data-stmt-amt="${i}" inputmode="decimal" value="${it.amount.toFixed(2)}" aria-label="${tr("Amount")}" />`
             : `<span class="stmt-amt ${it.kind}">${sign}${escapeHtml(fmtMoney(it.amount))}</span>`}
         </div>
+        ${reconBar}
         <div class="stmt-meta">
           <span>${escapeHtml(stmtFmtDate(it.date))}</span>
           <select data-stmt-kind="${i}" aria-label="${tr("Type")}">
             <option value="spend"${it.kind === "spend" ? " selected" : ""}>${tr("Spend")}</option>
+            ${debtOpt}${billOpt}
             <option value="income"${it.kind === "income" ? " selected" : ""}>${tr("Income")}</option>
             <option value="move"${it.kind === "move" ? " selected" : ""}>${tr("Not counted")}</option>
           </select>
-          ${catSel}${tag}
+          ${catSel}${targetSel}${tag}
           ${stmtUi.parsed.scanned && it.flagged && it.row.balance != null
             ? `<label class="stmt-bal">${tr("Balance")} <input data-stmt-bal="${i}" inputmode="decimal" value="${it.row.balance.toFixed(2)}" /></label>` : ""}
         </div>
@@ -1290,15 +1580,25 @@ function statementImportNow() {
   if (stmtScanBlocked()) return false;
   if (typeof canImportStatement === "function" && !canImportStatement()) { openPaywall("statements"); return false; }
   const res = importStatementItems(stmtUi.items, stmtUi.parsed.bank, stmtUi.wallet);
-  if (!res.spends && !res.incomes) return false;          // nothing booked: not counted
+  const total = res.spends + res.incomes + res.debts + res.bills;
+  if (!total) return false;          // nothing booked: not counted
   if (typeof trackStatementImport === "function") trackStatementImport();
   rememberStatement(stmtUi.parsed, stmtUi.wallet);
   if (typeof requestReschedule === "function") requestReschedule();
   save();
   renderAll();
   stmtEl("stmt-dialog")?.close();
-  const n = res.spends + res.incomes;
-  toast(trn(n, "{n} row imported from the statement", "{n} rows imported from the statement"));
+  if (typeof kiraPlaySaveFeedback === "function") kiraPlaySaveFeedback();
+  if (res.debts || res.bills) {
+    const parts = [];
+    if (res.spends) parts.push(trn(res.spends, "{n} spend", "{n} spends"));
+    if (res.debts) parts.push(trn(res.debts, "{n} debt paid", "{n} debts paid"));
+    if (res.bills) parts.push(trn(res.bills, "{n} bill paid", "{n} bills paid"));
+    if (res.incomes) parts.push(trn(res.incomes, "{n} income", "{n} incomes"));
+    toast(tr("Reconciled from statement: {summary}", { summary: parts.join(", ") }));
+  } else {
+    toast(trn(total, "{n} row imported from the statement", "{n} rows imported from the statement"));
+  }
   return true;
 }
 
@@ -1352,14 +1652,50 @@ stmtEl("stmt-all")?.addEventListener("click", () => {
   for (const it of stmtUi.items) if (it.kind !== "move" && it.date) { it.on = !all; it.userOn = true; }
   renderStatementReview();
 });
+stmtEl("stmt-list")?.addEventListener("click", (e) => {
+  const btn = e.target instanceof HTMLElement ? e.target.closest("[data-stmt-override]") : null;
+  if (!btn) return;
+  const i = Number(btn.dataset.stmtOverride);
+  const it = stmtUi.items[i];
+  if (!it) return;
+  it.kind = "spend";
+  it.userKind = true;
+  it.debtId = "";
+  it.billId = "";
+  it.autoMatched = "";
+  if (!it.dup) it.on = true;
+  renderStatementReview();
+});
 stmtEl("stmt-list")?.addEventListener("change", (e) => {
   const t = e.target;
   if (!(t instanceof HTMLElement)) return;
-  const i = Number(t.dataset.stmtOn ?? t.dataset.stmtKind ?? t.dataset.stmtCat ?? t.dataset.stmtPayee ?? t.dataset.stmtAmt ?? t.dataset.stmtBal);
+  const i = Number(t.dataset.stmtOn ?? t.dataset.stmtKind ?? t.dataset.stmtCat ?? t.dataset.stmtTarget ?? t.dataset.stmtPayee ?? t.dataset.stmtAmt ?? t.dataset.stmtBal);
   const it = stmtUi.items[i];
   if (!it) return;
   if (t.dataset.stmtOn != null) { it.on = t.checked; it.userOn = true; }
-  else if (t.dataset.stmtKind != null) { it.kind = t.value; it.userKind = true; if (it.kind === "move") it.on = false; else if (!it.dup) it.on = true; }
+  else if (t.dataset.stmtKind != null) {
+    it.kind = t.value;
+    it.userKind = true;
+    if (it.kind === "debt" && !it.debtId && state && state.debts && state.debts.length) {
+      it.debtId = state.debts[0].id;
+    } else if (it.kind === "bill" && !it.billId && state && state.expenses && state.expenses.length) {
+      const { bills } = stmtBillsForMonth(state.expenses, (it.date || "").slice(0, 7));
+      const pick = bills[0] || state.expenses[0];
+      if (pick) { it.billId = pick.id; it.billName = pick.name; it.billPlanned = Number(pick.plannedAmount ?? pick.amount) || 0; }
+    }
+    if (it.kind === "move") it.on = false;
+    else if (!it.dup) it.on = true;
+  }
+  else if (t.dataset.stmtTarget != null) {
+    it.userTarget = true;
+    if (it.kind === "debt") {
+      it.debtId = t.value;
+    } else if (it.kind === "bill") {
+      it.billId = t.value;
+      const b = (state && state.expenses || []).find((x) => x.id === t.value);
+      if (b) { it.billName = b.name; it.billPlanned = Number(b.plannedAmount ?? b.amount) || 0; }
+    }
+  }
   else if (t.dataset.stmtCat != null) { it.category = t.value; it.userCat = true; }
   else if (t.dataset.stmtPayee != null) { it.payee = t.value.trim().slice(0, 60); it.userPayee = true; }
   else if (t.dataset.stmtAmt != null || t.dataset.stmtBal != null) {

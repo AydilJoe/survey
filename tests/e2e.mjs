@@ -19315,6 +19315,102 @@ check('the brand catalogue makes no network calls at all',
     JSON.stringify(hapRes));
 }
 
+// ---------- v1.87.0: Statement ↔ Recurring & Debt reconciliation ----------
+{
+  const recRes = await S(() => {
+    const keep = {
+      debts: state.debts, expenses: state.expenses, daily: state.dailyExpenses,
+      month: selectedMonth, lastOpened: state.lastOpenedMonth,
+    };
+    const ym = currentMonthISO();
+    selectedMonth = ym;
+    state.debts = [
+      { id: 'rd-visa', name: 'Maybank Visa', balance: 2000, apr: 18, minPayment: 200, dueDay: 12, kind: 'standard' },
+      { id: 'rd-atome', name: 'Atome', balance: 360, apr: 0, minPayment: 120, dueDay: 18, kind: 'installment', installment: 120, monthsLeft: 3 },
+    ];
+    state.expenses = [
+      { id: 'rb-tnb', name: 'TNB', amount: 180, month: ym, day: 15, repeatNext: true },
+      { id: 'rb-unifi', name: 'Unifi', amount: 149, month: ym, day: 20, repeatNext: true },
+    ];
+    state.dailyExpenses = [];
+    save(); renderAll();
+
+    const parsed = {
+      layout: 'maybank-account', bank: 'Maybank', kind: 'account', scanned: false,
+      rows: [
+        { date: `${ym}-11`, desc: 'MBB VISA CARD PAYMENT', payee: 'MBB VISA', amount: 450, dir: 'debit', page: 1 },
+        { date: `${ym}-14`, desc: 'JOMPAY TENAGA NASIONAL BHD', payee: 'TENAGA NASIONAL', amount: 212.4, dir: 'debit', page: 1 },
+        { date: `${ym}-18`, desc: 'AUTODEBIT REF 99120', payee: 'AUTODEBIT 99120', amount: 120, dir: 'debit', page: 1 },
+        { date: `${ym}-19`, desc: 'NASI LEMAK CORNER', payee: 'NASI LEMAK CORNER', amount: 14.5, dir: 'debit', page: 1 },
+      ],
+      sections: [],
+    };
+    const recon = { status: 'ok', problems: [], badRows: new Set() };
+    stmtUi.parsed = parsed; stmtUi.recon = recon;
+    stmtUi.items = statementItems(parsed, recon);
+    renderStatementReview();
+
+    const initialKinds = stmtUi.items.map((x) => [x.kind, x.debtId || x.billId || '']);
+    // Test 1-tap override on Atome row (index 2) → becomes spend, then switch back to debt to test full import
+    const ovBtn = document.querySelector('#stmt-list [data-stmt-override="2"]');
+    ovBtn.click();
+    const afterOverrideKind = stmtUi.items[2].kind;
+    // Restore Atome link via kind dropdown + target
+    stmtUi.items[2].kind = 'debt'; stmtUi.items[2].debtId = 'rd-atome';
+    renderStatementReview();
+
+    const res = importStatementItems(stmtUi.items, 'Maybank', '');
+    save(); renderAll();
+
+    const visaBal = state.debts.find((d) => d.id === 'rd-visa').balance;
+    const atomeBal = state.debts.find((d) => d.id === 'rd-atome').balance;
+    const tnb = state.expenses.find((x) => x.id === 'rb-tnb');
+    const dailyDebtCount = state.dailyExpenses.filter((e) => e.kind === 'debt' && e.source === 'statement').length;
+    const dailySpendCount = state.dailyExpenses.filter((e) => e.kind === 'expense' && e.source === 'statement').length;
+    const hasPaidBadge = !!document.querySelector('#list-expense .bill-paid-tag');
+
+    // Re-running statementItems on the same statement detects both debt & bill as duplicates (unticked)
+    const reItems = statementItems(parsed, recon);
+    const reDups = reItems.map((x) => [x.kind, x.dup, x.on]);
+
+    // CSV round-trip preserves paidDate & plannedAmount
+    const csv = toCSV();
+    const back = fromCSV(csv);
+    const tnbBack = back.expenses.find((x) => x.name === 'TNB');
+
+    // Rolling to next month carries template amount (180), NOT variable actual (212.40), and clears paidDate
+    const nextMonth = shiftMonth(ym, 1);
+    const prevExp = state.expenses.filter((x) => x.month === ym && x.repeatNext !== false);
+    const rolledAmt = Number.isFinite(Number(prevExp[0].plannedAmount)) ? Number(prevExp[0].plannedAmount) : prevExp[0].amount;
+
+    // Restore clean state
+    state.debts = keep.debts; state.expenses = keep.expenses; state.dailyExpenses = keep.daily;
+    selectedMonth = keep.month; state.lastOpenedMonth = keep.lastOpened;
+    save(); renderAll();
+
+    return {
+      initialKinds, afterOverrideKind, res, visaBal, atomeBal,
+      tnbAmt: tnb.amount, tnbPlanned: tnb.plannedAmount, tnbPaid: tnb.paidDate,
+      dailyDebtCount, dailySpendCount, hasPaidBadge, reDups,
+      csvOk: tnbBack?.paidDate === `${ym}-14` && tnbBack?.plannedAmount === 180,
+      rolledAmt,
+    };
+  });
+  check('v1.87.0: Statement reconciliation auto-links debts & variable recurring bills, supports 1-tap override, deduplicates re-imports, preserves template, and round-trips CSV',
+    recRes.initialKinds[0][0] === 'debt' && recRes.initialKinds[0][1] === 'rd-visa'
+    && recRes.initialKinds[1][0] === 'bill' && recRes.initialKinds[1][1] === 'rb-tnb'
+    && recRes.initialKinds[2][0] === 'debt' && recRes.initialKinds[2][1] === 'rd-atome'
+    && recRes.initialKinds[3][0] === 'spend'
+    && recRes.afterOverrideKind === 'spend'
+    && recRes.res.debts === 2 && recRes.res.bills === 1 && recRes.res.spends === 1
+    && recRes.visaBal === 1550 && recRes.atomeBal === 240
+    && recRes.tnbAmt === 212.4 && recRes.tnbPlanned === 180 && !!recRes.tnbPaid
+    && recRes.dailyDebtCount === 2 && recRes.dailySpendCount === 1 && recRes.hasPaidBadge
+    && recRes.reDups.every((x) => x[1] === true && x[2] === false)
+    && recRes.csvOk && recRes.rolledAmt === 180,
+    JSON.stringify(recRes));
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();

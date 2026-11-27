@@ -27,7 +27,7 @@ function toCSV() {
     // charged to a card (it is not cash); debt_id / saving_id are a payment's
     // debt / goal; source is "statement" for statement imports.
     "entry_id", "card_debt_id", "card_debt", "debt_id", "saving_id", "source",
-    "extra_effect", "lock_in_pct",
+    "extra_effect", "lock_in_pct", "paid_date", "planned_amount",
   ];
   const rows = [HEADER];
   const W = HEADER.length;
@@ -76,6 +76,8 @@ function toCSV() {
   for (const ex of state.expenses) {
     const row = withWallet(blank(["expense", ex.name, ex.amount, "", "", "", "", "", "", "", "", "", ex.month || "", ex.day ?? "", "", "", "", ...fxCols(ex.fx), "", "", "", "", "", ...poolTagCols(ex), ex.repeatNext === false ? "N" : "Y"]), ex);
     if (ex.splitRecurringId) row[ISP] = ex.splitRecurringId;
+    if (ex.paidDate) row[HEADER.indexOf("paid_date")] = ex.paidDate;
+    if (Number.isFinite(Number(ex.plannedAmount))) row[HEADER.indexOf("planned_amount")] = String(ex.plannedAmount);
     rows.push(row);
   }
   for (const d of state.debts) {
@@ -428,6 +430,7 @@ function fromCSV(text) {
   const iEntryId = idx("entry_id"), iCardDebtId = idx("card_debt_id"), iCardDebt = idx("card_debt");
   const iDebtId = idx("debt_id"), iSavingId = idx("saving_id"), iSource = idx("source");
   const iExtraEffect = idx("extra_effect"), iLockInPct = idx("lock_in_pct");
+  const iPaidDate = idx("paid_date"), iPlannedAmount = idx("planned_amount");
   const cellAt = (row, i) => (i >= 0 ? String(row[i] ?? "").trim() : "");
   // A row's own id is kept when it looks like one and is not taken yet in
   // its list, so links between rows (card charges, payments, split bills,
@@ -554,6 +557,10 @@ function fromCSV(text) {
       if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
       const rsId = cellAt(row, iSplitId);
       if (rsId) entry.splitRecurringId = rsId;
+      const pDate = cellAt(row, iPaidDate);
+      if (isValidDate(pDate)) entry.paidDate = pDate;
+      const pAmt = iPlannedAmount >= 0 && row[iPlannedAmount] !== "" ? Number(row[iPlannedAmount]) : NaN;
+      if (Number.isFinite(pAmt) && pAmt >= 0) entry.plannedAmount = pAmt;
       next.expenses.push(withSource(withWallet(entry, row), row));
     } else if (type === "debt" && name) {
       const rowDueDay = iDueDay >= 0 ? parseDay(row[iDueDay]) : null;
