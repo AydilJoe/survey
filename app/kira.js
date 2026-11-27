@@ -12,6 +12,8 @@
      worried   raised brows, wavy mouth, drop   kind words when it's tight
      party     hat, arms up, confetti, dance    a big milestone
      counting  holds the sempoa, beads flick    ON-DEVICE AI ONLY
+     listening eyes up, "o" mouth, sound arcs     the Voice sheet's mic is open
+               pulse; nods per word (.is-hearing)  (1.80.0, voice.js) — not AI
    The sempoa means "your phone's AI is working" and nothing else, so
    "counting" draws only when the caller says so with { ai: true } — every
    other caller gets happy Kira. Its beads are the header badge's beads (same
@@ -22,7 +24,7 @@
    classes. Every animation lives in styles.css ("Kira") behind
    prefers-reduced-motion: no-preference. Colours are tokens only. */
 
-const KIRA_MOODS = ["happy", "proud", "sleepy", "worried", "party", "counting"];
+const KIRA_MOODS = ["happy", "proud", "sleepy", "worried", "party", "counting", "listening"];
 
 const KIRA_BODY =
   '<path class="kira-body" d="M12 5h40a5 5 0 0 1 5 5v55l-5.6-3.6-5.6 3.6-5.6-3.6-5.6 3.6-5.6-3.6-5.6 3.6-5.6-3.6L7 65V10a5 5 0 0 1 5-5z"/>' +
@@ -80,6 +82,17 @@ const KIRA_DRAW = {
       `${KIRA_HAPPY_EYES}<path class="kira-mouth" d="M26 44q6 9 12 0z"/><path class="kira-arm" d="M7 32l-6-9M57 32l6-9"/></g>` +
       '<g class="kira-confetti"><rect class="kc-a" x="2" y="0" width="4" height="6"/><circle class="kc-b" cx="60" cy="4" r="2.4"/>' +
       '<rect class="kc-c" x="54" y="-6" width="4" height="6"/><circle class="kc-c" cx="8" cy="-8" r="2.4"/></g>',
+  }),
+  // Talk to Kira (1.80.0): ears open. Eyes up, a small "o", sound arcs on
+  // both sides pulsing outwards while the mic is open; the head nods once
+  // per new word (voice.js adds .is-hearing). Nothing in the hands: the
+  // sempoa is the on-device AI's alone.
+  listening: () => ({
+    vb: "-6 -8 76 90",
+    body: `<g class="kira-listen-head">${KIRA_BODY}<g class="kira-blink"><g class="kira-eyes kira-eyes-up"><circle cx="24" cy="35.6" r="2.8"/><circle cx="40" cy="35.6" r="2.8"/></g></g>` +
+      '<ellipse class="kira-mouth" cx="32" cy="46.5" rx="2.4" ry="2.9"/></g>' +
+      '<g class="kira-ears"><path class="kira-ear ke-1" d="M60.5 31q3.5 5 0 10"/><path class="kira-ear ke-2" d="M64.5 27q6 9 0 18"/>' +
+      '<path class="kira-ear ke-1" d="M3.5 31q-3.5 5 0 10"/><path class="kira-ear ke-2" d="M-0.5 27q-6 9 0 18"/></g>',
   }),
   counting: () => ({
     vb: "0 -8 64 90",
@@ -395,6 +408,7 @@ let kiraLookRaf = 0;
 let kiraLookTimer = 0;
 
 const kiraLeftAlone = (svg) => svg.classList.contains("kira--counting")
+  || svg.classList.contains("kira--listening")
   || !!svg.closest(".ai-think-mark, .kira-hop, .guide-tooltip-kira");
 
 function kiraOnScreen() {

@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.80.0";
+const APP_VERSION = "1.81.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -7795,9 +7795,12 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
-  "1.80.0": [
+  "1.81.0": [
     "<strong>Duitful AI+ on iPhone</strong> — AI+ can now be bought and restored in the iPhone app, and every iPhone purchase uses Apple's newer StoreKit.",
     "<strong>Steadier purchases</strong> — opening the app or tapping Restore no longer shows the Pro welcome again. Each purchase now carries a random id kept in your encrypted data (never your name or email), so restoring on a new phone simply adds it to your devices.",
+  ],
+  "1.80.0": [
+    "<strong>Talk to Kira</strong> — hold Kira on Home, or tap the mic in Voice, and say a spend like \"twelve ringgit nasi lemak\". Kira listens while you hold, fills in the words as you speak and shows what will be saved; nothing is saved until you tap Save. On supported phones your speech is turned into text on the phone itself, and nothing is recorded.",
   ],
   "1.79.0": [
     "<strong>Duitful AI+ helps in more places</strong> — with AI+ on, it can read a bank statement your phone couldn't balance, tidy payee names, fill empty boxes from a Borang EA or a loan letter, work out who paid when a split credit matches several people, and tidy messy items on a by-item split. It only uses figures printed on the page, and you check everything before it's saved.",

@@ -303,6 +303,13 @@ Everything else is "No": there is no account, no analytics SDK in the native
 app, and iCloud / Drive backups go to the user's own account already
 encrypted, which Apple does not count as collection by the developer.
 
+**Talk to Kira (1.80.0) adds nothing to the label.** The mic uses Apple's
+Speech framework with `requiresOnDeviceRecognition = true` (a language that
+can't run on the iPhone reports unavailable and has no mic), so audio never
+leaves the phone and is never stored; only text reaches the Voice box.
+`NSMicrophoneUsageDescription` and `NSSpeechRecognitionUsageDescription` are
+added by `scripts/patch-ios.mjs`.
+
 **The split relay (1.54.0) adds nothing to the label.** Each bill's mailbox
 on `/api/relay/` holds only data encrypted on the phone with a key that
 lives in the link fragment, which never reaches the server, so Duitful

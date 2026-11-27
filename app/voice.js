@@ -410,25 +410,256 @@
     }
   }
 
-  /* ---------- UI: #voice-dialog & Home mic button ---------- */
+  /* ---------- UI: #voice-dialog & Home mic button ----------
+     Two ways to hear a spend (1.80.0, "Talk to Kira"):
+       - native: inside the iPhone / Android app, DuitfulKit's speech methods
+         (speechAvailable / speechStart / speechStop + "speechPartial"
+         events). iPhone hears it on the phone only (a language that can't be
+         is reported unavailable and the mic stays hidden); Android asks for
+         its on-device recogniser first. WebViews don't have Web Speech, so
+         inside the app this is the only path.
+       - web: the browser's Web Speech API, where the browser has one.
+     Partial text fills the box as it comes; the final text runs the same
+     parse (and AI+, when on) as typing. A refused microphone shows one line
+     and the keyboard still works. Holding Kira on Home opens the sheet
+     already listening; letting go stops and shows the preview. */
 
   let voiceCurrent = null;
   let voiceRec = null;
+  let voiceNative = null;
+  let voiceStarting = null;
+  let voiceHearTimer = 0;
+  const voiceNativeCache = {};
 
   function voiceSpeechCtor() {
     return window.SpeechRecognition || window.webkitSpeechRecognition || null;
   }
 
-  function voiceStopListening() {
-    if (voiceRec) {
-      try { voiceRec.stop(); } catch {}
-      voiceRec = null;
-    }
+  function voiceT(s, vars) {
+    return typeof tr === "function" ? tr(s, vars) : s;
+  }
+
+  // The recogniser's language: the app's, as a BCP-47 tag.
+  function voiceLangTag() {
+    const lang = (window.I18N && window.I18N.lang) || "en";
+    return lang === "ms" ? "ms-MY" : lang === "zh" ? "zh-CN" : "en-MY";
+  }
+
+  function voiceInShell() {
+    try {
+      return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform());
+    } catch { return false; }
+  }
+
+  function voiceKit() {
+    if (typeof duitfulKit !== "function") return null;
+    const k = duitfulKit("speechStart");
+    return k && typeof k.speechAvailable === "function" && typeof k.speechStop === "function" ? k : null;
+  }
+
+  // Asked once per language per session; a missing or failing kit is "no".
+  async function voiceNativeReady() {
+    const kit = voiceKit();
+    if (!kit) return false;
+    const lang = voiceLangTag();
+    if (lang in voiceNativeCache) return voiceNativeCache[lang];
+    let ok = false;
+    try {
+      const r = await Promise.race([
+        Promise.resolve(kit.speechAvailable({ lang })),
+        new Promise((res) => setTimeout(() => res(null), 3000)),
+      ]);
+      ok = !!(r && r.available);
+    } catch { ok = false; }
+    voiceNativeCache[lang] = ok;
+    return ok;
+  }
+
+  // "native" | "web" | "" — which ear this device has.
+  async function voiceSpeechMode() {
+    if (voiceInShell()) return (await voiceNativeReady()) ? "native" : "";
+    return voiceSpeechCtor() ? "web" : "";
+  }
+
+  function voiceListening() {
+    return !!(voiceRec || voiceNative);
+  }
+
+  // The sheet's Kira: happy at rest, listening while the mic is open (a nod
+  // per new word), proud once there is a spend to save. Never the sempoa.
+  function voiceKiraMood(mood) {
+    const slot = document.getElementById("voice-kira");
+    if (!slot || typeof kiraSvg !== "function") return;
+    if (slot.dataset.mood === mood) return;
+    slot.dataset.mood = mood;
+    slot.innerHTML = kiraSvg(mood, { moment: true });
+  }
+
+  function voiceKiraSync() {
+    if (voiceListening()) { voiceKiraMood("listening"); return; }
+    voiceKiraMood(voiceCurrent && voiceCurrent.amount > 0 ? "proud" : "happy");
+  }
+
+  function voiceKiraHear() {
+    const svg = document.querySelector("#voice-kira svg.kira--listening");
+    if (!svg) return;
+    svg.classList.remove("is-hearing");
+    void svg.getBoundingClientRect();
+    svg.classList.add("is-hearing");
+    clearTimeout(voiceHearTimer);
+    voiceHearTimer = setTimeout(() => svg.classList.remove("is-hearing"), 700);
+  }
+
+  function voiceStatus(text, tone) {
+    const el = document.getElementById("voice-status");
+    if (!el) return;
+    el.textContent = text || "";
+    el.hidden = !text;
+    el.dataset.tone = tone || "";
+  }
+
+  function voiceShowDenied() {
+    voiceStatus(voiceT("Allow the microphone in Settings to talk to Kira."), "warn");
+  }
+
+  function voiceSetListening(on) {
     const btn = document.getElementById("voice-mic-btn");
+    const dlg = document.getElementById("voice-dialog");
     if (btn) {
-      btn.classList.remove("is-listening");
-      btn.setAttribute("aria-pressed", "false");
+      btn.classList.toggle("is-listening", !!on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.setAttribute("aria-label", on ? voiceT("Stop listening") : voiceT("Start voice input"));
     }
+    if (dlg) dlg.classList.toggle("is-listening", !!on);
+    if (on) voiceStatus(voiceT("Listening…"), "");
+    else {
+      const el = document.getElementById("voice-status");
+      if (el && el.dataset.tone !== "warn") voiceStatus("");
+    }
+    voiceKiraSync();
+  }
+
+  // Stop the mic. { cancel: true } (Cancel, closing the sheet) drops what
+  // was heard; a plain stop (let go of Kira, tap the mic) keeps it.
+  function voiceStopListening(opts) {
+    const cancel = !!(opts && opts.cancel);
+    if (voiceStarting) voiceStarting.stop = true;
+    if (voiceRec) {
+      const rec = voiceRec;
+      voiceRec = null;
+      if (cancel) rec.duitfulCancelled = true;
+      try { if (cancel && typeof rec.abort === "function") rec.abort(); else rec.stop(); } catch {}
+    }
+    if (voiceNative) {
+      const s = voiceNative;
+      voiceNative = null;
+      if (cancel) s.cancelled = true;
+      try { Promise.resolve(s.kit.speechStop()).catch(() => {}); } catch {}
+    }
+    voiceSetListening(false);
+  }
+
+  function voiceFill(text) {
+    const input = document.getElementById("voice-input");
+    if (!input) return;
+    input.value = text;
+    renderVoicePreview(parseVoiceSentence(text));
+  }
+
+  // The words are in: the same parse as typing, then AI+ when it's on.
+  function voiceAfterSpeech() {
+    const input = document.getElementById("voice-input");
+    if (!input || !input.value.trim()) { voiceKiraSync(); return; }
+    renderVoicePreview(parseVoiceSentence(input.value));
+    parseVoiceSmart(input.value).then((smart) => {
+      if (input.value.trim() === smart.raw.trim()) renderVoicePreview(smart);
+    }).catch(() => {});
+  }
+
+  async function voiceStartNative(kit) {
+    const session = { kit, cancelled: false, handle: null };
+    voiceNative = session;
+    voiceSetListening(true);
+    try {
+      if (typeof kit.addListener === "function") {
+        session.handle = await Promise.resolve(kit.addListener("speechPartial", (d) => {
+          if (session.cancelled || voiceNative !== session) return;
+          const t = String((d && d.text) || "").trim();
+          if (!t) return;
+          voiceFill(t);
+          voiceKiraHear();
+        }));
+      }
+    } catch {}
+    let text = "";
+    let denied = false;
+    try {
+      const res = await kit.speechStart({ lang: voiceLangTag() });
+      text = String((res && res.text) || "").trim();
+    } catch (e) {
+      denied = /DENIED|PERMISSION|NOT[-_ ]?ALLOWED/i.test(String((e && (e.code || e.message)) || ""));
+    }
+    try { if (session.handle && typeof session.handle.remove === "function") session.handle.remove(); } catch {}
+    if (voiceNative === session) { voiceNative = null; voiceSetListening(false); }
+    if (session.cancelled) return;
+    if (denied) voiceShowDenied();
+    if (text) voiceFill(text);
+    voiceAfterSpeech();
+  }
+
+  function voiceStartWeb(Ctor) {
+    const input = document.getElementById("voice-input");
+    const rec = new Ctor();
+    rec.lang = voiceLangTag();
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+    voiceRec = rec;
+    voiceSetListening(true);
+    rec.onresult = (ev) => {
+      if (rec.duitfulCancelled) return;
+      const transcript = [...ev.results].map((r) => r[0].transcript).join(" ").trim();
+      if (input) { voiceFill(transcript); voiceKiraHear(); }
+    };
+    rec.onerror = (ev) => {
+      if (ev && (ev.error === "not-allowed" || ev.error === "service-not-allowed")) voiceShowDenied();
+      if (voiceRec === rec) voiceStopListening();
+    };
+    rec.onend = () => {
+      if (voiceRec === rec) { voiceRec = null; voiceSetListening(false); }
+      if (!rec.duitfulCancelled) voiceAfterSpeech();
+    };
+    try { rec.start(); } catch { voiceStopListening(); }
+  }
+
+  // Start the mic, whichever this device has. A stop that lands while the
+  // kit is still being asked (a very short hold) means: don't start.
+  async function voiceListen() {
+    if (voiceListening() || voiceStarting) return;
+    const el = document.getElementById("voice-status");
+    if (el && el.dataset.tone === "warn") voiceStatus("");
+    const token = { stop: false };
+    voiceStarting = token;
+    let mode = "";
+    try { mode = await voiceSpeechMode(); } catch { mode = ""; }
+    if (voiceStarting === token) voiceStarting = null;
+    const dlg = document.getElementById("voice-dialog");
+    if (token.stop || !dlg || !dlg.open) return;
+    if (mode === "native") { const kit = voiceKit(); if (kit) voiceStartNative(kit); }
+    else if (mode === "web") voiceStartWeb(voiceSpeechCtor());
+  }
+
+  // The mic shows only where something can hear: the browser's Web Speech,
+  // or the app's own kit for this language.
+  function voiceSyncMic() {
+    const micBtn = document.getElementById("voice-mic-btn");
+    if (!micBtn) return Promise.resolve("");
+    if (!voiceInShell()) {
+      const m = voiceSpeechCtor() ? "web" : "";
+      micBtn.hidden = !m;
+      return Promise.resolve(m);
+    }
+    micBtn.hidden = true;
+    return voiceSpeechMode().then((m) => { micBtn.hidden = !m; return m; }).catch(() => "");
   }
 
   function renderVoicePreview(parsed) {
@@ -445,6 +676,7 @@
       saveBtn.disabled = true;
       saveBtn.textContent = typeof tr === "function" ? tr("Save spend") : "Save spend";
       if (hint) hint.hidden = false;
+      voiceKiraSync();
       return;
     }
 
@@ -477,6 +709,7 @@
         saveBtn.textContent = typeof tr === "function" ? tr("Save spend") : "Save spend";
       }
     }
+    voiceKiraSync();
   }
 
   function voiceSaveConfirmed() {
@@ -523,8 +756,8 @@
     if (typeof renderAll === "function") renderAll();
 
     const dlg = document.getElementById("voice-dialog");
+    voiceStopListening({ cancel: true });
     if (dlg && dlg.open) dlg.close();
-    voiceStopListening();
 
     if (splitRec && typeof splitOpenShare === "function") {
       splitOpenShare(splitRec.id, 0).catch(() => {});
@@ -537,13 +770,17 @@
     return { expense, splitRec };
   }
 
-  function openVoiceEntry(initialText) {
+  // opts.listen: open already listening (holding Kira on Home).
+  function openVoiceEntry(initialText, opts) {
+    const o = opts || {};
     const dlg = document.getElementById("voice-dialog");
     const input = document.getElementById("voice-input");
-    const micBtn = document.getElementById("voice-mic-btn");
     if (!dlg || !input) return;
-    if (micBtn) micBtn.hidden = !voiceSpeechCtor();
+    voiceStatus("");
+    const micReady = voiceSyncMic();
     input.value = String(initialText || "").trim();
+    const slot = document.getElementById("voice-kira");
+    if (slot) { slot.dataset.mood = ""; slot.innerHTML = ""; }
     if (!dlg.open && typeof dlg.showModal === "function") dlg.showModal();
     if (input.value) {
       renderVoicePreview(parseVoiceSentence(input.value));
@@ -552,8 +789,76 @@
       }).catch(() => {});
     } else {
       renderVoicePreview(null);
-      setTimeout(() => { try { input.focus(); } catch {} }, 40);
+      // Holding Kira: no keyboard over the sheet while listening.
+      if (!o.listen) setTimeout(() => { try { input.focus(); } catch {} }, 40);
     }
+    if (o.listen) {
+      // showModal focused the box; no keyboard over the sheet while listening.
+      if (document.activeElement === input) { try { input.blur(); } catch {} }
+      voiceListen();
+      // Focus goes to the mic (now "Stop listening"); no ear on this device:
+      // the keyboard it is.
+      micReady.then((m) => {
+        if (!dlg.open) return;
+        const mic = document.getElementById("voice-mic-btn");
+        try { if (m && mic) mic.focus({ preventScroll: true }); else input.focus(); } catch {}
+      });
+    }
+  }
+
+  /* ---------- Hold Kira to talk (Home) ----------
+     A press on Home's Kira (the receipt's own paper, the only part of Kira
+     that takes the pointer) held for VOICE_HOLD_MS opens the Voice sheet
+     already listening; letting go stops and shows the preview. A shorter tap
+     is just Kira's giggle (kiraTap in kira.js). Kira stays aria-hidden: the
+     Voice button beside Scan receipt is the accessible way in. */
+  const VOICE_HOLD_MS = 350;
+  const VOICE_HOLD_SLOP = 12;
+  let voiceHold = null;
+
+  function voiceHoldTarget(t) {
+    if (!(t instanceof Element) || !t.closest(".kira-body")) return null;
+    const svg = t.closest("svg.kira");
+    if (!svg || !svg.closest("#tab-dashboard") || svg.closest(".kira-hop")) return null;
+    return svg;
+  }
+
+  function voiceHoldClear() {
+    if (voiceHold) clearTimeout(voiceHold.timer);
+    voiceHold = null;
+  }
+
+  function initVoiceHold() {
+    document.addEventListener("pointerdown", (e) => {
+      if (e.button) return;
+      const svg = voiceHoldTarget(e.target);
+      if (!svg || document.querySelector("dialog[open]")) return;
+      voiceHoldClear();
+      const h = { id: e.pointerId, x: e.clientX, y: e.clientY, fired: false, timer: 0 };
+      h.timer = setTimeout(() => {
+        if (voiceHold !== h) return;
+        h.fired = true;
+        openVoiceEntry("", { listen: true });
+      }, VOICE_HOLD_MS);
+      voiceHold = h;
+    }, { capture: true, passive: true });
+    document.addEventListener("pointermove", (e) => {
+      const h = voiceHold;
+      if (!h || h.fired || e.pointerId !== h.id) return;
+      if (Math.hypot(e.clientX - h.x, e.clientY - h.y) > VOICE_HOLD_SLOP) voiceHoldClear();
+    }, { capture: true, passive: true });
+    const release = (e) => {
+      const h = voiceHold;
+      if (!h || e.pointerId !== h.id) return;
+      voiceHoldClear();
+      if (h.fired) voiceStopListening();
+    };
+    document.addEventListener("pointerup", release, { capture: true, passive: true });
+    document.addEventListener("pointercancel", release, { capture: true, passive: true });
+    // No long-press menu or text selection on Kira.
+    document.addEventListener("contextmenu", (e) => {
+      if (voiceHoldTarget(e.target)) e.preventDefault();
+    }, { capture: true });
   }
 
   function initVoiceUI() {
@@ -565,8 +870,8 @@
     const cancelBtn = document.getElementById("voice-cancel");
 
     if (openBtn) openBtn.addEventListener("click", () => openVoiceEntry(""));
-    if (cancelBtn) cancelBtn.addEventListener("click", () => { voiceStopListening(); if (dlg && dlg.open) dlg.close(); });
-    if (dlg) dlg.addEventListener("close", () => voiceStopListening());
+    if (cancelBtn) cancelBtn.addEventListener("click", () => { voiceStopListening({ cancel: true }); if (dlg && dlg.open) dlg.close(); });
+    if (dlg) dlg.addEventListener("close", () => { voiceStopListening({ cancel: true }); voiceStatus(""); });
 
     if (input) {
       let timer = null;
@@ -592,36 +897,12 @@
 
     if (micBtn) {
       micBtn.addEventListener("click", () => {
-        if (voiceRec) { voiceStopListening(); return; }
-        const Ctor = voiceSpeechCtor();
-        if (!Ctor) return;
-        const rec = new Ctor();
-        const lang = (window.I18N && window.I18N.lang) || "en";
-        rec.lang = lang === "ms" ? "ms-MY" : lang === "zh" ? "zh-CN" : "en-MY";
-        rec.interimResults = true;
-        rec.maxAlternatives = 1;
-        voiceRec = rec;
-        micBtn.classList.add("is-listening");
-        micBtn.setAttribute("aria-pressed", "true");
-        rec.onresult = (ev) => {
-          const transcript = [...ev.results].map((r) => r[0].transcript).join(" ").trim();
-          if (input) {
-            input.value = transcript;
-            renderVoicePreview(parseVoiceSentence(transcript));
-          }
-        };
-        rec.onerror = () => voiceStopListening();
-        rec.onend = () => {
-          voiceStopListening();
-          if (input && input.value.trim()) {
-            parseVoiceSmart(input.value).then((smart) => {
-              if (input.value.trim() === smart.raw.trim()) renderVoicePreview(smart);
-            }).catch(() => {});
-          }
-        };
-        try { rec.start(); } catch { voiceStopListening(); }
+        if (voiceListening()) { voiceStopListening(); return; }
+        voiceListen();
       });
     }
+
+    initVoiceHold();
 
     if (saveBtn) saveBtn.addEventListener("click", () => voiceSaveConfirmed());
   }
@@ -630,6 +911,8 @@
   window.parseVoiceSmart = parseVoiceSmart;
   window.openVoiceEntry = openVoiceEntry;
   window.voiceSaveConfirmed = voiceSaveConfirmed;
+  window.voiceStopListening = voiceStopListening;
+  window.voiceSpeechMode = voiceSpeechMode;
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initVoiceUI);

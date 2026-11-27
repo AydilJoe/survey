@@ -39,6 +39,12 @@ import FoundationModels
 ///                    on the App Store product page (a promoted in-app
 ///                    purchase). Only the product id is kept, until the web
 ///                    layer buys it through the purchase plugin.
+///   speechAvailable/ "Talk to Kira" (1.80.0, DuitfulSpeech.swift): Apple's
+///   speechStart /    Speech framework, on-device only (a language that can't
+///   speechStop       be heard on this iPhone reports available:false). Partial
+///                    text is the "speechPartial" event; speechStart resolves
+///                    {text}. Speech recognition and microphone permission are
+///                    asked the first time the mic is used.
 ///
 /// Nothing here talks to a server, and nothing downloads a model: Vision,
 /// NSDataDetector and Foundation Models are all part of iOS.
@@ -61,6 +67,9 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         CAPPluginMethod(name: "takeSharedFiles", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "syncWidget", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "takePurchaseIntents", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "speechAvailable", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "speechStart", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "speechStop", returnType: CAPPluginReturnPromise),
     ]
 
     /// Shared with the App Intents in AppDelegate.swift. Rename both or neither.
@@ -232,6 +241,10 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         if #available(iOS 16.4, *) {
             watchPurchaseIntents()
         }
+    }
+
+    deinit {
+        purchaseIntentTask?.cancel()
     }
 
     @available(iOS 16.4, *)
@@ -464,6 +477,52 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         UserDefaults.standard.set(Array(walletNames.prefix(12)), forKey: "duitful.assistant.wallets")
         DuitfulWidgetReload.reloadAll()
         call.resolve(["ok": true])
+    }
+
+    // MARK: - Talk to Kira (Speech, on-device only)
+
+    private var speechObserver: NSObjectProtocol?
+
+    /// {available, onDevice, locale}: can this language be heard on this iPhone.
+    @objc func speechAvailable(_ call: CAPPluginCall) {
+        let lang = call.getString("lang") ?? "en-MY"
+        DispatchQueue.main.async {
+            call.resolve(DuitfulSpeech.status(lang: lang))
+        }
+    }
+
+    /// Listens until speechStop, silence or 30 s; resolves {text} ("" if
+    /// nothing was heard). Rejects DENIED when speech or the mic is refused.
+    @objc func speechStart(_ call: CAPPluginCall) {
+        let lang = call.getString("lang") ?? "en-MY"
+        DuitfulSpeech.authorize { granted in
+            guard granted else {
+                call.reject("Speech recognition or the microphone isn't allowed", "DENIED")
+                return
+            }
+            if self.speechObserver == nil {
+                // Never listen in the background.
+                self.speechObserver = NotificationCenter.default.addObserver(
+                    forName: UIApplication.willResignActiveNotification, object: nil, queue: .main
+                ) { _ in DuitfulSpeech.shared.stop() }
+            }
+            DuitfulSpeech.shared.start(lang: lang, partial: { [weak self] text in
+                self?.notifyListeners("speechPartial", data: ["text": text])
+            }, finish: { result in
+                switch result {
+                case .success(let text): call.resolve(["text": text])
+                case .failure(let failure): call.reject(failure.message, failure.code)
+                }
+            })
+        }
+    }
+
+    /// Let go of Kira / tap the mic: the pending speechStart resolves.
+    @objc func speechStop(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            DuitfulSpeech.shared.stop()
+            call.resolve(["ok": true])
+        }
     }
 
     /// Ask iOS for the rating sheet. The system shows it at most a few times

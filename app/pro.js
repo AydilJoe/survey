@@ -947,7 +947,7 @@ function iapTxSku(tx) {
   return String((tx && Array.isArray(tx.products) && tx.products[0] && tx.products[0].id) || (tx && tx.productId) || "");
 }
 function iapTxId(tx) {
-  return String((tx && (tx.transactionId || tx.purchaseToken || tx.id)) || "");
+  return String((tx && (tx.transactionId || tx.purchaseToken || tx.purchaseId || tx.id)) || "");
 }
 // The payload of a StoreKit 2 signed transaction, read (not verified: the
 // server verifies AI+, and Pro has always been unlocked on the device).
@@ -1086,7 +1086,7 @@ async function recordNativeAttribution(receipt) {
     const tx = receipt && (receipt.transaction || receipt);
     if (tx) {
       sku = tx.products?.[0]?.id || tx.productId || "";
-      txId = tx.transactionId || tx.purchaseToken || tx.id || "";
+      txId = tx.transactionId || tx.purchaseToken || tx.purchaseId || tx.id || "";
     }
     if (!sku && receipt && Array.isArray(receipt.collection)) {
       sku = receipt.collection[0]?.products?.[0]?.id || "";
@@ -1222,7 +1222,14 @@ async function drainPurchaseIntents() {
         const out = await purchasePro(id);
         if (out && out.ok) openProWelcome();
       } else if (typeof AI_IOS_SKUS !== "undefined" && (id === AI_IOS_SKUS.monthly || id === AI_IOS_SKUS.yearly) && typeof purchaseAiSubscription === "function") {
-        await purchaseAiSubscription(id === AI_IOS_SKUS.yearly ? "yearly" : "monthly");
+        if (typeof aiPlusEnabled === "function" && !aiPlusEnabled()) continue;
+        const out = await purchaseAiSubscription(id === AI_IOS_SKUS.yearly ? "yearly" : "monthly");
+        if (out && out.ok) {
+          if (typeof renderAiCloudSettings === "function") renderAiCloudSettings();
+          notify(tr("Duitful AI+ is active."));
+        } else if (out && !out.cancelled && out.message) {
+          notify(out.message);
+        }
       }
     }
   } finally { purchaseIntentBusy = false; }
@@ -1474,11 +1481,12 @@ async function restorePurchases() {
       await Promise.race([aiRestoreFromStore(sdk), new Promise((r) => setTimeout(r, 8000))]);
     }
     if (typeof aiVerifyIdle === "function") await Promise.race([aiVerifyIdle(), new Promise((r) => setTimeout(r, 8000))]);
-    if (err && err.isError && !(state && state.pro) && !wasAiBefore) {
+    const hasAiNow = !!(typeof aiSubIsActive === "function" && aiSubIsActive(state && state.aiSub));
+    const restoredAny = (hasAiNow && !wasAiBefore) || (!!(state && state.pro) && !wasProBefore);
+    if (err && err.isError && !restoredAny) {
       notify(tr("Restore failed:") + " " + (err.message || String(err.code || "")));
       return;
     }
-    const hasAiNow = !!(typeof aiSubIsActive === "function" && aiSubIsActive(state && state.aiSub));
     if (hasAiNow && !wasAiBefore) {
       notify(tr("Duitful AI+ restored. Welcome back!"));
     } else if (state && state.pro && !wasProBefore) {

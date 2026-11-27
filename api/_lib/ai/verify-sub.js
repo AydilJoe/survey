@@ -308,9 +308,10 @@ async function verifyStoreReceipt(body) {
       };
     }
     if (!v.active) return inactive();
-    // Apple unreachable: the JWS alone, never past its own expiresDate, and
-    // asked again soon. Not configured / config error / unknown: as before.
-    return live.state === "unreachable" ? { ...fromJws, recheck: true } : fromJws;
+    // Apple unreachable or hasn't propagated the new transaction yet (404):
+    // trust the verified JWS, never past its own expiresDate, and ask again soon.
+    // Not configured / config error: as before.
+    return (live.state === "unreachable" || live.state === "unknown") ? { ...fromJws, recheck: true } : fromJws;
   }
 
   if (platform === "android") {

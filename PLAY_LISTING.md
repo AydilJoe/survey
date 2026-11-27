@@ -186,6 +186,7 @@ Apa baru dalam 1.46
 ## Play Data safety (update when Duitful AI+ launches)
 
 - **Default (Free & Lifetime Pro):** No financial vault data is collected or shared. On-device OCR, statement parsing, and Gemini Nano run locally on the phone.
+- **Microphone / Talk to Kira (1.80.0, `RECORD_AUDIO`, asked at first use):** Android's `SpeechRecognizer` turns a spoken spend into text; on-device recogniser first (Android 12+), else the phone's speech service with "prefer offline". Duitful never records, stores or uploads the audio, and nothing reaches Duitful's servers, so **Audio → Voice or sound recordings: not collected** by the developer. The speech service's own processing (when the phone has no offline model) is the system provider's, described in the privacy policy.
 - **Optional Duitful AI+ (`duitful_ai` subscription, off by default):** Only when the user subscribes and explicitly enables Duitful AI+ in Settings, Duitful sends a single redacted receipt/document image or short text snippet over HTTPS to `/api/ai?op=run` (Google Paid Gemini API, no model training).
   - **Processed ephemerally:** Yes (Duitful stores zero request bodies, images, or outputs; only numeric monthly quota counters and 10-minute single-use pair codes).
   - **Encrypted in transit:** Yes (TLS / HTTPS).

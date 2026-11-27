@@ -558,6 +558,21 @@ function aiVerifyIdle() {
 }
 function aiVerifyCount() { return aiVerifySent; }
 
+// Google Play transactions in capacitor-plugin-cdv-purchase 13 carry the
+// Play purchaseToken on tx.purchaseId, tx.nativePurchase.purchaseToken and
+// tx.parentReceipt.purchaseToken — NOT on tx.purchaseToken (which only
+// exists on the Receipt object and in test fixtures).
+function aiPlayPurchaseToken(tx, receipt) {
+  const from = (o) => (o && typeof o === "object"
+    ? (o.purchaseToken
+      || o.purchaseId
+      || (o.nativePurchase && o.nativePurchase.purchaseToken)
+      || (o.parentReceipt && o.parentReceipt.purchaseToken)
+      || "")
+    : "");
+  return String(from(tx) || from(receipt) || "");
+}
+
 // Restore must re-send AI+ even when the plugin doesn't report it again: it
 // re-fires "approved" for a transaction at most once a minute, so a Restore
 // right after the launch re-report brings nothing new. Sends the newest AI+
@@ -566,9 +581,11 @@ async function aiRestoreFromStore(sdk) {
   try {
     const txs = sdk && sdk.store && Array.isArray(sdk.store.localTransactions) ? sdk.store.localTransactions : [];
     const ai = txs.filter((t) => t && Array.isArray(t.products) && t.products.some((p) => p && AI_ALL_SKUS.has(p.id))
-      && (t.jwsRepresentation || t.purchaseToken));
+      && (t.jwsRepresentation || aiPlayPurchaseToken(t)));
     if (!ai.length) return null;
-    const time = (t) => (t.purchaseDate instanceof Date ? t.purchaseDate.getTime() : Number(t.purchaseDate) || 0);
+    const time = (t) => (t.purchaseDate instanceof Date
+      ? t.purchaseDate.getTime()
+      : (Number(t.purchaseDate) || Date.parse(t.purchaseDate) || 0));
     ai.sort((a, b) => time(b) - time(a));
     return await handleAiSubscriptionReceipt(ai[0], { restoring: true });
   } catch (_) {
@@ -671,7 +688,8 @@ async function handleAiSubscriptionReceipt(receipt, opts) {
   const ids = aiReceiptProductIds(tx);
   const plan = ids.find((id) => AI_ALL_SKUS.has(id)) || AI_ANDROID_SKU;
   const plat = (typeof nativePlatform === "function" && nativePlatform() !== "web" && nativePlatform()) || (plan === AI_ANDROID_SKU ? "android" : "ios");
-  const txId = String(tx.transactionId || tx.purchaseToken || tx.id || "");
+  const playToken = aiPlayPurchaseToken(tx, receipt);
+  const txId = String(tx.transactionId || playToken || tx.id || "");
   // This report answers the purchase on screen only if it is that product
   // and not a re-report of something already finished.
   const settles = !!aiPurchaseSettler && (!aiPurchasePendingSku || aiPurchasePendingSku === plan) && tx.isAcknowledged !== true;
@@ -691,9 +709,9 @@ async function handleAiSubscriptionReceipt(receipt, opts) {
     plan,
     // iPhone: the transaction's StoreKit 2 signed JWS. Android: the token.
     signedTransactionInfo: tx.jwsRepresentation || tx.signedTransactionInfo || "",
-    purchaseToken: tx.purchaseToken || "",
+    purchaseToken: playToken,
     transactionId: tx.transactionId || tx.id || "",
-    expiresAt: tx.expiryDate || undefined,
+    expiresAt: tx.expiryDate || tx.expirationDate || undefined,
     slotId: (typeof state !== "undefined" && state && state.aiSub && state.aiSub.slotId) || "",
     accountToken: typeof purchaseAccountToken === "function" ? purchaseAccountToken() : "",
     deviceLabel: plat === "ios" ? "iPhone" : "Android",
@@ -703,10 +721,14 @@ async function handleAiSubscriptionReceipt(receipt, opts) {
   aiVerifying.add(run);
   let res;
   try { res = await run; } finally { aiVerifying.delete(run); }
-  // Finished either way: StoreKit 2 reports the entitlement again at the
-  // next launch, and the server acknowledges a Play purchase itself.
-  finish();
-  if (res && !res.ok && AI_ENDED_ERRORS.has(res.error)) {
+  // StoreKit 2 re-reports current entitlements at next launch so finishing on
+  // iOS is safe even on transient error. On Android, tx.finish() calls
+  // BillingClient.acknowledgePurchase() on-device: never acknowledge a Play
+  // purchase when verify-sub failed transiently (offline / 5xx), or Play
+  // won't auto-refund and won't re-deliver the unacknowledged purchase.
+  const ended = !!(res && !res.ok && AI_ENDED_ERRORS.has(res.error));
+  if ((res && res.ok) || ended || plat === "ios") finish();
+  if (ended) {
     // The store says it ended (a refund, a lapse): take the server's view.
     if (state && state.aiSub && state.aiSub.subToken) await aiFetchStatus();
     else if (state && state.aiSub) { state.aiSub = { ...state.aiSub, active: false }; if (typeof save === "function") save(); renderAiCloudSettings(); }
