@@ -1904,6 +1904,11 @@
   "Get AI+": "开通 AI+",
   "Cloud AI for receipts, voice & PDFs.": "用于收据、语音和 PDF 的云端 AI。",
   "Verifying your subscription…": "正在验证您的订阅…",
+  "Duitful AI+": "Duitful AI+",
+  "Use AI+": "启用 AI+",
+  "Get 6-digit code": "获取 6 位配对码",
+  "6-digit code": "6 位配对码",
+  "Pair": "配对",
   "Welcome": "欢迎",
   "What comes in each month?": "每个月进账多少？",
   "Your salary. A rough figure is fine.": "你的工资，大概数字就行。",
@@ -2792,4 +2797,5 @@
   "Hang tight…": "请稍等一下…",
   "Completing purchase…": "正在完成购买…",
   "Tap Kira while you wait": "等待时可以点一点 Kira",
+  "Tap Kira": "点一点 Kira",
 };

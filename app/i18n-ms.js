@@ -1904,6 +1904,11 @@
   "Get AI+": "Dapatkan AI+",
   "Cloud AI for receipts, voice & PDFs.": "AI awan untuk resit, suara & PDF.",
   "Verifying your subscription…": "Mengesahkan langganan anda…",
+  "Duitful AI+": "Duitful AI+",
+  "Use AI+": "Guna AI+",
+  "Get 6-digit code": "Dapatkan kod 6 digit",
+  "6-digit code": "Kod 6 digit",
+  "Pair": "Paut",
   "Welcome": "Selamat datang",
   "What comes in each month?": "Berapa yang masuk setiap bulan?",
   "Your salary. A rough figure is fine.": "Gaji anda. Anggaran kasar pun boleh.",
@@ -2792,4 +2797,5 @@
   "Hang tight…": "Tunggu sebentar…",
   "Completing purchase…": "Menyelesaikan pembelian…",
   "Tap Kira while you wait": "Ketik Kira sambil menunggu",
+  "Tap Kira": "Ketik Kira",
 };

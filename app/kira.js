@@ -585,7 +585,7 @@ function showKiraPurchaseLoading(statusText) {
   dlg.innerHTML =
     '<div class="kira-wait-body">' +
       `<div class="kira-thanks-bubble kira-wait-bubble">${esc(quips[0])}</div>` +
-      '<button type="button" class="kira-wait-stage" aria-label="Tap Kira">' +
+      `<button type="button" class="kira-wait-stage" aria-label="${esc(t("Tap Kira"))}">` +
         '<span class="kira-wait-ring" aria-hidden="true"></span>' +
         kiraSvg("happy", { idle: true, wave: true, cls: "kira-wait-svg" }) +
       '</button>' +
