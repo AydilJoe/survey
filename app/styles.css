@@ -9998,6 +9998,19 @@ html[data-theme="dark"] .streak-day.is-done .streak-day-dot { color: var(--stage
   color: var(--ink2);
 }
 .voice-preview-split[hidden] { display: none; }
+/* Talk to Kira (1.80.0): Kira beside the sheet's title — happy at rest,
+   listening while the mic is open, proud once there is a spend to save —
+   and one status line ("Listening…", or the microphone note). */
+.voice-head { display: flex; align-items: center; gap: 0.6rem; }
+.voice-head h2 { margin: 0; min-width: 0; }
+.voice-kira { flex: none; display: block; width: 34px; height: 40px; }
+.voice-kira:empty { display: none; }
+.voice-kira .kira { width: 100%; height: 100%; }
+.voice-status { margin: 0 0 0.45rem; font-size: 0.86rem; font-weight: 600; color: var(--primary); }
+.voice-status[hidden] { display: none; }
+.voice-status[data-tone="warn"] { color: var(--warn-yellow-ink); font-weight: 500; }
+/* Holding Kira on Home: no long-press callout, no selection, no scroll. */
+#tab-dashboard svg.kira .kira-body { touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 
 
 
@@ -10338,6 +10351,19 @@ svg.kira .kira-body { pointer-events: visiblePainted; }
 }
 @keyframes kira-blink-once { 0%, 30%, 100% { transform: scaleY(1); } 45% { transform: scaleY(0.1); } }
 @keyframes kira-hehe { 0% { transform: scale(0) rotate(0); opacity: 0; } 40% { transform: scale(1.2) rotate(25deg); opacity: 1; } 100% { transform: scale(0.8) rotate(45deg); opacity: 0; } }
+/* Listening Kira (1.80.0, Voice sheet): the sound arcs pulse outwards while
+   the mic is open and the head nods once per new word (.is-hearing). Under
+   reduced motion the arcs simply sit there. */
+.kira-ear { stroke: var(--brand); stroke-width: 2.2; stroke-linecap: round; fill: none; opacity: 0.7; }
+.kira-ear.ke-2 { opacity: 0.4; }
+@media (prefers-reduced-motion: no-preference) {
+  .kira-listen-head { transform-box: fill-box; transform-origin: 50% 100%; }
+  .kira-ear { transform-box: fill-box; transform-origin: center; animation: kira-ear 1.4s ease-in-out infinite; }
+  .kira-ear.ke-2 { animation-delay: 0.25s; }
+  svg.kira.is-hearing .kira-listen-head { animation: kira-listen-nod 0.6s ease-in-out 1; }
+}
+@keyframes kira-ear { 0%, 100% { opacity: 0.25; transform: scale(0.85); } 50% { opacity: 0.85; transform: scale(1.05); } }
+@keyframes kira-listen-nod { 0%, 100% { transform: rotate(0) translateY(0); } 35% { transform: rotate(-3deg) translateY(1.5px); } 70% { transform: rotate(2deg) translateY(-1px); } }
 
 /* The confetti burst (kiraBurst): pieces fly out from the slot's middle. */
 .kira-burst { position: absolute; left: 50%; top: 45%; width: 0; height: 0; pointer-events: none; }

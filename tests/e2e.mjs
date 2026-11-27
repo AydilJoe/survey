@@ -15874,6 +15874,287 @@ check('the brand catalogue makes no network calls at all',
   await vCtx.close();
 }
 
+// ── Talk to Kira (v1.80.0): native speech in DuitfulKit, hold Kira on Home ──
+{
+  const read = (f) => readFileSync(path.join(REPO_ROOT, f), 'utf8');
+  const patchIosSrc = read('scripts/patch-ios.mjs');
+  const kitInstall = await import(pathToFileURL(path.join(REPO_ROOT, 'scripts', 'install-duitful-kit.mjs')).href);
+  const kitInstallSrc = read('scripts/install-duitful-kit.mjs');
+  const javaKit = read('native/duitful-kit/android/DuitfulKitPlugin.java');
+  const javaSpeech = read('native/duitful-kit/android/DuitfulKitSpeech.java');
+  const swiftKit = read('native/duitful-kit/ios/Sources/DuitfulKitPlugin/DuitfulKitPlugin.swift');
+  const swiftSpeech = read('native/duitful-kit/ios/Sources/DuitfulKitPlugin/DuitfulSpeech.swift');
+  const podspec = read('native/duitful-kit/DuitfulCapacitorKit.podspec');
+  const speechMethods = ['speechAvailable', 'speechStart', 'speechStop'];
+  check('Talk to Kira (1.80.0): patch-ios.mjs adds NSMicrophoneUsageDescription and NSSpeechRecognitionUsageDescription (iOS kills the app without them)',
+    /"NSMicrophoneUsageDescription",\s*\n\s*"[^"]*on this iPhone[^"]*"/.test(patchIosSrc)
+    && /"NSSpeechRecognitionUsageDescription",\s*\n\s*"[^"]*on this iPhone[^"]*"/.test(patchIosSrc));
+  check('Talk to Kira (1.80.0): the Android install script adds RECORD_AUDIO and the speech service query, and copies DuitfulKitSpeech.java',
+    kitInstall.PERMISSIONS.includes('android.permission.RECORD_AUDIO')
+    && kitInstall.SPEECH_QUERY === 'android.speech.RecognitionService'
+    && kitInstallSrc.includes('<uses-permission android:name="${perm}" />')
+    && kitInstall.SOURCES.includes('DuitfulKitSpeech.java'));
+  check('Talk to Kira (1.80.0): DuitfulKit has speechAvailable / speechStart / speechStop on both platforms, the "speechPartial" event, RECORD_AUDIO as a Capacitor permission alias, on-device first on Android and on-device only on iPhone',
+    speechMethods.every((m) => new RegExp(`@PluginMethod\\s+public void ${m}\\(PluginCall call\\)`).test(javaKit)
+      && swiftKit.includes(`CAPPluginMethod(name: "${m}", returnType: CAPPluginReturnPromise)`)
+      && new RegExp(`@objc func ${m}\\(_ call: CAPPluginCall\\)`).test(swiftKit))
+    && /@Permission\(strings = \{ Manifest\.permission\.RECORD_AUDIO \}, alias = DuitfulKitPlugin\.MIC\)/.test(javaKit)
+    && /@PermissionCallback\s+private void speechPermissionAnswered/.test(javaKit)
+    && javaKit.includes('notifyListeners("speechPartial"') && swiftKit.includes('notifyListeners("speechPartial"')
+    && javaSpeech.includes('createOnDeviceSpeechRecognizer') && javaSpeech.includes('EXTRA_PREFER_OFFLINE')
+    && javaSpeech.includes('new Handler(Looper.getMainLooper())') && /MAX_MS = 30_000L/.test(javaSpeech)
+    && swiftSpeech.includes('req.requiresOnDeviceRecognition = true') && swiftSpeech.includes('supportsOnDeviceRecognition')
+    && /maxSeconds: TimeInterval = 30/.test(swiftSpeech) && swiftSpeech.includes('setActive(false, options: .notifyOthersOnDeactivation)')
+    && /'Speech', 'AVFoundation'/.test(podspec));
+
+  const tCtx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  const tp = await tCtx.newPage();
+  const tErr = [];
+  tp.on('pageerror', (e) => tErr.push(e.message));
+  await tp.goto(`${BASE}/app/index.html`);
+  await tp.waitForTimeout(500);
+  await tp.click('#btn-start-open');
+  await tp.waitForTimeout(1500);
+  await tp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  const shotDir = process.env.DUITFUL_VOICE_SHOTS || '';
+  const shot = async (name) => { if (shotDir) { try { await tp.screenshot({ path: path.join(shotDir, name) }); } catch {} } };
+  // A stand-in DuitfulKit with the speech methods. speechStart stays pending
+  // until speechStop (or the test) answers it, like the real recogniser.
+  const stub = (opts) => tp.evaluate((o) => {
+    const sp = window.__sp = { calls: [], fns: [], res: null, rej: null, finalText: o.finalText || '' };
+    const kit = {};
+    if (o.speech) {
+      kit.speechAvailable = async (a) => { sp.calls.push(['avail', a && a.lang]); return { available: !!o.available, onDevice: true }; };
+      kit.speechStart = (a) => { sp.calls.push(['start', a && a.lang]); return new Promise((res, rej) => { sp.res = res; sp.rej = rej; }); };
+      kit.speechStop = async () => { sp.calls.push(['stop']); const r = sp.res; sp.res = null; if (r) setTimeout(() => r({ text: sp.finalText }), 20); return { ok: true }; };
+      kit.addListener = async (ev, fn) => { if (ev === 'speechPartial') sp.fns.push(fn); return { remove: () => { sp.fns = sp.fns.filter((f) => f !== fn); } }; };
+    }
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { DuitfulKit: kit } };
+    window.__spEmit = (text) => sp.fns.forEach((f) => f({ text }));
+  }, opts);
+  const openSheet = (listen) => tp.evaluate(async (l) => {
+    openVoiceEntry('', l ? { listen: true } : undefined);
+    await new Promise((r) => setTimeout(r, 150));
+    return !document.getElementById('voice-mic-btn').hidden;
+  }, listen);
+  const closeSheet = () => tp.evaluate(() => { const d = document.getElementById('voice-dialog'); if (d.open) d.close(); });
+
+  // Hidden when the shell has no speech methods (an older app) or says no.
+  await stub({ speech: false });
+  const micOldShell = await openSheet(false);
+  await closeSheet();
+  await stub({ speech: true, available: false });
+  const micUnavailable = await openSheet(false);
+  await closeSheet();
+  // The answer is kept for the session: reload for a kit that says yes.
+  await tp.reload();
+  await tp.waitForTimeout(1500);
+  await tp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  await stub({ speech: true, available: true, finalText: 'RM 12.50 nasi lemak' });
+  const micShown = await openSheet(false);
+  const idle = await tp.evaluate(() => ({
+    kira: !!document.querySelector('#voice-kira svg.kira--happy'),
+    status: document.getElementById('voice-status').hidden,
+  }));
+  await shot('1-sheet-idle.png');
+  await tp.click('#voice-mic-btn');
+  await tp.waitForTimeout(120);
+  const listening = await tp.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const out = { started: __sp.calls.filter((c) => c[0] === 'start').map((c) => c[1]) };
+    out.pressed = document.getElementById('voice-mic-btn').getAttribute('aria-pressed');
+    out.dlgListening = document.getElementById('voice-dialog').classList.contains('is-listening');
+    out.status = document.getElementById('voice-status').textContent;
+    const k = document.querySelector('#voice-kira svg.kira');
+    out.mood = k && k.getAttribute('data-kira');
+    out.listeningCls = !!k && k.classList.contains('kira--listening');
+    out.sempoa = !!document.querySelector('#voice-kira .sempoa, #voice-kira .ai-bead');
+    out.ears = document.querySelectorAll('#voice-kira .kira-ear').length;
+    out.earAnim = getComputedStyle(document.querySelector('#voice-kira .kira-ear')).animationName;
+    out.ariaHidden = k && k.getAttribute('aria-hidden');
+    __spEmit('RM 12');
+    await wait(30);
+    out.partial1 = document.getElementById('voice-input').value;
+    __spEmit('RM 12.50 nasi lemak');
+    await wait(30);
+    out.partial2 = document.getElementById('voice-input').value;
+    out.hearing = document.querySelector('#voice-kira svg.kira').classList.contains('is-hearing');
+    out.nod = getComputedStyle(document.querySelector('#voice-kira .kira-listen-head')).animationName;
+    return out;
+  });
+  await shot('2-listening-partial.png');
+  await tp.click('#voice-mic-btn');
+  await tp.waitForTimeout(200);
+  const preview = await tp.evaluate(() => ({
+    stops: __sp.calls.filter((c) => c[0] === 'stop').length,
+    input: document.getElementById('voice-input').value,
+    previewShown: !document.getElementById('voice-preview').hidden,
+    spend: document.getElementById('voice-preview-spend').textContent,
+    save: !document.getElementById('voice-save').disabled,
+    proud: !!document.querySelector('#voice-kira svg.kira--proud'),
+    notListening: !document.getElementById('voice-dialog').classList.contains('is-listening')
+      && document.getElementById('voice-mic-btn').getAttribute('aria-pressed') === 'false',
+    listeners: __sp.fns.length,
+  }));
+  await shot('3-preview.png');
+  check('Talk to Kira (1.80.0): in the phone app the Voice mic shows only when DuitfulKit can hear (hidden in an older shell and when speechAvailable says no)',
+    micOldShell === false && micUnavailable === false && micShown === true && idle.kira && idle.status,
+    JSON.stringify({ micOldShell, micUnavailable, micShown, idle }));
+  check('Talk to Kira (1.80.0): the mic starts DuitfulKit.speechStart in the app\'s language; partial text fills the box; Kira listens (ears pulse, nods per word, aria-hidden, no sempoa)',
+    listening.started.length === 1 && listening.started[0] === 'en-MY' && listening.pressed === 'true' && listening.dlgListening
+    && /Listening/.test(listening.status) && listening.mood === 'listening' && listening.listeningCls && !listening.sempoa
+    && listening.ears === 4 && listening.earAnim === 'kira-ear' && listening.ariaHidden === 'true'
+    && listening.partial1 === 'RM 12' && listening.partial2 === 'RM 12.50 nasi lemak' && listening.hearing && listening.nod === 'kira-listen-nod',
+    JSON.stringify(listening));
+  check('Talk to Kira (1.80.0): stopping calls speechStop; the final text parses into the preview (RM 12.50 · Food) and Kira turns proud',
+    preview.stops === 1 && preview.input === 'RM 12.50 nasi lemak' && preview.previewShown && /12\.50/.test(preview.spend) && /Food/.test(preview.spend)
+    && preview.save && preview.proud && preview.notListening && preview.listeners === 0,
+    JSON.stringify(preview));
+
+  // Microphone refused: one line, and the keyboard still works.
+  await closeSheet();
+  await openSheet(false);
+  await tp.click('#voice-mic-btn');
+  await tp.waitForTimeout(80);
+  await tp.evaluate(() => { const e = new Error('Microphone permission denied'); e.code = 'DENIED'; __sp.rej(e); });
+  await tp.waitForTimeout(80);
+  await tp.fill('#voice-input', 'RM 8 teh tarik');
+  await tp.waitForTimeout(80);
+  const denied = await tp.evaluate(() => ({
+    status: document.getElementById('voice-status').textContent,
+    shown: !document.getElementById('voice-status').hidden,
+    preview: document.getElementById('voice-preview-spend').textContent,
+    notListening: !document.getElementById('voice-dialog').classList.contains('is-listening'),
+  }));
+  await shot('4-permission-denied.png');
+  check('Talk to Kira (1.80.0): a refused microphone shows "Allow the microphone in Settings to talk to Kira." and typing still previews',
+    denied.shown && denied.status === 'Allow the microphone in Settings to talk to Kira.' && /8\.00/.test(denied.preview) && denied.notListening,
+    JSON.stringify(denied));
+
+  // Cancel while listening drops what was heard.
+  await closeSheet();
+  await openSheet(false);
+  await tp.click('#voice-mic-btn');
+  await tp.waitForTimeout(80);
+  await tp.evaluate(() => { __sp.finalText = 'RM 99 should not land'; });
+  await tp.click('#voice-cancel');
+  await tp.waitForTimeout(150);
+  const cancelled = await tp.evaluate(() => ({ open: document.getElementById('voice-dialog').open, input: document.getElementById('voice-input').value, stops: __sp.calls.filter((c) => c[0] === 'stop').length }));
+
+  // Hold Kira on Home: a long press opens the sheet already listening; a
+  // short tap is only the giggle.
+  await tp.evaluate(() => { __sp.calls = []; __sp.finalText = 'dua belas ringgit nasi lemak'; document.getElementById('tabbtn-dashboard')?.click(); window.scrollTo(0, 0); });
+  await tp.waitForTimeout(150);
+  const kiraBox = async () => tp.evaluate(() => {
+    const b = document.querySelector('#today-kira svg.kira .kira-body');
+    if (!b) return null;
+    b.scrollIntoView({ block: 'center' });
+    const r = b.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  const kb = await kiraBox();
+  let tap = null, hold = null, released = null;
+  if (kb) {
+    await tp.mouse.move(kb.x, kb.y);
+    await tp.mouse.down();
+    await tp.waitForTimeout(90);
+    const tapped = await tp.evaluate(() => document.querySelector('#today-kira svg.kira').classList.contains('is-tapped'));
+    await tp.mouse.up();
+    await tp.waitForTimeout(400);
+    tap = await tp.evaluate(() => ({ open: document.getElementById('voice-dialog').open, starts: __sp.calls.filter((c) => c[0] === 'start').length }));
+    tap.tapped = tapped;
+    const kb2 = await kiraBox();
+    await tp.mouse.move(kb2.x, kb2.y);
+    await tp.mouse.down();
+    await tp.waitForTimeout(600);
+    await shot('5-home-hold-kira.png');
+    hold = await tp.evaluate(() => {
+      __spEmit('dua belas ringgit');
+      return {
+        open: document.getElementById('voice-dialog').open,
+        starts: __sp.calls.filter((c) => c[0] === 'start').length,
+        listening: !!document.querySelector('#voice-kira svg.kira--listening'),
+        input: document.getElementById('voice-input').value,
+        focused: document.activeElement && document.activeElement.id,
+      };
+    });
+    await tp.mouse.up();
+    await tp.waitForTimeout(250);
+    released = await tp.evaluate(() => ({
+      stops: __sp.calls.filter((c) => c[0] === 'stop').length,
+      input: document.getElementById('voice-input').value,
+      preview: document.getElementById('voice-preview-spend').textContent,
+      proud: !!document.querySelector('#voice-kira svg.kira--proud'),
+    }));
+    await shot('6-home-hold-released.png');
+  }
+  check('Talk to Kira (1.80.0): Cancel while listening stops the mic and drops what was heard',
+    cancelled.open === false && cancelled.input === '' && cancelled.stops >= 1, JSON.stringify(cancelled));
+  check('Talk to Kira (1.80.0): holding Home\'s Kira opens Voice already listening (no keyboard); letting go stops and previews; a short tap only giggles',
+    !!kb && tap && !tap.open && tap.starts === 0 && tap.tapped
+    && hold && hold.open && hold.starts === 1 && hold.listening && hold.input === 'dua belas ringgit' && hold.focused !== 'voice-input'
+    && released && released.stops === 1 && released.input === 'dua belas ringgit nasi lemak' && /12\.00/.test(released.preview) && released.proud,
+    JSON.stringify({ kb, tap, hold, released }));
+  await closeSheet();
+
+  // Reduced motion: listening Kira sits still (no ear pulse, no nod).
+  await tp.emulateMedia({ reducedMotion: 'reduce' });
+  await openSheet(false);
+  await tp.click('#voice-mic-btn');
+  await tp.waitForTimeout(80);
+  const rm = await tp.evaluate(async () => {
+    __spEmit('RM 5');
+    await new Promise((r) => setTimeout(r, 30));
+    return {
+      ear: getComputedStyle(document.querySelector('#voice-kira .kira-ear')).animationName,
+      nod: getComputedStyle(document.querySelector('#voice-kira .kira-listen-head')).animationName,
+      input: document.getElementById('voice-input').value,
+    };
+  });
+  await tp.click('#voice-mic-btn');
+  await closeSheet();
+  await tp.emulateMedia({ reducedMotion: 'no-preference' });
+  check('Talk to Kira (1.80.0): under reduced motion listening Kira keeps still and the words still arrive',
+    rm.ear === 'none' && rm.nod === 'none' && rm.input === 'RM 5', JSON.stringify(rm));
+
+  // 360px in English, Malay and Chinese: the sheet's head, mic row and the
+  // listening line stay inside the sheet, and the line is translated.
+  await tp.setViewportSize({ width: 360, height: 780 });
+  const fit = {};
+  for (const lang of ['en', 'ms', 'zh']) {
+    fit[lang] = await tp.evaluate(async (l) => {
+      await I18N.set(l);
+      openVoiceEntry('');
+      await new Promise((r) => setTimeout(r, 150));
+      document.getElementById('voice-mic-btn').click();
+      await new Promise((r) => setTimeout(r, 80));
+      __spEmit('RM 12.50 nasi lemak');
+      await new Promise((r) => setTimeout(r, 30));
+      const dlg = document.getElementById('voice-dialog');
+      const d = dlg.getBoundingClientRect();
+      const out = [];
+      for (const sel of ['.voice-head', '#voice-kira', '#voice-dialog-title', '.voice-input-row', '#voice-mic-btn', '#voice-status', '#voice-preview']) {
+        const el = dlg.querySelector(sel);
+        if (!el || el.hidden) { out.push(sel + ' missing'); continue; }
+        const r = el.getBoundingClientRect();
+        if (r.left < d.left - 1 || r.right > d.right + 1) out.push(sel + ' outside');
+      }
+      const status = document.getElementById('voice-status').textContent;
+      document.getElementById('voice-mic-btn').click();
+      await new Promise((r) => setTimeout(r, 80));
+      dlg.close();
+      return { out, status, page: document.documentElement.scrollWidth <= innerWidth + 1 };
+    }, lang);
+  }
+  await tp.evaluate(() => I18N.set('en'));
+  check('Talk to Kira (1.80.0): at 360px the listening sheet fits in EN / MS / ZH and "Listening…" is translated',
+    ['en', 'ms', 'zh'].every((l) => fit[l].out.length === 0 && fit[l].page)
+    && fit.en.status === 'Listening…' && fit.ms.status === 'Sedang mendengar…' && fit.zh.status === '正在聆听…',
+    JSON.stringify(fit));
+  check('Talk to Kira (1.80.0): no page errors', tErr.length === 0, JSON.stringify(tErr));
+  await tCtx.close();
+}
+
 // ── Kira, the receipt mascot (v1.71.0) ────────────────────────────────────
 {
   // The sempoa (counting) mood means on-device AI and nothing else: the only
