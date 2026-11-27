@@ -847,17 +847,34 @@ async function purchaseAiSubscription(plan) {
 
   const settlement = new Promise((resolve) => { aiPurchaseSettler = resolve; });
   aiPurchasePendingSku = sku;
-  // A sheet that never answers (Ask to Buy) frees the paywall; the purchase
-  // still lands through approved later and is sent to the server then.
-  const timer = setTimeout(() => {
-    if (aiPurchaseSettler) settleAiPurchase({ ok: false, message: typeof tr === "function" ? tr("Verification timed out. Tap Restore if you completed the payment.") : "Verification timed out. Tap Restore if you completed the payment." });
-  }, 45000);
-  settlement.then(() => clearTimeout(timer));
+  let timer = 0;
+  let fallbackTimer = 0;
+  settlement.then(() => { clearTimeout(timer); clearTimeout(fallbackTimer); });
   try {
     const err = await offer.order();
     if (err && err.isError) {
       const cancelled = err.code === sdk.ErrorCode?.PAYMENT_CANCELLED || err.code === sdk.ErrorCode?.CANCELED;
       settleAiPurchase({ ok: false, cancelled, message: cancelled ? null : (err.message || "order-failed") });
+      return settlement;
+    }
+    // Start the verification timeout only AFTER the native Apple/Google payment
+    // sheet closes — signing into Sandbox or Face ID can take longer than 45s.
+    if (aiPurchaseSettler) {
+      if (typeof updateKiraPurchaseLoading === "function") {
+        updateKiraPurchaseLoading(typeof tr === "function" ? tr("Verifying your subscription…") : "Verifying your subscription…");
+      }
+      timer = setTimeout(() => {
+        if (aiPurchaseSettler) settleAiPurchase({ ok: false, message: typeof tr === "function" ? tr("Verification timed out. Tap Restore if you completed the payment.") : "Verification timed out. Tap Restore if you completed the payment." });
+      }, 45000);
+      // If StoreKit 2 / Play deduped `approved` (e.g. switching Monthly <-> Yearly
+      // or re-purchasing within the plugin's 1-minute dedup window), pull the
+      // latest AI+ transaction from the store and verify it directly.
+      fallbackTimer = setTimeout(async () => {
+        if (!aiPurchaseSettler) return;
+        const r = await aiRestoreFromStore(sdk);
+        if (!aiPurchaseSettler) return;
+        if (r && r.ok) settleAiPurchase({ ok: true, status: r.status });
+      }, 4000);
     }
   } catch (e) {
     settleAiPurchase({ ok: false, message: String((e && e.message) || e) });

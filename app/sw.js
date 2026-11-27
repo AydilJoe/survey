@@ -15,7 +15,7 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "h-ba24ac88";
+const VERSION = "h-4ff607cf";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
@@ -60,8 +60,8 @@ const SHELL = [
   "/app/cloud.js?v=fcd02ad8",
   "/app/capture.js?v=3af549e5",
   "/app/ai-redact.js?v=e6257012",
-  "/app/ai-cloud.js?v=b3c6900b",
-  "/app/pro.js?v=45366c0a",
+  "/app/ai-cloud.js?v=cb3a5ae0",
+  "/app/pro.js?v=6810a131",
   "/app/ocr.js?v=0fe4028c",
   "/app/analytics.js?v=01a6bc4a",
   "/app/theme-boot.js?v=68fa9ffd",
