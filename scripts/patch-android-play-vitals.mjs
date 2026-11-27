@@ -72,26 +72,26 @@ function edit(path, fn, label) {
   if (after !== before) { writeFileSync(path, after); done.push(label); }
 }
 
-// ---- 1. MainActivity: edge-to-edge with bar + keyboard insets ------------
+// ---- 1. MainActivity: edge-to-edge (Capacitor 8 SystemBars handles insets) -
 const mainActivity = resolve(APP_DIR, "src/main/java", ...APP_ID.split("."), "MainActivity.java");
 edit(mainActivity, (src) => {
   if (src.includes(MARK)) {
-    // Older runs enabled edge-to-edge before super.onCreate(). That builds the
-    // window under the splash theme — before BridgeActivity switches to
-    // AppTheme.NoActionBar — so a title bar showing the stretched splash image
-    // stayed above the app. Move the call after super.onCreate().
-    return src.replace(
+    // Older runs enabled edge-to-edge before super.onCreate() or attached a
+    // second OnApplyWindowInsetsListener on webView (keepWebViewClearOfSystemBars).
+    // Capacitor 8's SystemBars plugin already handles systemBars + IME insets on
+    // decorView, so a second listener on webView doubled the keyboard inset and
+    // left a huge black gap above the keyboard. Clean both up idempotently.
+    src = src.replace(
       /\n([ \t]*)\/\/ [^\n]*edge-to-edge on every Android version[^\n]*\n[ \t]*EdgeToEdge\.enable\(this\);(\n[ \t]*super\.onCreate\(savedInstanceState\);)/,
       `$2\n$1// ${MARK}: edge-to-edge on every Android version (enforced from 15). After\n$1// super.onCreate(), once Capacitor has switched off the splash theme.\n$1EdgeToEdge.enable(this);`,
     );
+    src = src
+      .replace(/\n[ \t]*keepWebViewClearOfSystemBars\(\);/g, "")
+      .replace(/\n[ \t]*\/\/[^\n]*the WebView sits inside the status bar[\s\S]*?private void keepWebViewClearOfSystemBars\(\) \{[\s\S]*?\n[ \t]*\}\n/g, "\n");
+    return src;
   }
   const imports = [
-    "import android.view.View;",
-    "import android.view.ViewGroup;",
     "import androidx.activity.EdgeToEdge;",
-    "import androidx.core.graphics.Insets;",
-    "import androidx.core.view.ViewCompat;",
-    "import androidx.core.view.WindowInsetsCompat;",
   ].filter((line) => !src.includes(line));
   src = src.replace(/(import com\.getcapacitor\.BridgeActivity;\n)/, `$1${imports.join("\n")}${imports.length ? "\n" : ""}`);
   if (/public class MainActivity extends BridgeActivity\s*\{\s*\}/.test(src)) {
@@ -103,33 +103,15 @@ edit(mainActivity, (src) => {
   if (!/super\.onCreate\(savedInstanceState\);/.test(src)) {
     throw new Error("patch-android-play-vitals: MainActivity has no super.onCreate(savedInstanceState) — add EdgeToEdge.enable(this) by hand.");
   }
-  src = src.replace(
+  // Capacitor 8's SystemBars plugin applies system-bar and IME insets on
+  // decorView (and passes safe-area-inset-* through when viewport-fit=cover).
+  // Do NOT add a second OnApplyWindowInsetsListener on webView, or the IME
+  // bottom inset is applied twice and leaves a large black gap above the keyboard.
+  return src.replace(
     /(\n([ \t]*)super\.onCreate\(savedInstanceState\);)/,
-    `$1\n$2// ${MARK}: edge-to-edge on every Android version (enforced from 15). After\n$2// super.onCreate(), once Capacitor has switched off the splash theme.\n$2EdgeToEdge.enable(this);\n$2keepWebViewClearOfSystemBars();`,
+    `$1\n$2// ${MARK}: edge-to-edge on every Android version (enforced from 15). After\n$2// super.onCreate(), once Capacitor has switched off the splash theme.\n$2EdgeToEdge.enable(this);`,
   );
-  const helper = `
-    // ${MARK}: the WebView sits inside the status bar, navigation bar, cutout
-    // and keyboard, so nothing draws under them and a focused field is never
-    // hidden by the IME. The strip behind the bars is the window background.
-    private void keepWebViewClearOfSystemBars() {
-        View webView = getBridge() == null ? null : getBridge().getWebView();
-        if (webView == null) return;
-        ViewCompat.setOnApplyWindowInsetsListener(webView, (v, insets) -> {
-            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
-            Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
-            ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) v.getLayoutParams();
-            lp.leftMargin = bars.left;
-            lp.topMargin = bars.top;
-            lp.rightMargin = bars.right;
-            lp.bottomMargin = Math.max(bars.bottom, ime.bottom);
-            v.setLayoutParams(lp);
-            return WindowInsetsCompat.CONSUMED;
-        });
-        ViewCompat.requestApplyInsets(webView);
-    }
-`;
-  return src.replace(/\n\}\s*$/, `\n${helper}}\n`);
-}, "MainActivity edge-to-edge + insets");
+}, "MainActivity edge-to-edge");
 
 // ---- 1b/2b. Colours: window background and pre-15 status bar ------------
 function ensureColors(dir, stage) {

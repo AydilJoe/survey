@@ -2911,7 +2911,9 @@ button.ghost.icon-btn {
   box-shadow: 0 -10px 40px rgba(42, 36, 32, 0.12), 0 1px 3px rgba(42, 36, 32, 0.05);
 }
 .edit-dialog::backdrop {
-  background: rgba(42, 36, 32, 0.35);
+  background: rgba(24, 20, 17, 0.42);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  backdrop-filter: blur(8px) saturate(1.1);
 }
 .edit-dialog form {
   padding: 1rem;
@@ -6720,7 +6722,11 @@ body.private .pending-match-sub {
   flex-direction: column;
 }
 .search-dialog:not([open]) { display: none; }
-.search-dialog::backdrop { background: rgba(10, 8, 6, 0.45); }
+.search-dialog::backdrop {
+  background: rgba(10, 8, 6, 0.45);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  backdrop-filter: blur(8px) saturate(1.1);
+}
 @media (min-width: 720px) {
   .search-dialog {
     height: auto;
@@ -8539,6 +8545,42 @@ html:not(.kb-open) .search-dialog:modal[data-kb-pinned] { margin-top: 0; max-hei
 /* The bottom bar would ride up on the keyboard and cover the field's neighbours. */
 @media (max-width: 439px) {
   html.kb-open .tabs { display: none; }
+}
+
+/* ---------- Form focus mode (blur + dim behind active inline form) ----------
+   While filling an inline form card (html.form-focus, set by trackFormFocus in
+   script.js), everything behind the card softly dims and blurs so the user's
+   eyes stay on the form. pointer-events: none ensures tapping outside blurs
+   naturally and never eats a first tap on a tab or button. */
+#form-focus-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(20, 16, 13, 0.34);
+  -webkit-backdrop-filter: blur(6px) saturate(1.06);
+  backdrop-filter: blur(6px) saturate(1.06);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+html[data-theme="pastel"] #form-focus-scrim {
+  background: color-mix(in srgb, var(--text) 24%, transparent);
+}
+html[data-theme="dark"] #form-focus-scrim {
+  background: rgba(6, 5, 4, 0.52);
+}
+html.form-focus #form-focus-scrim {
+  opacity: 1;
+}
+html.form-focus .card.is-form-focused {
+  position: relative;
+  z-index: 100;
+  box-shadow: 0 18px 48px rgba(20, 16, 13, 0.22), 0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent);
+  transition: box-shadow 0.2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  #form-focus-scrim,
+  html.form-focus .card.is-form-focused { transition: none; }
 }
 
 /* Scanned statements: figures read by OCR can be corrected in place. */

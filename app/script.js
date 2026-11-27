@@ -5098,6 +5098,87 @@ async function fireDueNotifications() {
   update();
 })();
 
+/* Form focus mode: while filling an inline form card (Add transaction, Goals,
+   Debts, Income, Budget Pools, etc.), elevate that card above a soft dimmed
+   and blurred backdrop so surrounding cards step back. Dialogs already have
+   their own blurred ::backdrop, and #lock is full-screen, so both are skipped. */
+(function trackFormFocus() {
+  const root = document.documentElement;
+  let activeCard = null;
+  let blurTimer = 0;
+
+  const isField = (el) => {
+    if (!el || el.disabled || el.readOnly) return false;
+    if (el.tagName === "TEXTAREA" || el.tagName === "SELECT") return true;
+    if (el.tagName !== "INPUT") return false;
+    return !/^(hidden|checkbox|radio|button|submit|reset|file|range|color)$/i.test(el.type || "text");
+  };
+
+  const ensureScrim = () => {
+    let scrim = document.getElementById("form-focus-scrim");
+    if (!scrim) {
+      scrim = document.createElement("div");
+      scrim.id = "form-focus-scrim";
+      scrim.setAttribute("aria-hidden", "true");
+      scrim.addEventListener("pointerdown", () => {
+        const ae = document.activeElement;
+        if (ae && typeof ae.blur === "function") ae.blur();
+        clear();
+      });
+      document.body.appendChild(scrim);
+    }
+    return scrim;
+  };
+
+  const clear = () => {
+    clearTimeout(blurTimer);
+    if (activeCard) {
+      activeCard.classList.remove("is-form-focused");
+      activeCard = null;
+    }
+    root.classList.remove("form-focus");
+  };
+
+  const focusCard = (card) => {
+    clearTimeout(blurTimer);
+    if (activeCard && activeCard !== card) activeCard.classList.remove("is-form-focused");
+    ensureScrim();
+    activeCard = card;
+    activeCard.classList.add("is-form-focused");
+    root.classList.add("form-focus");
+  };
+
+  document.addEventListener("focusin", (e) => {
+    const el = e.target;
+    if (!isField(el)) return;
+    if (el.closest("dialog, #lock, .search-dialog")) { clear(); return; }
+    const card = el.closest(".card");
+    if (!card || !card.closest("main")) { clear(); return; }
+    focusCard(card);
+  });
+
+  document.addEventListener("focusout", () => {
+    clearTimeout(blurTimer);
+    blurTimer = setTimeout(() => {
+      const ae = document.activeElement;
+      if (activeCard && ae && activeCard.contains(ae) && !ae.closest("dialog")) return;
+      clear();
+    }, 120);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && activeCard) {
+      const ae = document.activeElement;
+      if (ae && typeof ae.blur === "function") ae.blur();
+      clear();
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    if (activeCard && e.target && e.target.closest(".tabs button, .nav-rail button")) clear();
+  }, true);
+})();
+
 function isNative() {
   return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform());
 }
