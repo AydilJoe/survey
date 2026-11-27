@@ -319,6 +319,7 @@ function toCSV() {
     // relief and the estimate), the spends you said "not tax" to, and the
     // on-device AI's cached matches (both keyed by entry ids, which survive).
     if (tx.year) settingRow("taxYear", tx.year);
+    if (tx.pack) settingRow("taxPack", tx.pack);
     if (tx.rules) settingRow("taxRules", JSON.stringify(tx.rules));
     if (tx.skipped.length) settingRow("taxSkipped", JSON.stringify(tx.skipped));
     if (Object.keys(tx.aiMatch || {}).length) settingRow("taxAiMatch", JSON.stringify(tx.aiMatch));
@@ -775,7 +776,7 @@ function fromCSV(text) {
     } else if (type === "setting" && name.toLowerCase() === "ownaccount") {
       const raw = iAmount >= 0 ? (row[iAmount] || "").toString() : "";
       next.ownAccounts = coerceOwnAccounts([...(next.ownAccounts || []), raw]);
-    } else if (type === "setting" && /^(currency|milestones|streak|splitmeta|taxyear|taxrules|taxskipped|taxaimatch)$/i.test(name)) {
+    } else if (type === "setting" && /^(currency|milestones|streak|splitmeta|taxyear|taxpack|taxrules|taxskipped|taxaimatch)$/i.test(name)) {
       // 1.63.1+ settings. JSON values that don't parse are skipped alone.
       const raw = cellAt(row, iAmount);
       const json = () => { try { return JSON.parse(raw); } catch { return null; } };
@@ -793,6 +794,7 @@ function fromCSV(text) {
       else {
         const tx = next.tax || (next.tax = emptyTax());
         if (key === "taxyear") tx.year = Number(raw) || 0;
+        else if (key === "taxpack") tx.pack = String(raw || "").trim().toUpperCase();
         else if (key === "taxrules") { const j = json(); if (j && typeof j === "object") tx.rules = j; }
         else if (key === "taxskipped") { const j = json(); if (Array.isArray(j)) tx.skipped = j; }
         else { const j = json(); if (j && typeof j === "object") tx.aiMatch = j; }

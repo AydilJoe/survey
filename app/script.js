@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.88.0";
+const APP_VERSION = "1.90.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -8388,6 +8388,10 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.90.0": [
+    "<strong>Country-aware tax relief packs</strong> — Built-in packs now cover Malaysia (LHDN), Singapore (IRAS, S$80,000 relief cap with 250% IPC donations outside it), and Hong Kong (IRD, 2025/26 and 2026/27 split years, two-tier 15%/16% standard rate, and HK$3,000 reduction).",
+    "<strong>Global Tax Receipt Vault and country-aware Kira</strong> — Users elsewhere get a clean Tax Receipt Vault to encrypt, tag, and export deductible receipts as CSV, and Kira tailors tax guidance to your active pack.",
+  ],
   "1.89.0": [
     "<strong>Several spends in one go</strong> — Tell Kira \"12 ringgit nasi lemak, 5 ringgit teh tarik, 2 ringgit roti canai\" and you get three spends to check, each with its own category. Remove any you didn't mean, then save them all with one tap. Kira also hears \"log my\" and \"two ringgit\" better.",
   ],

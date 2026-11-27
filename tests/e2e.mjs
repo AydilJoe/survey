@@ -19660,6 +19660,293 @@ check('the brand catalogue makes no network calls at all',
   await sbCtx.close();
 }
 
+/* ---------- v1.90.0: Country-Aware Tax Relief Packs (MYS / SGP / HKG + Global Vault) ---------- */
+{
+  // Static check: kira-ask task prompt is country-aware and handles Global Tax Receipt Vault mode.
+  const { createRequire } = await import('node:module');
+  const reqTax = createRequire(import.meta.url);
+  const kiraAskMod = reqTax(path.join(REPO_ROOT, 'api/_lib/ai/tasks/kira-ask.js'));
+  const kiraPrompt = kiraAskMod.prompt({ question: 'How much tax relief left?', lang: 'en', summary: 'Tax mode: Global Tax Receipt Vault' });
+  check('v1.89.0: kira-ask prompt enforces active country pack & Global Tax Receipt Vault rules',
+    /IRAS Singapore/.test(kiraPrompt) && /IRD Hong Kong/.test(kiraPrompt) && /Global Tax Receipt Vault/.test(kiraPrompt),
+    kiraPrompt.slice(0, 260));
+
+  // Auto-detection for SG, HK, and US (GLOBAL) via timezone.
+  for (const [tz, expCode, expCur, expVault] of [
+    ['Asia/Singapore', 'SGP', 'SGD', false],
+    ['Asia/Hong_Kong', 'HKG', 'HKD', false],
+    ['America/New_York', 'GLOBAL', 'USD', true],
+  ]) {
+    const tctx = await b.newContext({ viewport: { width: 390, height: 844 } });
+    await tctx.addInitScript((zone) => {
+      const ro = Intl.DateTimeFormat.prototype.resolvedOptions;
+      Intl.DateTimeFormat.prototype.resolvedOptions = function () { return { ...ro.call(this), timeZone: zone }; };
+    }, tz);
+    const tp = await tctx.newPage();
+    await tp.goto(`${BASE}/app/index.html`);
+    await tp.waitForTimeout(800);
+    await tp.click('#btn-start-open');
+    await tp.waitForTimeout(1000);
+    const det = await tp.evaluate(() => ({
+      packCode: TAX_PACK_CODE,
+      cur: state.currency,
+      vault: taxVaultMode(),
+      ready: taxReady(),
+      badge: document.getElementById('tax-pack-badge')?.textContent.trim(),
+    }));
+    await tctx.close();
+    check(`v1.89.0: auto-detects ${tz} → ${expCode} (${expCur})`,
+      det.packCode === expCode && det.cur === expCur && det.vault === expVault && det.ready === !expVault,
+      JSON.stringify(det));
+  }
+
+  // Deep math, UI, CSV round-trip, and Kira country-aware checks on a clean context.
+  const txCtx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  const tp = await txCtx.newPage();
+  const txErr = [];
+  tp.on('pageerror', (e) => txErr.push(e.message));
+  await tp.goto(`${BASE}/app/index.html`);
+  await tp.waitForTimeout(800);
+  await tp.click('#btn-start-open');
+  await tp.waitForTimeout(1000);
+
+  // 1) Singapore (SGP — IRAS Resident, SGD): preceding-year basis, bands, S$80k overall cap, 250% IPC outside cap, no Zakat rebate.
+  const sgRes = await tp.evaluate(async () => {
+    state.currency = 'SGD';
+    state.tax = emptyTax();
+    state.tax.enabled = true;
+    taxSetPack('SGP');
+    state.tax.year = 2026;
+    state.shariah = { enabled: true, zakatEnabled: true, history: [{ date: '2025-05-01', amount: 5000 }] };
+    renderAll();
+
+    const band80 = taxBandTax(80000, 2026);
+    const band120 = taxBandTax(120000, 2026);
+    const dateIn = taxDateInYear('2025-06-15', 2026);
+    const dateOut = taxDateInYear('2026-06-15', 2026);
+    const label = taxYearLabel(2026);
+    const basisNote = taxBasisPeriodNote(2026);
+
+    // Hit the S$80,000 overall personal relief cap with auto + CPF + top-ups + SRS + parent + children,
+    // AND add S$1,000 IPC donation (250% = S$2,500) which MUST sit outside the S$80k cap.
+    const estCap = taxEstimate({
+      year: 2026,
+      income: 200000,
+      spouse: true,        // 2,000
+      children: 5,         // 20,000 (auto total = 1,000 + 2,000 + 20,000 = 23,000)
+      epfPaid: 20400,      // 20,400 CPF
+      zakat: 5000,         // must be ignored (zakat_mode: "none")
+      claims: [
+        { relief: 'sg_rstu_self', sub: '', amount: 8000 },
+        { relief: 'sg_rstu_family', sub: '', amount: 8000 },
+        { relief: 'sg_srs', sub: '', amount: 15300 },
+        { relief: 'sg_parent', sub: '', amount: 18000 }, // capped reliefs = 23,000 + 69,700 = 92,700 → capped at 80,000!
+        { relief: 'sg_ipc', sub: '', amount: 1000 },     // 250% = 2,500 OUTSIDE S$80k cap!
+      ],
+    });
+
+    // Render UI with cap hit & verify Kira offline answer mentions IRAS + S$80k cap + IPC 250%.
+    state.tax.spouse = true;
+    state.tax.children = 5;
+    state.tax.figures['2026'] = { income: 200000, epf: 20400, pcb: 0 };
+    state.tax.claims = [
+      { id: 'sg1', entryId: '', relief: 'sg_rstu_self', sub: '', amount: 8000, date: '2025-03-01', note: 'CPF self', receiptId: '', docIds: [] },
+      { id: 'sg2', entryId: '', relief: 'sg_rstu_family', sub: '', amount: 8000, date: '2025-03-02', note: 'CPF parents', receiptId: '', docIds: [] },
+      { id: 'sg3', entryId: '', relief: 'sg_srs', sub: '', amount: 15300, date: '2025-04-01', note: 'SRS', receiptId: '', docIds: [] },
+      { id: 'sg4', entryId: '', relief: 'sg_parent', sub: '', amount: 18000, date: '2025-05-01', note: 'Parents', receiptId: '', docIds: [] },
+      { id: 'sg5', entryId: '', relief: 'sg_ipc', sub: '', amount: 1000, date: '2025-06-01', note: 'Red Cross', receiptId: '', docIds: [] },
+    ];
+    switchTab('tax');
+    renderAll();
+
+    const capBanner = document.getElementById('tax-cap-banner')?.textContent || '';
+    const capBannerVisible = !document.getElementById('tax-cap-banner')?.hidden;
+    const eaHidden = document.getElementById('btn-tax-ea')?.hidden && document.getElementById('tax-details-ea')?.hidden;
+    const badge = document.getElementById('tax-pack-badge')?.textContent.trim();
+    const heroLabel = document.getElementById('tax-hero-label')?.textContent || '';
+
+    // CSV round-trip preserves taxPack = "SGP".
+    const csvText = toCSV();
+    const parsed = fromCSV(csvText);
+
+    // Kira country-aware SG answer
+    openVoiceEntry('');
+    await voiceAskKira('How much IRAS tax relief do I have left?');
+    const kiraReply = document.getElementById('voice-thread')?.textContent || '';
+    document.getElementById('voice-dialog').close();
+
+    return {
+      band80, band120, dateIn, dateOut, label, basisNote,
+      chargeable: estCap.chargeable, zakat: estCap.zakat, rebate: estCap.rebate,
+      overallCapHit: estCap.overallCapHit, overallCapRoom: estCap.overallCapRoom,
+      capBanner, capBannerVisible, eaHidden, badge, heroLabel,
+      csvHasPack: /setting,taxPack,SGP/.test(csvText),
+      importedPack: parsed.tax && parsed.tax.pack,
+      kiraReply,
+    };
+  });
+  // 200,000 - (80,000 overall cap + 2,500 IPC 250%) = 117,500 chargeable!
+  check('v1.89.0 SGP: IRAS bands, preceding-year basis (YA 2026 = 2025 income), S$80k overall cap, 250% IPC outside cap, no Zakat/rebate',
+    sgRes.band80 === 3350 && sgRes.band120 === 7950 && sgRes.dateIn && !sgRes.dateOut
+    && sgRes.label === 'YA 2026' && /2025/.test(sgRes.basisNote)
+    && sgRes.chargeable === 117500 && sgRes.zakat === 0 && sgRes.rebate === 0
+    && sgRes.overallCapHit && sgRes.overallCapRoom === 0,
+    JSON.stringify(sgRes));
+  check('v1.89.0 SGP: UI shows IRAS badge + S$80k cap banner, hides Borang EA, CSV round-trips taxPack, Kira cites IRAS & IPC 250%',
+    sgRes.badge === 'IRAS · SGD' && sgRes.capBannerVisible && /80,000/.test(sgRes.capBanner)
+    && sgRes.eaHidden && /2025/.test(sgRes.heroLabel)
+    && sgRes.csvHasPack && sgRes.importedPack === 'SGP'
+    && /IRAS/.test(sgRes.kiraReply) && /250%/.test(sgRes.kiraReply),
+    JSON.stringify(sgRes));
+
+  // 2) Hong Kong (HKG — IRD Salaries Tax, HKD): split fiscal year, 2025/26 vs 2026/27 Budget allowances,
+  //    2025/26 HK$3,000 tax reduction, two-tier standard rate (15% ≤HK$5M / 16% >HK$5M), 35% charity cap.
+  const hkRes = await tp.evaluate(async () => {
+    state.currency = 'HKD';
+    state.tax = emptyTax();
+    state.tax.enabled = true;
+    taxSetPack('HKG');
+    renderAll();
+
+    const lbl25 = taxYearLabel(2025);
+    const lbl26 = taxYearLabel(2026);
+    const splitIn = taxDateInYear('2026-02-15', 2025) && taxDateInYear('2025-04-01', 2025);
+    const splitOut = !taxDateInYear('2026-04-01', 2025);
+    const auto25 = taxAutoAmounts(2025);
+    const auto26 = taxAutoAmounts(2026);
+    const elder25 = taxReliefFor(2025, 'hk_elderly_care').cap;
+    const elder26 = taxReliefFor(2026, 'hk_elderly_care').cap;
+
+    // 2025/26 moderate income: Basic 132k + MPF 18k = 150k; income 300k → chargeable 150k → prog tax = 1k+3k+5k = 9k, minus 3k one-off reduction = 6,000!
+    const est25 = taxEstimate({ year: 2025, income: 300000, epfPaid: 18000, claims: [] });
+    // 2026/27 same income: Basic 145k + MPF 18k = 163k; chargeable 137k → prog tax = 1k+3k+3.7k = 7,700, reduction = 0!
+    const est26 = taxEstimate({ year: 2026, income: 300000, epfPaid: 18000, claims: [] });
+
+    // High income 3,000,000 (18k MPF): Net Income 2,982,000 → Standard 15% = 447,300 < Progressive 464,290.
+    const estStd1 = taxEstimate({ year: 2026, income: 3000000, epfPaid: 18000, claims: [] });
+    // Two-tier standard rate >HK$5M: Gross 6,000,000 (18k MPF) → Net 5,982,000 → 5M*15% + 982k*16% = 907,120.
+    const estStd2 = taxEstimate({ year: 2026, income: 6000000, epfPaid: 18000, claims: [] });
+
+    // Approved Charity 35% of Net Income: Gross 418,000 - MPF 18,000 = 400,000 net before charity → 35% cap = 140,000 even if 200,000 donated!
+    const estCharity = taxEstimate({
+      year: 2026,
+      income: 418000,
+      epfPaid: 18000,
+      claims: [{ relief: 'hk_charity', sub: '', amount: 200000 }],
+    });
+
+    // Render UI at high income to verify two-tier standard rate step + Kira IRD answer.
+    state.tax.year = 2026;
+    state.tax.figures['2026'] = { income: 3000000, epf: 18000, pcb: 0 };
+    switchTab('tax');
+    renderAll();
+    const stepsText = document.getElementById('tax-steps')?.textContent || '';
+    const eaHidden = document.getElementById('btn-tax-ea')?.hidden && document.getElementById('tax-details-ea')?.hidden;
+    const badge = document.getElementById('tax-pack-badge')?.textContent.trim();
+
+    openVoiceEntry('');
+    await voiceAskKira('How is my IRD tax calculated?');
+    const kiraReply = document.getElementById('voice-thread')?.textContent || '';
+    document.getElementById('voice-dialog').close();
+
+    return {
+      lbl25, lbl26, splitIn, splitOut,
+      basic25: auto25.individual, basic26: auto26.individual,
+      married26: auto26.individual + auto26.spouse,
+      child25: auto25.child, child26: auto26.child,
+      elder25, elder26,
+      est25: { gross: est25.gross, reduction: est25.reduction, payable: est25.payable },
+      est26: { gross: est26.gross, reduction: est26.reduction, payable: est26.payable },
+      estStd1: { usedStd: estStd1.usedStandardRate, payable: estStd1.payable },
+      estStd2: { usedStd: estStd2.usedStandardRate, payable: estStd2.payable },
+      charityUsed: estCharity.used.hk_charity,
+      stepsText, eaHidden, badge, kiraReply,
+    };
+  });
+  check('v1.89.0 HKG: split fiscal years (2025/26, 2026/27), enacted 2026/27 Budget allowances, 2025/26 HK$3,000 reduction',
+    hkRes.lbl25 === '2025/26' && hkRes.lbl26 === '2026/27' && hkRes.splitIn && hkRes.splitOut
+    && hkRes.basic25 === 132000 && hkRes.basic26 === 145000 && hkRes.married26 === 290000
+    && hkRes.child25 === 130000 && hkRes.child26 === 140000 && hkRes.elder25 === 100000 && hkRes.elder26 === 110000
+    && hkRes.est25.gross === 9000 && hkRes.est25.reduction === 3000 && hkRes.est25.payable === 6000
+    && hkRes.est26.gross === 7700 && hkRes.est26.reduction === 0 && hkRes.est26.payable === 7700,
+    JSON.stringify(hkRes));
+  check('v1.89.0 HKG: Two-tier standard rate (15%/16%), 35% charity cap, IRD UI badge, and Kira IRD standard-rate answer',
+    hkRes.estStd1.usedStd && hkRes.estStd1.payable === 447300
+    && hkRes.estStd2.usedStd && hkRes.estStd2.payable === 907120
+    && hkRes.charityUsed === 140000
+    && hkRes.badge === 'IRD · HKD' && hkRes.eaHidden
+    && /two-tier standard rate/i.test(hkRes.stepsText)
+    && /IRD/.test(hkRes.kiraReply) && /standard rate/i.test(hkRes.kiraReply),
+    JSON.stringify(hkRes));
+
+  // 3) Global Tax Receipt Vault (GLOBAL, vault_only) in USD: hides LHDN estimator/EA/Zakat, saves & exports receipts, Kira stays vault-only.
+  const glRes = await tp.evaluate(async () => {
+    state.currency = 'USD';
+    state.tax = emptyTax();
+    taxSetPack('GLOBAL');
+    state.tax.year = 2026;
+    state.tax.claims.push(coerceTaxClaim({
+      relief: 'vault_medical',
+      amount: 240,
+      date: '2026-04-12',
+      note: 'Dental clinic',
+    }));
+    switchTab('tax');
+    renderAll();
+
+    const vaultCardVisible = !document.getElementById('tax-vault-card')?.hidden;
+    const estimatorHidden = document.getElementById('tax-card')?.hidden
+      && document.getElementById('tax-reliefs-card')?.hidden
+      && document.getElementById('tax-details-card')?.hidden
+      && document.getElementById('tax-page-optin')?.hidden;
+    const claimsVisible = !document.getElementById('tax-claims-card')?.hidden;
+    const vaultTotal = document.getElementById('tax-vault-total')?.textContent || '';
+    const csv = taxClaimsCSV(2026);
+
+    openVoiceEntry('');
+    await voiceAskKira('How are my tax receipts looking?');
+    const kiraReply = document.getElementById('voice-thread')?.textContent || '';
+    document.getElementById('voice-dialog').close();
+
+    return {
+      vaultMode: taxVaultMode(),
+      ready: taxReady(),
+      vaultCardVisible,
+      estimatorHidden,
+      claimsVisible,
+      vaultTotal,
+      csv,
+      kiraReply,
+    };
+  });
+  check('v1.89.0 GLOBAL: Tax Receipt Vault hides LHDN estimator/caps, tags & exports CSV cleanly, and Kira cites Vault only',
+    glRes.vaultMode && !glRes.ready && glRes.vaultCardVisible && glRes.estimatorHidden && glRes.claimsVisible
+    && /240/.test(glRes.vaultTotal)
+    && /^Date,Category,Amount,Note,Receipt saved,Other documents/.test(glRes.csv)
+    && !/99999999/.test(glRes.csv)
+    && /Tax Receipt Vault/.test(glRes.kiraReply) && !/LHDN|IRAS|IRD/.test(glRes.kiraReply),
+    JSON.stringify(glRes));
+
+  // 4) 360px EN / MS / ZH fit on #tab-tax with pack bar & vault card.
+  await tp.setViewportSize({ width: 360, height: 780 });
+  await tp.waitForTimeout(450);
+  const fit = await tp.evaluate(async () => {
+    const out = {};
+    for (const lang of ['en', 'ms', 'zh']) {
+      if (window.I18N && window.I18N.set) await window.I18N.set(lang);
+      renderAll();
+      const sw = document.documentElement.scrollWidth;
+      out[lang] = { ok: sw <= innerWidth + 1, sw, iw: innerWidth };
+    }
+    if (window.I18N && window.I18N.set) await window.I18N.set('en');
+    return out;
+  });
+  check('v1.89.0: #tab-tax with pack selector & Global Receipt Vault fits 360px cleanly in EN/MS/ZH',
+    fit.en.ok && fit.ms.ok && fit.zh.ok, JSON.stringify(fit));
+  check('v1.89.0: no page errors in Country-Aware Tax Packs suite', txErr.length === 0, JSON.stringify(txErr));
+  await txCtx.close();
+}
+
 // ── v1.89.0: several spends in one voice sentence ──
 {
   const mCtx = await b.newContext({ viewport: { width: 360, height: 780 } });

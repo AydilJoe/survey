@@ -15,20 +15,20 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "h-727effce";
+const VERSION = "h-117e90e7";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=d34d00ca",
-  "/app/script.js?v=fbbfd323",
+  "/app/styles.css?v=5f2f984a",
+  "/app/script.js?v=a96d34cc",
   // Languages: registry + boot loader run at startup; packs are precached so
   // switching languages still works offline, without parsing unused packs at boot.
-  "/app/i18n-langs.js?v=251ba96e",
+  "/app/i18n-langs.js?v=f94d7d91",
   "/app/i18n-boot.js?v=e8f35f1d",
-  "/app/i18n-ms.js?v=5ea15c7f",
-  "/app/i18n-zh.js?v=f522e61f",
+  "/app/i18n-ms.js?v=9efd1599",
+  "/app/i18n-zh.js?v=a65cb565",
   "/app/i18n.js?v=e94f1821",
   "/app/drive-config.js?v=9aaf242d",
   "/app/drive-sync.js?v=08041907",
@@ -40,7 +40,8 @@ const SHELL = [
   "/app/region.js?v=a54b250e",
   "/app/ea-extract.js?v=0036c413",
   "/app/tax-data.js?v=a4c433a4",
-  "/app/tax.js?v=01b9d531",
+  "/app/tax-packs.js?v=75dd39d3",
+  "/app/tax.js?v=af09230a",
   "/app/statement.js?v=be8b5c83",
   "/app/wallets.js?v=39628be9",
   "/app/recap.js?v=e4c2c931",
@@ -50,13 +51,13 @@ const SHELL = [
   "/app/vendor/pdfjs/pdf.worker.min.js?v=38cde531",
   "/app/brands.js?v=73d9f7dc",
   "/app/search.js?v=1723d81e",
-  "/app/csv.js?v=f030fead",
+  "/app/csv.js?v=3bd1c9f3",
   "/app/reports.js?v=6b3b772b",
   "/app/onboarding.js?v=dd4ac4be",
   "/app/kira-seasons.js?v=84d7b80b",
   "/app/kira.js?v=0a738a14",
   "/app/streak.js?v=ce95b7ab",
-  "/app/voice.js?v=dee38841",
+  "/app/voice.js?v=632cbba2",
   "/app/cloud.js?v=fcd02ad8",
   "/app/capture.js?v=3af549e5",
   "/app/ai-redact.js?v=e6257012",

@@ -826,25 +826,15 @@
       }
     }
 
-    // Tax relief headroom (local LHDN totals only, no personal identifiers).
-    if (typeof TAX_RELIEFS !== "undefined" && Array.isArray(TAX_RELIEFS) && state.tax) {
-      const yr = state.tax.year || new Date().getFullYear();
-      const claims = Array.isArray(state.tax.claims) ? state.tax.claims.filter((c) => c && Number(c.year) === Number(yr)) : [];
-      const byGroup = new Map();
-      let claimedTotal = 0;
-      for (const c of claims) {
-        const amt = Number(c.amount) || 0;
-        claimedTotal += amt;
-        byGroup.set(c.groupId, (byGroup.get(c.groupId) || 0) + amt);
-      }
-      out.taxClaimed = voiceRound2(claimedTotal);
-      for (const g of TAX_RELIEFS.slice(0, 8)) {
-        if (!g || !(Number(g.cap) > 0)) continue;
-        const used = byGroup.get(g.id) || 0;
-        const left = voiceRound2(Math.max(0, Number(g.cap) - used));
-        if (left > 0) out.taxGaps.push({ title: g.title || g.id, left, cap: Number(g.cap) });
-      }
-      out.taxGaps = out.taxGaps.slice(0, 3);
+    // Country-aware tax context (local zero-PII totals only: LHDN / IRAS / IRD / Global Vault).
+    out.tax = typeof taxKiraContext === "function" ? taxKiraContext() : null;
+    if (out.tax) {
+      out.taxClaimed = voiceRound2(out.tax.claimedTotal || 0);
+      out.taxGaps = (out.tax.topOpportunities || []).slice(0, 3).map((o) => ({
+        title: o.label || o.id,
+        left: voiceRound2(o.room || 0),
+        saving: voiceRound2(o.saving || 0),
+      }));
     }
     return out;
   }
@@ -866,7 +856,21 @@
     } else {
       lines.push("Active debts: 0");
     }
-    if (snap.taxClaimed > 0 || snap.taxGaps.length) {
+    if (snap.tax) {
+      const tx = snap.tax;
+      if (tx.mode === "vault_only") {
+        lines.push(`Tax mode: Global Tax Receipt Vault (${tx.yearLabel}, ${tx.currency}) — ${tx.receiptCount} receipts saved totaling ${fmt(tx.claimedTotal)}. No country tax bands or relief caps applied.`);
+      } else {
+        const extras = [];
+        if (tx.overallCap > 0 && tx.overallCapRoom != null) {
+          extras.push(`overall cap room ${fmt(tx.overallCapRoom)} of ${fmt(tx.overallCap)}`);
+        }
+        if (tx.usedStandardRate) extras.push("two-tier standard rate applied");
+        if (tx.filingDeadline) extras.push(`filing deadline ${tx.filingDeadline}`);
+        const gaps = (tx.topOpportunities || []).slice(0, 4).map((o) => `${o.label} ${fmt(o.room)} left`).join(", ");
+        lines.push(`Tax pack: ${tx.country} (${tx.authority}, ${tx.yearLabel}, ${tx.currency}, ${tx.withholdingMode}). Claimed: ${fmt(tx.claimedTotal)}${extras.length ? ` (${extras.join("; ")})` : ""}.${gaps ? ` Top room: ${gaps}` : ""}`);
+      }
+    } else if (snap.taxClaimed > 0 || snap.taxGaps.length) {
       lines.push(`Tax relief claimed: ${fmt(snap.taxClaimed)}. Remaining room: ${snap.taxGaps.map((g) => `${g.title} ${fmt(g.left)} left`).join(", ")}`);
     }
     return lines.join("\n");
@@ -876,11 +880,47 @@
     const q = String(question || "").toLowerCase();
     const fmt = (n) => (typeof fmtMoney === "function" ? fmtMoney(n) : `RM ${Number(n || 0).toFixed(2)}`);
 
-    if (/\b(tax|lhdn|relief|cukai|pelepasan|sspn|pcb)\b|[税扣]/.test(q)) {
+    if (/\b(tax|lhdn|iras|ird|relief|cukai|pelepasan|sspn|pcb|cpf|srs|mpf|vhis|etax|receipt vault)\b|[税扣]/.test(q)) {
+      const tx = snap.tax;
+      if (tx && tx.mode === "vault_only") {
+        return {
+          reply: tx.receiptCount > 0
+            ? voiceT("Your Tax Receipt Vault has {n} receipts saved for {ya} totaling {total}. Open it to tag more or export CSV for filing.", {
+                n: tx.receiptCount,
+                ya: tx.yearLabel,
+                total: fmt(tx.claimedTotal),
+              })
+            : voiceT("You are using the Global Tax Receipt Vault for {ya}. Tag receipts there and export CSV anytime for filing.", {
+                ya: tx.yearLabel,
+              }),
+          actions: [{ kind: "open_tax", label: voiceT("Open Tax Receipt Vault") }],
+        };
+      }
+      if (tx && tx.countryCode === "SGP" && tx.overallCap > 0 && tx.overallCapRoom === 0) {
+        return {
+          reply: voiceT("Under IRAS ({ya}), you have reached the {cap} overall personal relief cap. Qualifying IPC donations (250%) still sit outside this cap.", {
+            ya: tx.yearLabel,
+            cap: fmt(tx.overallCap),
+          }),
+          actions: [{ kind: "open_tax", label: voiceT("Open Tax Relief") }],
+        };
+      }
+      if (tx && tx.countryCode === "HKG" && tx.usedStandardRate) {
+        return {
+          reply: voiceT("Under IRD ({ya}), the two-tier standard rate (15% / 16%) is lower than progressive bands on your current figures. Concessionary deductions like MPF, VHIS, or annuity still reduce net income.", {
+            ya: tx.yearLabel,
+          }),
+          actions: [{ kind: "open_tax", label: voiceT("Open Tax Relief") }],
+        };
+      }
+      const who = (tx && tx.authority) || "LHDN";
+      const ya = (tx && tx.yearLabel) || "";
       if (snap.taxGaps.length) {
         const g = snap.taxGaps[0];
         return {
-          reply: voiceT("You have claimed {claimed} in tax relief so far. You still have {left} left under {group}.", {
+          reply: voiceT("Under {who} ({ya}), you have claimed {claimed} so far. You still have {left} left under {group}.", {
+            who,
+            ya,
             claimed: fmt(snap.taxClaimed),
             left: fmt(g.left),
             group: g.title,
@@ -889,7 +929,11 @@
         };
       }
       return {
-        reply: voiceT("You have claimed {claimed} in tax relief so far. Open Tax Relief to check remaining caps.", { claimed: fmt(snap.taxClaimed) }),
+        reply: voiceT("Under {who} ({ya}), you have claimed {claimed} so far. Open Tax Relief to check remaining caps.", {
+          who,
+          ya,
+          claimed: fmt(snap.taxClaimed),
+        }),
         actions: [{ kind: "open_tax", label: voiceT("Open Tax Relief") }],
       };
     }
@@ -1127,6 +1171,7 @@
       center.dataset.waveMode = "idle";
       center.style.setProperty("--voice-amp", "0");
     }
+    voiceApplyLevelRing(0);
     voiceWaveReset();
   }
 

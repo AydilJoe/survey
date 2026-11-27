@@ -91,9 +91,10 @@ function taxStructureProblems(data) {
  * replace the built-in ones while present. Everything below reads the active
  * set through these variables, which taxLoadRules swaps. */
 const TAX_BUILTIN = typeof TAX_DATA === "undefined" ? null : TAX_DATA;
+const TAX_PACK_SET = new Set(typeof TAX_PACK_CODES !== "undefined" ? TAX_PACK_CODES : ["MYS", "SGP", "HKG", "GLOBAL"]);
 
-// Words that differ by country. A custom rules file can override any of them
-// in its `terms` block; Malaysia's are the defaults.
+// Words that differ by country. A built-in pack or custom rules file can
+// override any of them in its `terms` block; Malaysia's are the defaults.
 const TAX_TERMS_MY = {
   authority: "LHDN",
   year: "YA",                 // "YA 2026"
@@ -103,8 +104,21 @@ const TAX_TERMS_MY = {
   rebate: "rebate",
 };
 
+const TAX_FISCAL_DEFAULT = {
+  start_mm_dd: "01-01",
+  end_mm_dd: "12-31",
+  assessment_basis: "current", // "current" | "preceding"
+  label_format: "single",      // "single" | "split"
+};
+
 let TAX_SCHEDULE = TAX_BUILTIN;
 let TAX_CUSTOM = false;
+let TAX_PACK_CODE = "MYS";
+let TAX_MODE = "pack";        // "pack" | "vault_only"
+let TAX_OVERALL_CAP = null;
+let TAX_WITHHOLDING_MODE = "paye"; // "paye" | "provisional" | "giro_assessment" | "none"
+let TAX_ZAKAT_MODE = "rebate";     // "rebate" | "none"
+let TAX_FISCAL = { ...TAX_FISCAL_DEFAULT };
 let TAX_PROBLEMS = [];
 let TAX_OK = false;
 let TAX_CATALOG = [];
@@ -128,6 +142,10 @@ function taxBuildCatalog(data) {
       common: !!app.common,
       auto: app.auto || "",
       employeeEpf: !!app.employeeEpf,
+      pctOfIncomeCap: Number(item.pct_of_income_cap) > 0 ? Number(item.pct_of_income_cap) : 0,
+      deductionMultiplier: Number(item.deduction_multiplier) > 0 ? Number(item.deduction_multiplier) : 1,
+      countsTowardOverallCap: item.counts_toward_overall_cap !== false,
+      perUnit: typeof item.per_unit === "string" ? item.per_unit : "",
       keywords: app.keywords ? new RegExp(app.keywords, "i") : null,
       item,
       subs: (item.sub_limits || []).map((sub) => ({
@@ -141,20 +159,39 @@ function taxBuildCatalog(data) {
   }));
 }
 
-function taxLoadRules(data, custom) {
-  TAX_SCHEDULE = data;
+function taxLoadRules(data, custom, packCode) {
+  const isBuiltInNonMys = !custom && data && packCode && packCode !== "MYS";
+  const effective = isBuiltInNonMys ? taxNormaliseRules(data) : data;
+  TAX_SCHEDULE = effective;
   TAX_CUSTOM = !!custom;
-  TAX_PROBLEMS = !data ? ["tax-data.js did not load"] : taxStructureProblems(data);
+  TAX_PACK_CODE = custom ? "CUSTOM" : (packCode || (effective && effective.country_code) || "MYS");
+  TAX_MODE = (effective && effective.mode === "vault_only") ? "vault_only" : "pack";
+  TAX_OVERALL_CAP = (effective && typeof effective.overall_relief_cap === "number" && effective.overall_relief_cap > 0)
+    ? effective.overall_relief_cap : null;
+  TAX_WITHHOLDING_MODE = (effective && effective.withholding_mode) || (TAX_MODE === "vault_only" ? "none" : "paye");
+  TAX_ZAKAT_MODE = (effective && effective.zakat_mode)
+    || ((!custom && TAX_PACK_CODE === "MYS") || (effective && effective.zakat_rebate === true) ? "rebate" : "none");
+  TAX_FISCAL = { ...TAX_FISCAL_DEFAULT, ...((effective && effective.fiscal_year && typeof effective.fiscal_year === "object") ? effective.fiscal_year : {}) };
+  TAX_PROBLEMS = !effective ? ["tax-data.js did not load"] : taxStructureProblems(effective);
   TAX_OK = TAX_PROBLEMS.length === 0;
   if (!TAX_OK) console.error("Tax data is invalid — the tax card is switched off:", TAX_PROBLEMS);
-  TAX_CATALOG = TAX_OK ? taxBuildCatalog(data) : [];
-  TAX_CURRENCY = (custom && data && data.currency) || "MYR";
-  TAX_TERMS = { ...TAX_TERMS_MY, ...taxTermsLocal(), ...(custom ? taxCustomTerms(data) : {}) };
-  TAX_COUNTRY = (data && data.country) || "";
+  TAX_CATALOG = TAX_OK ? taxBuildCatalog(effective) : [];
+  TAX_CURRENCY = TAX_MODE === "vault_only" ? "" : ((effective && effective.currency) || "MYR");
+  const isMyDefault = !custom && TAX_PACK_CODE === "MYS";
+  TAX_TERMS = isMyDefault
+    ? { ...TAX_TERMS_MY, ...taxTermsLocal() }
+    : { ...TAX_TERMS_MY, ...taxCustomTerms(effective || {}) };
+  TAX_COUNTRY = (effective && effective.country) || "";
   const years = TAX_CATALOG.flatMap((c) => taxLimitYears(c.item));
   TAX_YEAR_MIN = Math.min(...years, 9999);
   TAX_YEAR_MAX = Math.max(...years, 0);
-  TAX_TABLE_LABEL = TAX_OK ? (TAX_YEAR_MIN === TAX_YEAR_MAX ? taxYearLabel(TAX_YEAR_MIN) : `${TAX_TERMS.year} ${TAX_YEAR_MIN}–${TAX_YEAR_MAX}`.trim()) : "";
+  TAX_TABLE_LABEL = TAX_OK
+    ? (TAX_YEAR_MIN === TAX_YEAR_MAX
+        ? taxYearLabel(TAX_YEAR_MIN)
+        : (TAX_FISCAL.label_format === "split"
+            ? `${taxYearLabel(TAX_YEAR_MIN)}–${taxYearLabel(TAX_YEAR_MAX)}`
+            : `${TAX_TERMS.year} ${TAX_YEAR_MIN}–${TAX_YEAR_MAX}`.trim()))
+    : "";
   taxYearCache = {};
 }
 
@@ -162,7 +199,7 @@ function taxLoadRules(data, custom) {
 // they leave out falls back to a plain one, not to "PCB" or "LHDN".
 function taxCustomTerms(data) {
   const t = (data && data.terms && typeof data.terms === "object") ? data.terms : {};
-  const pick = (k, d) => (typeof t[k] === "string" && t[k].trim() ? t[k].trim().slice(0, 40) : d);
+  const pick = (k, d) => (typeof t[k] === "string" ? (t[k].trim() || (k === "year" ? "" : d)).slice(0, 40) : d);
   return {
     authority: pick("authority", (typeof data.tax_authority === "string" && data.tax_authority.trim()) ? data.tax_authority.trim().slice(0, 60) : tr("the tax office")),
     year: pick("year", tr("Tax year")),
@@ -173,7 +210,79 @@ function taxCustomTerms(data) {
   };
 }
 
-function taxYearLabel(year) { return `${TAX_TERMS.year} ${year}`.trim(); }
+function taxYearLabel(year) {
+  if (TAX_FISCAL.label_format === "split") {
+    return `${year}/${String(year + 1).slice(-2)}`;
+  }
+  return `${TAX_TERMS.year} ${year}`.trim();
+}
+
+function taxBasisPeriodNote(year) {
+  if (TAX_FISCAL.assessment_basis === "preceding") {
+    return tr("{y} income", { y: year - 1 });
+  }
+  if (TAX_FISCAL.label_format === "split") {
+    return tr("Apr {y1} – Mar {y2}", { y1: year, y2: year + 1 });
+  }
+  return "";
+}
+
+function taxDefaultYear(now) {
+  const d = now || new Date();
+  const y = d.getFullYear();
+  if (TAX_FISCAL.assessment_basis === "preceding") {
+    // Jan–Apr: filing season for preceding year's income (YA = y); May–Dec: tracking this year for YA = y + 1.
+    return d.getMonth() <= 3 ? y : y + 1;
+  }
+  if (TAX_FISCAL.label_format === "split") {
+    const startMonth = Number((TAX_FISCAL.start_mm_dd || "04-01").slice(0, 2)) || 4;
+    return (d.getMonth() + 1) < startMonth ? y - 1 : y;
+  }
+  return y;
+}
+
+function taxMaxYear(now) {
+  const d = now || new Date();
+  const y = d.getFullYear();
+  if (TAX_FISCAL.assessment_basis === "preceding") return y + 1;
+  if (TAX_FISCAL.label_format === "split") {
+    const startMonth = Number((TAX_FISCAL.start_mm_dd || "04-01").slice(0, 2)) || 4;
+    return (d.getMonth() + 1) < startMonth ? y - 1 : y;
+  }
+  return y;
+}
+
+function taxDateInYear(isoDate, year) {
+  const s = String(isoDate || "");
+  if (TAX_FISCAL.assessment_basis === "preceding") return s.startsWith(`${year - 1}-`);
+  if (TAX_FISCAL.label_format === "split") {
+    const start = `${year}-${TAX_FISCAL.start_mm_dd || "04-01"}`;
+    const end = `${year + 1}-${TAX_FISCAL.end_mm_dd || "03-31"}`;
+    return s >= start && s <= end;
+  }
+  return s.startsWith(`${year}-`);
+}
+
+function taxMonthInYear(isoMonth, year) {
+  const s = String(isoMonth || "");
+  if (TAX_FISCAL.assessment_basis === "preceding") return s.startsWith(`${year - 1}-`);
+  if (TAX_FISCAL.label_format === "split") {
+    const startM = `${year}-${(TAX_FISCAL.start_mm_dd || "04-01").slice(0, 2)}`;
+    const endM = `${year + 1}-${(TAX_FISCAL.end_mm_dd || "03-31").slice(0, 2)}`;
+    return s >= startM && s <= endM;
+  }
+  return s.startsWith(`${year}-`);
+}
+
+function taxDateToYear(isoDate) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(isoDate || ""));
+  if (!m) return taxYear();
+  const y = Number(m[1]);
+  const md = `${m[2]}-${m[3]}`;
+  if (TAX_FISCAL.assessment_basis === "preceding") return y + 1;
+  if (TAX_FISCAL.label_format === "split" && md < (TAX_FISCAL.start_mm_dd || "04-01")) return y - 1;
+  return y;
+}
 
 // Malaysia's words in the app's language ("YA" is "TT" in Malay). A custom
 // rules file's own `terms` still win.
@@ -181,10 +290,23 @@ function taxTermsLocal() {
   return { year: tr("YA"), pension: tr("EPF"), rebate: tr("rebate"), authority: "LHDN", withholding: "PCB", filing: "e-Filing" };
 }
 
-taxLoadRules(TAX_BUILTIN, false);
+function taxInitialPackCode() {
+  return typeof taxDefaultPackCode === "function" ? taxDefaultPackCode() : "MYS";
+}
+
+function taxResolveBuiltIn(packCode) {
+  const c = (packCode && TAX_PACK_SET.has(String(packCode).toUpperCase()))
+    ? String(packCode).toUpperCase()
+    : taxInitialPackCode();
+  const raw = typeof taxPackRaw === "function" ? taxPackRaw(c) : TAX_BUILTIN;
+  return { code: c, data: raw || TAX_BUILTIN };
+}
+
+const _bootPack = taxResolveBuiltIn("");
+taxLoadRules(_bootPack.data, false, _bootPack.code);
 
 // A new language: rebuild the names and words, then the page.
-window.addEventListener("duitful:lang", () => { taxLoadRules(TAX_SCHEDULE, TAX_CUSTOM); });
+window.addEventListener("duitful:lang", () => { taxLoadRules(TAX_SCHEDULE, TAX_CUSTOM, TAX_PACK_CODE); });
 
 /* ---------- country words and money ---------- */
 
@@ -194,15 +316,16 @@ function taxFilingName(capital) {
   return capital ? f.charAt(0).toUpperCase() + f.slice(1) : f;
 }
 
-// Limits are public whole amounts: "RM 10,000", "£12,570". Not hidden in
-// privacy mode, and in the rules' currency.
+// Limits are public whole amounts: "RM 10,000", "S$80,000", "HK$145,000", "£12,570".
+// Not hidden in privacy mode, and in the rules' currency.
 function taxWhole(n) {
   const v = Math.round(Number(n) || 0);
-  if (TAX_CURRENCY === "MYR") return `RM ${v.toLocaleString("en-MY")}`;
+  const cur = TAX_CURRENCY || (typeof currentCurrency === "function" ? currentCurrency() : "MYR");
+  if (cur === "MYR") return `RM ${v.toLocaleString("en-MY")}`;
   try {
     return new Intl.NumberFormat(typeof currencyLocale === "function" ? currencyLocale() : undefined,
-      { style: "currency", currency: TAX_CURRENCY, maximumFractionDigits: 0 }).format(v);
-  } catch { return `${v.toLocaleString()} ${TAX_CURRENCY}`; }
+      { style: "currency", currency: cur, maximumFractionDigits: 0 }).format(v);
+  } catch { return `${v.toLocaleString()} ${cur}`; }
 }
 
 /* ---------- custom rules: check, store, apply ---------- */
@@ -264,26 +387,39 @@ function taxCheckRules(text) {
   return problems.length ? { ok: false, problems } : { ok: true, data, problems: [] };
 }
 
-// Make the active rules match the vault: the person's own if they saved
-// some, else the built-in schedule. Cheap when nothing changed.
+// Make the active rules match the vault: the person's own custom JSON if saved,
+// else explicit state.tax.pack, else auto-detected from regionCountry() → GLOBAL.
 let _taxRulesFrom = undefined;
+let _taxPackFrom = undefined;
+let _taxAutoPackFrom = undefined;
 function taxSyncRules() {
   const own = (typeof state !== "undefined" && state && state.tax && state.tax.rules) || null;
-  if (own === _taxRulesFrom) return;
+  const pack = (typeof state !== "undefined" && state && state.tax && typeof state.tax.pack === "string" && TAX_PACK_SET.has(state.tax.pack.toUpperCase()))
+    ? state.tax.pack.toUpperCase() : "";
+  const autoPack = taxInitialPackCode();
+  if (own === _taxRulesFrom && pack === _taxPackFrom && (own || pack || autoPack === _taxAutoPackFrom)) return;
   _taxRulesFrom = own;
+  _taxPackFrom = pack;
+  _taxAutoPackFrom = autoPack;
   if (own) {
     const checked = taxCheckRules(JSON.stringify(own));
-    if (checked.ok) { taxLoadRules(checked.data, true); return; }
-    console.error("Saved tax rules no longer check out; using the built-in ones:", checked.problems);
+    if (checked.ok) { taxLoadRules(checked.data, true, "CUSTOM"); return; }
+    console.error("Saved tax rules no longer check out; falling back to built-in pack:", checked.problems);
   }
-  taxLoadRules(TAX_BUILTIN, false);
+  const resolved = taxResolveBuiltIn(pack);
+  taxLoadRules(resolved.data, false, resolved.code);
 }
 
-// Tax runs when the rules load and the vault keeps its books in the rules'
-// currency: Malaysian reliefs against euro spending would be nonsense.
+function taxVaultMode() {
+  taxSyncRules();
+  return TAX_OK && TAX_MODE === "vault_only";
+}
+
+// Tax estimator runs when a country pack (or custom rules) is loaded and the
+// vault keeps its books in the rules' currency. Global Receipt Vault has no bands.
 function taxReady() {
   taxSyncRules();
-  return TAX_OK && (typeof currentCurrency !== "function" || currentCurrency() === TAX_CURRENCY);
+  return TAX_OK && TAX_MODE !== "vault_only" && (typeof currentCurrency !== "function" || currentCurrency() === TAX_CURRENCY);
 }
 
 // The value a `limit_ya_<year>_myr` set gives for `year`: that year's key, else
@@ -311,7 +447,7 @@ function taxSubCap(sub, year) {
 // Automatic reliefs (individual, spouse, children …) are not claims and are
 // not in this list — see taxAutoAmounts.
 function taxReliefsFor(year) {
-  const y = year || new Date().getFullYear();
+  const y = year || taxDefaultYear();
   if (taxYearCache[y]) return taxYearCache[y];
   const out = [];
   for (const c of TAX_CATALOG) {
@@ -319,8 +455,12 @@ function taxReliefsFor(year) {
     const cap = taxResolveLimit(c.item, y);
     if (!(cap > 0)) continue;
     const subs = c.subs.map((x) => ({ id: x.id, label: x.label, keywords: x.keywords, cap: taxSubCap(x.sub, y) })).filter((x) => x.cap > 0);
-    out.push({ id: c.id, code: c.code, label: c.label, hint: c.hint, common: c.common, employeeEpf: c.employeeEpf,
-      keywords: c.keywords, cap, subs, info: c.item });
+    out.push({
+      id: c.id, code: c.code, label: c.label, hint: c.hint, common: c.common, employeeEpf: c.employeeEpf,
+      pctOfIncomeCap: c.pctOfIncomeCap, deductionMultiplier: c.deductionMultiplier,
+      countsTowardOverallCap: c.countsTowardOverallCap, perUnit: c.perUnit,
+      keywords: c.keywords, cap, subs, info: c.item,
+    });
   }
   return (taxYearCache[y] = out);
 }
@@ -332,14 +472,14 @@ function taxRelief(id) {
 }
 function taxReliefFor(year, id) { return taxReliefsFor(year).find((r) => r.id === id) || null; }
 
-// Reliefs given without a receipt, in ringgit each, for a year.
+// Reliefs given without a receipt, in pack currency each, for a year.
 function taxAutoAmounts(year) {
   const out = {};
   for (const c of TAX_CATALOG) if (c.auto) out[c.auto] = Math.max(0, taxResolveLimit(c.item, year) || 0);
   return out;
 }
 
-// Rate bands + rebate for a year (nearest earlier schedule, else the first).
+// Rate bands + optional two-tier standard rate + rebate + tax reduction for a year.
 function taxIncomeTaxFor(year) {
   const tax = TAX_SCHEDULE.income_tax_by_ya;
   const ys = Object.keys(tax).map(Number).sort((a, b) => a - b);
@@ -347,12 +487,18 @@ function taxIncomeTaxFor(year) {
   const t = tax[String(earlier.length ? earlier[earlier.length - 1] : ys[0])];
   return {
     bands: t.bands.map((b) => [b.up_to === null ? Infinity : b.up_to, b.rate]),
-    rebate: t.rebate.amount,
-    rebateLimit: t.rebate.chargeable_income_up_to,
+    standardBands: Array.isArray(t.standard_rate_bands)
+      ? t.standard_rate_bands.map((b) => [b.up_to === null ? Infinity : b.up_to, b.rate])
+      : null,
+    rebate: t.rebate ? t.rebate.amount : 0,
+    rebateLimit: t.rebate ? t.rebate.chargeable_income_up_to : 0,
+    reduction: t.tax_reduction && typeof t.tax_reduction === "object"
+      ? { pct: Number(t.tax_reduction.pct) || 0, cap: Number(t.tax_reduction.cap) || 0 }
+      : null,
   };
 }
 
-// The dates the app works to for YA `year` (see filing_by_ya in tax-data.js).
+// The dates the app works to for tax year `year` (see filing_by_ya in pack data).
 function taxFilingFor(year) {
   const all = (TAX_OK && TAX_SCHEDULE.filing_by_ya) || {};
   const ys = Object.keys(all).map(Number).sort((a, b) => a - b);
@@ -361,11 +507,13 @@ function taxFilingFor(year) {
     deadline_note: "", keep_records_years: 7,
     ...(ys.length ? all[String(earlier.length ? earlier[earlier.length - 1] : ys[0])] : {}) };
   const at = (y, md, h = 9) => new Date(y, Number(md.slice(0, 2)) - 1, Number(md.slice(3, 5)), h, 0, 0);
+  const basisYear = TAX_FISCAL.assessment_basis === "preceding" ? year - 1 : year;
+  const filingYear = basisYear + 1;
   return {
-    novCheck: at(year, f.november_check),
-    finalCheck: at(year + 1, f.final_check),
-    efilingOpens: at(year + 1, f.efiling_opens),
-    deadline: at(year + 1, f.deadline, 23),
+    novCheck: at(TAX_FISCAL.label_format === "split" ? filingYear : basisYear, f.november_check),
+    finalCheck: at(filingYear, f.final_check),
+    efilingOpens: at(filingYear, f.efiling_opens),
+    deadline: at(filingYear, f.deadline, 23),
     deadlineNote: f.deadline_note || "",
     keepYears: Number(f.keep_records_years) || 7,
   };
@@ -402,17 +550,17 @@ const TAX_RULES = [
 // `year` matters because the schedule changes: a relief can end, merge or arrive.
 function taxSuggestRelief(category, note, year) {
   const text = `${category || ""} ${note || ""}`.toLowerCase();
-  if (!text.trim()) return null;
-  const live = taxReliefsFor(year || new Date().getFullYear());
+  if (!text.trim() || TAX_MODE === "vault_only") return null;
+  const live = taxReliefsFor(year || taxDefaultYear());
   const has = (id) => live.some((r) => r.id === id);
-  // The word lists above are Malaysian; someone's own rules bring their own.
-  for (const [id, re] of TAX_CUSTOM ? [] : TAX_RULES) {
+  // The word lists above are Malaysian; other packs and custom rules bring their own `app.keywords`.
+  for (const [id, re] of (!TAX_CUSTOM && TAX_PACK_CODE === "MYS") ? TAX_RULES : []) {
     if (!re.test(text)) continue;
     // A relief a Budget folded into another one (breastfeeding → Medical).
     if (id === "breastfeeding" && !has(id)) return has("medical") ? "medical" : null;
     if (has(id)) return id;
   }
-  // Reliefs added to tax-data.js with their own `app.keywords`.
+  // Reliefs with their own `app.keywords` (SGP, HKG, custom rules, or new MY Budget items).
   for (const r of live) if (r.keywords && r.keywords.test(text)) return r.id;
   return null;
 }
@@ -450,7 +598,7 @@ const taxAiTried = new Set();
 
 const taxAiWords = (e) => `${String(e.note || "").trim()}|${String(e.category || "").trim()}`.toLowerCase().slice(0, 200);
 function taxAiOn() {
-  return !TAX_CUSTOM && typeof aiAllowed === "function" && aiAllowed() && typeof isNative === "function" && isNative();
+  return !TAX_CUSTOM && TAX_PACK_CODE === "MYS" && typeof aiAllowed === "function" && aiAllowed() && typeof isNative === "function" && isNative();
 }
 // The reliefs the model may choose from in `year`, as name → id.
 function taxAiChoices(year) {
@@ -479,7 +627,7 @@ function taxAiCandidates(now) {
   const since = t.deltaSince || 0;
   const out = [];
   for (const e of state.dailyExpenses || []) {
-    const year = Number(String(e.date).slice(0, 4));
+    const year = taxDateToYear(e.date);
     if ((e.kind || "expense") !== "expense" || !years.has(year) || decided.has(e.id) || taxAiTried.has(e.id)) continue;
     if (!String(e.note || "").trim() && !String(e.category || "").trim()) continue;
     if (asked[e.id] && asked[e.id].k === taxAiWords(e)) continue;
@@ -514,7 +662,7 @@ async function taxAiMatchRun(now, opts) {
       k++;
       if (typeof aiUntilForeground === "function") await aiUntilForeground();
       taxAiTried.add(e.id);
-      const year = Number(String(e.date).slice(0, 4));
+      const year = taxDateToYear(e.date);
       const choices = taxAiChoices(year);
       const names = Object.keys(choices);
       if (!names.length) continue;
@@ -556,9 +704,10 @@ const TAX_SUB_RULES = {
 };
 function taxSuggestSub(relief, category, note, year) {
   const text = `${category || ""} ${note || ""}`.toLowerCase();
-  const valid = (taxReliefFor(year || new Date().getFullYear(), relief) || { subs: [] }).subs.map((x) => x.id);
-  for (const [id, re] of (TAX_CUSTOM ? null : TAX_SUB_RULES[relief]) || []) if (re.test(text) && valid.includes(id)) return id;
-  const r = taxReliefFor(year || new Date().getFullYear(), relief);
+  const y = year || taxDefaultYear();
+  const valid = (taxReliefFor(y, relief) || { subs: [] }).subs.map((x) => x.id);
+  for (const [id, re] of ((!TAX_CUSTOM && TAX_PACK_CODE === "MYS") ? TAX_SUB_RULES[relief] : null) || []) if (re.test(text) && valid.includes(id)) return id;
+  const r = taxReliefFor(y, relief);
   for (const x of (r && r.subs) || []) if (x.keywords && x.keywords.test(text)) return x.id;
   return "";
 }
@@ -567,12 +716,13 @@ function taxSuggestSub(relief, category, note, year) {
 
 const emptyTax = () => ({
   enabled: false,
+  pack: "",              // "" = auto by region, or "MYS" | "SGP" | "HKG" | "GLOBAL"
   year: 0,               // tracked tax year; 0 = follow the calendar
   spouse: false,         // spouse with no income
   children: 0,           // children under 18
-  childrenPre: 0,        // 18+, full-time pre-university or diploma
+  childrenPre: 0,        // 18+, full-time pre-university or diploma (or HK newborn extra)
   childrenTertiary: 0,   // 18+, full-time degree or higher
-  disabledChildren: 0,   // JKM-registered children (extra on top of the above)
+  disabledChildren: 0,   // registered disabled children
   disabledSelf: false,
   disabledSpouse: false,
   figures: {},           // { "2026": { pcb, epf, income } } — typed per year
@@ -610,14 +760,22 @@ function coerceTaxClaim(raw) {
 function coerceTax(raw) {
   const t = raw && typeof raw === "object" ? raw : {};
   // Claims are checked against the reliefs they were made under, so the
-  // vault's own rules go in force before the claims are read.
+  // vault's own rules (or selected country pack) go in force before claims are read.
   let rules = null;
   if (t.rules && typeof t.rules === "object") {
     const checked = taxCheckRules(JSON.stringify(t.rules));
     if (checked.ok) rules = checked.data;
   }
-  taxLoadRules(rules || TAX_BUILTIN, !!rules);
+  const pack = (typeof t.pack === "string" && TAX_PACK_SET.has(t.pack.toUpperCase())) ? t.pack.toUpperCase() : "";
+  if (rules) {
+    taxLoadRules(rules, true, "CUSTOM");
+  } else {
+    const resolved = taxResolveBuiltIn(pack);
+    taxLoadRules(resolved.data, false, resolved.code);
+  }
   _taxRulesFrom = rules;
+  _taxPackFrom = pack;
+  _taxAutoPackFrom = taxInitialPackCode();
   const num = (v) => (Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : 0);
   const figures = {};
   if (t.figures && typeof t.figures === "object") {
@@ -628,6 +786,7 @@ function coerceTax(raw) {
   }
   return {
     enabled: !!t.enabled,
+    pack,
     year: /^\d{4}$/.test(String(t.year)) ? Number(t.year) : 0,
     spouse: !!t.spouse,
     children: Math.min(20, Math.round(num(t.children))),
@@ -671,7 +830,7 @@ function taxState() {
 
 function taxYear() {
   const y = taxState().year;
-  return y || new Date().getFullYear();
+  return y || taxDefaultYear();
 }
 
 function taxFigures(year) {
@@ -681,10 +840,10 @@ function taxFigures(year) {
 
 /* ---------- the maths (pure) ---------- */
 
-function taxBandTax(chargeable, year) {
-  const c = Math.max(0, Number(chargeable) || 0);
+function taxBandsCalc(amount, bands) {
+  const c = Math.max(0, Number(amount) || 0);
   let tax = 0, lower = 0;
-  for (const [upper, rate] of taxIncomeTaxFor(year || new Date().getFullYear()).bands) {
+  for (const [upper, rate] of bands || []) {
     if (c > lower) tax += (Math.min(c, upper) - lower) * rate;
     lower = upper;
     if (c <= upper) break;
@@ -692,23 +851,54 @@ function taxBandTax(chargeable, year) {
   return Math.round(tax * 100) / 100;
 }
 
+function taxBandTax(chargeable, year) {
+  return taxBandsCalc(chargeable, taxIncomeTaxFor(year || taxDefaultYear()).bands);
+}
+
 function taxMarginalRate(chargeable, year) {
   const c = Math.max(0, Number(chargeable) || 0);
-  const bands = taxIncomeTaxFor(year || new Date().getFullYear()).bands;
+  const bands = taxIncomeTaxFor(year || taxDefaultYear()).bands;
   for (const [upper, rate] of bands) if (c <= upper) return rate;
   return bands[bands.length - 1][1];
 }
 
-// Tax actually owed on a chargeable income: band tax, minus the RM400 rebate
-// for chargeable income up to RM35,000, minus zakat paid (a ringgit-for-ringgit
-// rebate that can wipe the bill out but never creates a refund of its own).
-function taxPayableFor(chargeable, zakat, year) {
-  const y = year || new Date().getFullYear();
-  const gross = taxBandTax(chargeable, y);
+// Tax actually owed on chargeable income:
+// - Progressive bands, optionally capped by two-tier standard rate (HKG) on netIncomeForStd
+// - Minus rebate (e.g. MY RM400 <= RM35k)
+// - Minus one-off Budget tax_reduction (e.g. HK 2025/26 100% capped at HK$3,000)
+// - Minus zakat paid (MYS / packs with zakat_mode === "rebate" only)
+function taxPayableFor(chargeable, zakat, year, netIncomeForStd) {
+  const y = year || taxDefaultYear();
   const t = taxIncomeTaxFor(y);
-  const rebate = chargeable <= t.rebateLimit ? Math.min(gross, t.rebate) : 0;
-  const zakatUsed = Math.min(Math.max(0, Number(zakat) || 0), gross - rebate);
-  return { gross, rebate, zakat: zakatUsed, payable: Math.max(0, Math.round((gross - rebate - zakatUsed) * 100) / 100) };
+  const progGross = taxBandsCalc(chargeable, t.bands);
+  let gross = progGross;
+  let usedStandardRate = false;
+  if (t.standardBands && t.standardBands.length) {
+    const stdBase = netIncomeForStd != null ? Math.max(0, Number(netIncomeForStd) || 0) : Math.max(0, Number(chargeable) || 0);
+    const stdGross = taxBandsCalc(stdBase, t.standardBands);
+    if (stdGross < progGross) {
+      gross = stdGross;
+      usedStandardRate = true;
+    }
+  }
+  const rebate = (t.rebate > 0 && chargeable <= t.rebateLimit) ? Math.min(gross, t.rebate) : 0;
+  const afterRebate = Math.max(0, gross - rebate);
+  const reduction = (t.reduction && t.reduction.pct > 0 && t.reduction.cap > 0)
+    ? Math.min(Math.round(afterRebate * t.reduction.pct * 100) / 100, t.reduction.cap)
+    : 0;
+  const afterReduction = Math.max(0, afterRebate - reduction);
+  const zakatUsed = TAX_ZAKAT_MODE === "rebate"
+    ? Math.min(Math.max(0, Number(zakat) || 0), afterReduction)
+    : 0;
+  return {
+    gross,
+    progressiveGross: progGross,
+    usedStandardRate,
+    rebate,
+    reduction,
+    zakat: zakatUsed,
+    payable: Math.max(0, Math.round((afterReduction - zakatUsed) * 100) / 100),
+  };
 }
 
 /* inp: { year, income, spouse, children, childrenPre, childrenTertiary,
@@ -716,7 +906,7 @@ function taxPayableFor(chargeable, zakat, year) {
           claims: [{ relief, sub, amount }] }
    (claimsByRelief: { id: amount } is accepted in place of `claims`.) */
 function taxEstimate(inp) {
-  const year = inp.year || new Date().getFullYear();
+  const year = inp.year || taxDefaultYear();
   const reliefs = taxReliefsFor(year);
   const list = Array.isArray(inp.claims)
     ? inp.claims
@@ -734,8 +924,12 @@ function taxEstimate(inp) {
     + n(inp.disabledChildren) * (A.disabledChild || 0);
 
   const used = {};
+  const deductible = {};
   const usedSub = {};
-  let claimedTotal = 0;
+  const rawByRelief = {};
+  let nonPctDeductions = 0;
+
+  // Pass 1: standard reliefs (not percentage-of-income capped).
   for (const r of reliefs) {
     let general = 0;
     const subSum = {};
@@ -751,35 +945,88 @@ function taxEstimate(inp) {
       amt += usedSub[`${r.id}:${x.id}`];
     }
     if (r.employeeEpf) amt += Number(inp.epfPaid) || 0;
-    used[r.id] = Math.min(r.cap, Math.max(0, amt));
-    claimedTotal += used[r.id];
+    rawByRelief[r.id] = Math.max(0, amt);
+    if (!r.pctOfIncomeCap) {
+      const mult = r.deductionMultiplier || 1;
+      used[r.id] = mult > 1 ? Math.min(r.cap / mult, rawByRelief[r.id]) : Math.min(r.cap, rawByRelief[r.id]);
+      deductible[r.id] = Math.round(Math.min(r.cap, rawByRelief[r.id] * mult) * 100) / 100;
+      nonPctDeductions += deductible[r.id];
+    }
   }
+
+  // Pass 2: percentage-of-income capped reliefs (e.g. HKG 35% Approved Charity on Net Income).
+  const netBeforePct = Math.max(0, income - nonPctDeductions);
+  const effectiveCaps = {};
+  for (const r of reliefs) {
+    if (r.pctOfIncomeCap > 0) {
+      const effCap = Math.round(Math.min(r.cap, netBeforePct * r.pctOfIncomeCap) * 100) / 100;
+      effectiveCaps[r.id] = effCap;
+      used[r.id] = Math.min(effCap, rawByRelief[r.id]);
+      deductible[r.id] = Math.round(used[r.id] * (r.deductionMultiplier || 1) * 100) / 100;
+    } else {
+      effectiveCaps[r.id] = r.cap;
+    }
+  }
+
+  // Overall personal relief cap (e.g. SGP S$80,000), while respecting items outside the cap (IPC 250% donations).
+  let cappedClaimed = 0;
+  let uncappedClaimed = 0;
+  for (const r of reliefs) {
+    if (r.countsTowardOverallCap === false) uncappedClaimed += deductible[r.id] || 0;
+    else cappedClaimed += deductible[r.id] || 0;
+  }
+
+  const overallCap = TAX_OVERALL_CAP;
+  let claimedTotal = Math.round((cappedClaimed + uncappedClaimed) * 100) / 100;
+  let effectiveReliefs = auto + claimedTotal;
+  let overallCapRoom = null;
+  let overallCapHit = false;
+  if (overallCap > 0) {
+    const cappedUsed = auto + cappedClaimed;
+    const cappedEffective = Math.min(overallCap, cappedUsed);
+    overallCapRoom = Math.max(0, Math.round((overallCap - cappedUsed) * 100) / 100);
+    overallCapHit = cappedUsed >= overallCap;
+    effectiveReliefs = cappedEffective + uncappedClaimed;
+    claimedTotal = Math.round((Math.max(0, cappedEffective - auto) + uncappedClaimed) * 100) / 100;
+  }
+
   // What the employer-side reliefs alone would give — so "your claims saved
-  // you RM x" is a real difference, not a guess.
+  // you X" is a real difference, not a guess.
   const epfRelief = reliefs.find((r) => r.employeeEpf);
   const epfOnly = epfRelief ? Math.min(epfRelief.cap, Math.max(0, Number(inp.epfPaid) || 0)) : 0;
-  const chargeableNoClaims = Math.max(0, income - auto - epfOnly);
+  const baseEffective = overallCap > 0 ? Math.min(overallCap, auto + epfOnly) : (auto + epfOnly);
+  const chargeableNoClaims = Math.max(0, income - baseEffective);
+  const netIncomeNoClaims = Math.max(0, income - epfOnly);
 
-  const chargeable = Math.max(0, Math.round((income - auto - claimedTotal) * 100) / 100);
-  const zakat = Number(inp.zakat) || 0;
-  const t = taxPayableFor(chargeable, zakat, year);
-  const base = taxPayableFor(chargeableNoClaims, zakat, year);
+  const netIncome = Math.max(0, Math.round((income - claimedTotal) * 100) / 100);
+  const chargeable = Math.max(0, Math.round((income - effectiveReliefs) * 100) / 100);
+  const zakat = TAX_ZAKAT_MODE === "rebate" ? (Number(inp.zakat) || 0) : 0;
+  const t = taxPayableFor(chargeable, zakat, year, netIncome);
+  const base = taxPayableFor(chargeableNoClaims, zakat, year, netIncomeNoClaims);
   const pcb = Math.max(0, Number(inp.pcb) || 0);
 
   const opportunities = [];
   for (const r of reliefs) {
-    const room = r.cap - used[r.id];
-    if (room <= 0) continue;
-    const eligible = r.common || used[r.id] > 0;
+    const effCap = effectiveCaps[r.id];
+    const mult = r.deductionMultiplier || 1;
+    let roomDed = Math.max(0, effCap - (deductible[r.id] || 0));
+    if (overallCap > 0 && r.countsTowardOverallCap !== false) {
+      roomDed = Math.min(roomDed, overallCapRoom);
+    }
+    if (roomDed <= 0) continue;
+    const eligible = r.common || (used[r.id] || 0) > 0;
     if (!eligible) continue;
-    const saving = t.payable - taxPayableFor(Math.max(0, chargeable - room), zakat, year).payable;
-    opportunities.push({ id: r.id, label: r.label, room, saving: Math.round(saving * 100) / 100 });
+    const roomSpend = mult > 1 ? Math.round((roomDed / mult) * 100) / 100 : Math.round(roomDed * 100) / 100;
+    const nextPayable = taxPayableFor(Math.max(0, chargeable - roomDed), zakat, year, Math.max(0, netIncome - roomDed)).payable;
+    const saving = t.payable - nextPayable;
+    opportunities.push({ id: r.id, label: r.label, room: roomSpend, saving: Math.round(saving * 100) / 100 });
   }
   opportunities.sort((a, b) => b.saving - a.saving);
 
   return {
-    year, income, autoRelief: auto, used, usedSub, claimedTotal, chargeable,
-    gross: t.gross, rebate: t.rebate, zakat: t.zakat, payable: t.payable,
+    year, income, autoRelief: auto, used, deductible, usedSub, claimedTotal, chargeable, netIncome,
+    gross: t.gross, usedStandardRate: t.usedStandardRate, rebate: t.rebate, reduction: t.reduction, zakat: t.zakat, payable: t.payable,
+    overallCap, overallCapRoom, overallCapHit,
     pcb,
     balance: Math.round((pcb - t.payable) * 100) / 100,   // > 0 refund, < 0 still owe
     savedByClaims: Math.max(0, Math.round((base.payable - t.payable) * 100) / 100),
@@ -797,12 +1044,12 @@ function taxClaimLabel(c) {
 }
 
 function taxYearClaims(year) {
-  return taxState().claims.filter((c) => c.date.startsWith(`${year}-`));
+  return taxState().claims.filter((c) => taxDateInYear(c.date, year));
 }
 
 function taxZakatPaid(year) {
   const hist = (state.shariah && state.shariah.history) || [];
-  return hist.filter((h) => String(h.date).startsWith(`${year}-`)).reduce((s, h) => s + (Number(h.amount) || 0), 0);
+  return hist.filter((h) => taxDateInYear(h.date, year)).reduce((s, h) => s + (Number(h.amount) || 0), 0);
 }
 
 // Income from the Monthly tab. A full twelve months is summed as-is. Anything
@@ -812,7 +1059,7 @@ function taxZakatPaid(year) {
 function taxIncomeFromEntries(year) {
   const byMonth = {};
   for (const i of state.income || []) {
-    if (!i.month || !i.month.startsWith(`${year}-`)) continue;
+    if (!i.month || !taxMonthInYear(i.month, year)) continue;
     byMonth[i.month] = (byMonth[i.month] || 0) + (Number(i.amount) || 0);
   }
   const months = Object.keys(byMonth);
@@ -841,8 +1088,7 @@ function taxInputs(year) {
     disabledSpouse: t.disabledSpouse,
     epfPaid: f.epf,
     pcb: f.pcb,
-    // Zakat comes off Malaysian tax ringgit for ringgit. Other rules opt in.
-    zakat: (!TAX_CUSTOM || TAX_SCHEDULE.zakat_rebate === true) ? taxZakatPaid(year) : 0,
+    zakat: TAX_ZAKAT_MODE === "rebate" ? taxZakatPaid(year) : 0,
     claims: taxYearClaims(year).map((c) => ({ relief: c.relief, sub: c.sub, amount: c.amount })),
   };
 }
@@ -851,14 +1097,59 @@ function taxSummary(year) {
   return { inputs: taxInputs(year), ...taxEstimate(taxInputs(year)) };
 }
 
+// Compact, zero-PII tax context snapshot for Kira (both local fallback & cloud kira-ask).
+function taxKiraContext() {
+  taxSyncRules();
+  const year = taxYear();
+  const yearLabel = taxYearLabel(year);
+  const claims = taxYearClaims(year);
+  const currency = TAX_CURRENCY || (typeof currentCurrency === "function" ? currentCurrency() : "MYR");
+  const vault = TAX_MODE === "vault_only";
+  const ready = taxReady();
+  const fd = taxFilingFor(year);
+  const base = {
+    countryCode: TAX_PACK_CODE,
+    mode: TAX_MODE,
+    country: TAX_COUNTRY || (vault ? "Global" : "Malaysia"),
+    authority: TAX_TERMS.authority,
+    currency,
+    year,
+    yearLabel,
+    withholdingMode: TAX_WITHHOLDING_MODE,
+    ready,
+    receiptCount: claims.length,
+    claimedTotal: Math.round(claims.reduce((s, c) => s + (Number(c.amount) || 0), 0) * 100) / 100,
+    marginalRate: 0,
+    usedStandardRate: false,
+    overallCap: TAX_OVERALL_CAP,
+    overallCapRoom: null,
+    filingDeadline: fd && fd.deadline ? taxDateLabel(fd.deadline) : "",
+    topOpportunities: [],
+  };
+  if (vault || !TAX_OK) return base;
+  const s = taxSummary(year);
+  base.claimedTotal = s.claimedTotal;
+  base.marginalRate = s.marginal;
+  base.usedStandardRate = !!s.usedStandardRate;
+  base.overallCapRoom = s.overallCapRoom;
+  base.topOpportunities = (s.opportunities || []).slice(0, 4).map((o) => ({
+    id: o.id,
+    label: taxShort(o.label),
+    room: o.room,
+    saving: o.saving,
+  }));
+  return base;
+}
+
 // Expenses that look deductible and nobody has decided about yet.
 function taxPendingExpenses(year) {
+  if (TAX_MODE === "vault_only") return [];
   const t = taxState();
   const claimed = new Set(t.claims.map((c) => c.entryId).filter(Boolean));
   const skipped = new Set(t.skipped);
   const out = [];
   for (const e of state.dailyExpenses || []) {
-    if ((e.kind || "expense") !== "expense" || !String(e.date).startsWith(`${year}-`)) continue;
+    if ((e.kind || "expense") !== "expense" || !taxDateInYear(e.date, year)) continue;
     if (claimed.has(e.id) || skipped.has(e.id)) continue;
     const kw = taxSuggestRelief(e.category, e.note, year);
     const relief = kw || taxAiRelief(e, year);
@@ -1085,12 +1376,17 @@ function taxOpenClaim(opts) {
   taxEl("tax-claim-date").value = existing ? existing.date : (entry ? entry.date : todayISO());
   taxEl("tax-claim-note").value = existing ? existing.note : (entry ? (entry.note || entry.category || "") : (o.note || ""));
   const year = taxClaimYear();
-  const relief = (existing && existing.relief) || o.relief || (entry && taxSuggestRelief(entry.category, entry.note, year)) || "lifestyle";
+  const vault = TAX_MODE === "vault_only";
+  const relief = (existing && existing.relief) || o.relief || (entry && taxSuggestRelief(entry.category, entry.note, year)) || (vault ? "vault_other" : "lifestyle");
   const sub = existing ? existing.sub : (o.sub || (entry ? taxSuggestSub(relief, entry.category, entry.note, year) : ""));
   taxFillReliefOptions(relief, sub);
-  taxEl("tax-claim-title").textContent = tr(existing ? "Edit claim" : (entry ? "Claim as tax relief" : "Add a tax claim"));
-  taxEl("tax-claim-save").textContent = tr(existing ? "Save" : "Claim");
+  taxEl("tax-claim-title").textContent = vault
+    ? tr(existing ? "Edit tax receipt" : "Add tax receipt")
+    : tr(existing ? "Edit claim" : (entry ? "Claim as tax relief" : "Add a tax claim"));
+  taxEl("tax-claim-save").textContent = tr(existing || vault ? "Save" : "Claim");
   taxEl("tax-claim-delete").hidden = !existing;
+  const infoWrap = dlg.querySelector(".tax-claim-info");
+  if (infoWrap) infoWrap.hidden = vault;
   taxRefreshClaimHint();
   taxRefreshReceiptArea();
   if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
@@ -1105,7 +1401,7 @@ function taxCloseClaim() {
 
 function taxClaimYear() {
   const date = taxEl("tax-claim-date").value;
-  return /^\d{4}/.test(date) ? Number(date.slice(0, 4)) : taxYear();
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? taxDateToYear(date) : taxYear();
 }
 
 // The relief and sub-limit lists depend on the claim's year (limits and some
@@ -1129,11 +1425,20 @@ function taxRefreshClaimHint() {
   const year = taxClaimYear();
   const r = taxReliefFor(year, taxEl("tax-claim-relief").value);
   if (!r) return;
+  if (TAX_MODE === "vault_only") {
+    taxEl("tax-claim-hint").textContent = r.hint || tr("Stored encrypted on this device for {ya}.", { ya: taxYearLabel(year) });
+    return;
+  }
   const others = taxYearClaims(year).filter((c) => c.relief === r.id && c.id !== (taxCtx && taxCtx.claimId));
   const sub = r.subs.find((x) => x.id === taxEl("tax-claim-sub").value);
   const usedElsewhere = others.reduce((s, c) => s + c.amount, 0) + (r.employeeEpf ? taxFigures(year).epf : 0);
-  const left = Math.max(0, r.cap - usedElsewhere);
-  let text = `${r.hint}. ${tr("Limit {cap} a year · {left} left for {year}.", { cap: fmtMoney(r.cap), left: fmtMoney(left), year })}`;
+  let text;
+  if (r.pctOfIncomeCap > 0) {
+    text = `${r.hint}. ${tr("Capped at {pct}% of net income for {ya}.", { pct: Math.round(r.pctOfIncomeCap * 100), ya: taxYearLabel(year) })}`;
+  } else {
+    const left = Math.max(0, r.cap - usedElsewhere);
+    text = `${r.hint}. ${tr("Limit {cap} a year · {left} left for {year}.", { cap: fmtMoney(r.cap), left: fmtMoney(left), year: taxYearLabel(year) })}`;
+  }
   if (sub) {
     const subLeft = Math.max(0, sub.cap - others.filter((c) => c.sub === sub.id).reduce((s, c) => s + c.amount, 0));
     text += ` ${sub.label}: ${tr("{cap} limit, {left} left.", { cap: fmtMoney(sub.cap), left: fmtMoney(subLeft) })}`;
@@ -1175,8 +1480,9 @@ async function taxSaveClaim() {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { taxEl("tax-claim-date").focus(); return; }
   const relief = taxEl("tax-claim-relief").value;
   const sub = taxEl("tax-claim-sub").value;
-  const year = Number(date.slice(0, 4));
-  const before = taxSummary(year);
+  const year = taxDateToYear(date);
+  const vault = TAX_MODE === "vault_only";
+  const before = vault ? null : taxSummary(year);
 
   let receiptId = ctx.receiptId;
   try {
@@ -1209,6 +1515,10 @@ async function taxSaveClaim() {
   taxCloseClaim();
   renderAll();
 
+  if (vault) {
+    toast(`${tr("Saved {a}", { a: fmtMoney(claim.amount) })} · ${taxRelief(relief).label}`);
+    return;
+  }
   const after = taxSummary(year);
   const gained = Math.round((after.savedByClaims - before.savedByClaims) * 100) / 100;
   const cap = (taxReliefFor(year, relief) || { cap: Infinity }).cap;
@@ -1853,14 +2163,37 @@ function taxRenderRules() {
     const where = TAX_COUNTRY ? `${TAX_COUNTRY}` : tr("Your own rules");
     text = `${where} · ${TAX_TABLE_LABEL} · ${tr("amounts in {cur}. Added by you, kept on this device.", { cur: TAX_CURRENCY })}`;
     if (cur !== TAX_CURRENCY) text += ` ${tr("Your money is in {cur}, so tax is off until the two match: change the currency in Settings, or add rules in {cur}.", { cur })}`;
-  } else if (cur === "MYR") {
-    text = tr("Malaysia (LHDN), {table}, built in and updated each Budget. Somewhere else? Add your country's rules.", { table: TAX_TABLE_LABEL });
+  } else if (TAX_MODE === "vault_only") {
+    text = tr("Global Tax Receipt Vault is active — tag and store deductible receipts on this device, or add your country's rules for bands and relief caps.");
+  } else if (cur === TAX_CURRENCY && TAX_PACK_CODE === "MYS") {
+    text = tr("Malaysia (LHDN), {table}, built in and updated each Budget. Somewhere else? Pick another pack or add your country's rules.", { table: TAX_TABLE_LABEL });
+  } else if (cur === TAX_CURRENCY) {
+    text = tr("{country} ({who}), {table}, built in. Somewhere else? Pick another pack or add your country's rules.", { country: TAX_COUNTRY, who: TAX_TERMS.authority, table: TAX_TABLE_LABEL });
   } else {
-    text = tr("The built-in tax rules are Malaysia's. Add your country's rules to use this in {cur}.", { cur });
+    text = tr("Built-in packs include Malaysia's (MYR), Singapore's (SGD), and Hong Kong's (HKD). Switch to Global Receipt Vault or add your country's rules for {cur}.", { cur });
   }
   box.textContent = text;
   taxEl("btn-tax-rules").textContent = tr(own ? "Edit rules" : "Use my country's rules");
   taxEl("btn-tax-rules-reset").hidden = !own;
+}
+
+function taxSetPack(packCode) {
+  const t = taxState();
+  const next = (typeof packCode === "string" && TAX_PACK_SET.has(packCode.toUpperCase())) ? packCode.toUpperCase() : "";
+  if (t.rules) {
+    if (!confirm(tr("Switch to this built-in tax pack and clear your custom rules?"))) {
+      if (taxEl("tax-pack-select")) taxEl("tax-pack-select").value = t.pack || "";
+      return false;
+    }
+    t.rules = null;
+  }
+  t.pack = next;
+  t.year = 0;
+  taxUi.reliefOpen = "";
+  taxSyncRules();
+  save();
+  renderAll();
+  return true;
 }
 
 function taxOpenRules() {
@@ -1887,7 +2220,8 @@ function taxClaimsLost(data) {
 
 function taxApplyRules(data) {
   const t = taxState();
-  const lost = taxClaimsLost(data || TAX_BUILTIN);
+  const fallback = taxResolveBuiltIn(t.pack).data || TAX_BUILTIN;
+  const lost = taxClaimsLost(data || fallback);
   if (lost.length && !confirm(trn(lost.length, "{n} claim you made under the current rules has no match in the new ones and will be removed. Continue?", "{n} claims you made under the current rules have no match in the new ones and will be removed. Continue?"))) return false;
   const drop = new Set(lost.map((c) => c.id));
   t.claims = t.claims.filter((c) => !drop.has(c.id));
@@ -1910,37 +2244,76 @@ function taxSaveRulesFromEditor() {
 }
 
 function taxResetRules() {
-  if (!confirm(tr("Remove your rules and go back to Malaysia's built-in ones?"))) return;
-  if (taxApplyRules(null)) toast(tr("Back to Malaysia's rules"));
+  if (!confirm(tr("Remove your rules and go back to the built-in pack?"))) return;
+  if (taxApplyRules(null)) toast(tr("Back to built-in tax rules"));
 }
 
 // Reports filters do.
 const taxUi = { reliefOpen: "", showAll: false, filter: "all", inbox: 0, rulesOpen: false };
 
+function taxRenderVault(year, claims) {
+  const total = Math.round(claims.reduce((s, c) => s + (Number(c.amount) || 0), 0) * 100) / 100;
+  const withPhoto = claims.filter((c) => c.receiptId).length;
+  taxEl("tax-vault-total").textContent = fmtMoney(total);
+  taxEl("tax-vault-count").textContent = claims.length
+    ? tr("{n} saved for {ya} · {p} with receipt photo", { n: claims.length, ya: taxYearLabel(year), p: withPhoto })
+    : tr("No tax receipts saved for {ya} yet.", { ya: taxYearLabel(year) });
+}
+
 function renderTax() {
   const t = taxState();
-  const myr = taxReady();
-  const on = t.enabled && myr;
+  const vault = taxVaultMode();
+  const ready = taxReady();
+  const on = t.enabled && ready;
   const show = (id, v) => { const el = taxEl(id); if (el) el.hidden = !v; };
+
+  // Sync pack selector & badge
+  const packSel = taxEl("tax-pack-select");
+  if (packSel) packSel.value = t.rules ? "" : (t.pack || "");
+  const badge = taxEl("tax-pack-badge");
+  if (badge) {
+    badge.hidden = false;
+    badge.textContent = t.rules && TAX_CUSTOM
+      ? tr("Custom")
+      : vault
+        ? tr("Vault only")
+        : `${TAX_TERMS.authority} · ${TAX_CURRENCY}`;
+  }
+
   // Ways in: Reports (opt-in or a summary), Home's Today links, the page itself.
-  show("tax-optin", !t.enabled && myr);
-  show("tax-page-optin", !t.enabled && myr);
+  show("tax-optin", !vault && !t.enabled && ready);
+  show("tax-page-optin", !vault && !t.enabled && ready);
   show("tax-entry", on);
-  // Always findable, tracking or not — and for someone outside Malaysia it
-  // is the way to the rules editor.
+  show("tax-vault-card", vault);
+  // Always findable, tracking or not — and for someone outside supported countries
+  // it opens the Global Tax Receipt Vault + custom rules editor.
   show("today-tax-link", true);
   document.querySelectorAll("[data-tax-term]").forEach((el) => { el.textContent = TAX_TERMS[el.dataset.taxTerm] || el.textContent; });
   taxRenderRules();
-  // Malaysia's rules are built in, so for a ringgit vault with no rules of
-  // its own the "Tax rules" card is one quiet link at the foot of the page.
-  // Anywhere else it is the way in, and stays a card.
+
   const cur = typeof currentCurrency === "function" ? currentCurrency() : "MYR";
-  const malaysia = !t.rules && cur === "MYR";
-  show("tax-rules-card", !malaysia || taxUi.rulesOpen);
-  show("btn-tax-rules-show", malaysia && !taxUi.rulesOpen);
+  const builtInMatched = !t.rules && !vault && cur === TAX_CURRENCY;
+  show("tax-rules-card", !builtInMatched || taxUi.rulesOpen);
+  show("btn-tax-rules-show", builtInMatched && !taxUi.rulesOpen);
   show("btn-tax-disable", on);
   renderTaxHome();
-  if (!t.enabled && myr) taxRenderWelcome();
+
+  if (vault) {
+    for (const id of ["tax-card", "tax-reliefs-card", "tax-details-card", "tax-pending-wrap"]) show(id, false);
+    show("tax-claims-card", true);
+    document.querySelector("#tab-tax .tax-year")?.toggleAttribute("hidden", false);
+    const year = taxYear();
+    taxEl("tax-year-label").textContent = taxYearLabel(year);
+    taxEl("tax-year-next").disabled = year >= taxMaxYear();
+    const claims = taxYearClaims(year).sort((a, b) => (a.date < b.date ? 1 : -1));
+    if (taxEl("tax-claims-title")) taxEl("tax-claims-title").textContent = tr("Saved tax receipts");
+    taxRenderVault(year, claims);
+    taxRenderClaims(claims);
+    return;
+  }
+
+  if (taxEl("tax-claims-title")) taxEl("tax-claims-title").textContent = tr("Claims & receipts");
+  if (!t.enabled && ready) taxRenderWelcome();
   for (const id of ["tax-card", "tax-reliefs-card", "tax-claims-card", "tax-details-card"]) show(id, on);
   document.querySelector("#tab-tax .tax-year")?.toggleAttribute("hidden", !on);
   if (!on) { show("tax-pending-wrap", false); return; }
@@ -1948,7 +2321,7 @@ function renderTax() {
   const year = taxYear();
   const s = taxSummary(year);
   taxEl("tax-year-label").textContent = taxYearLabel(year);
-  taxEl("tax-year-next").disabled = year >= new Date().getFullYear();
+  taxEl("tax-year-next").disabled = year >= taxMaxYear();
   const pending = taxPendingExpenses(year);
   const claims = taxYearClaims(year).sort((a, b) => (a.date < b.date ? 1 : -1));
 
@@ -1963,7 +2336,7 @@ function renderTax() {
 
 /* The page for someone not tracking yet: what it does, what it already found. */
 function taxRenderWelcome() {
-  const year = new Date().getFullYear();
+  const year = taxDefaultYear();
   const f = taxFound(year);
   const box = taxEl("tax-found");
   box.hidden = !f.n;
@@ -1972,7 +2345,7 @@ function taxRenderWelcome() {
     ? tr("{a} of your spending looks claimable", { a: amt(taxWhole(f.total)) })
     : tr("See your likely tax refund");
   if (!f.n) { taxEl("tax-found-list").innerHTML = ""; return; }
-  taxEl("tax-found-title").textContent = trn(f.n, "From {n} spend in {year}", "From {n} spends in {year}", { year });
+  taxEl("tax-found-title").textContent = trn(f.n, "From {n} spend in {year}", "From {n} spends in {year}", { year: taxYearLabel(year) });
   taxEl("tax-found-list").innerHTML = f.items.slice(0, 3).map(({ entry, relief }) => `
     <li>
       <div class="tax-row-main">
@@ -1984,13 +2357,17 @@ function taxRenderWelcome() {
   taxEl("tax-found-more").textContent = f.n > 3 ? tr("and {n} more", { n: f.n - 3 }) : "";
 }
 
-/* 1. The refund: the figure, tax due against PCB paid, and the working. */
+/* 1. The refund / tax bill: figure, tax due against withholding/provisional paid, and working. */
 function taxRenderHero(year, s, pending, claims) {
   const fd = taxFilingFor(year);
   const now = new Date();
   const hasIncome = s.inputs.income > 0;
   const owe = hasIncome && s.balance < 0;
-  taxEl("tax-hero-label").textContent = `${tr(owe ? "Tax still to pay" : "Estimated refund")} · ${taxYearLabel(year)}`;
+  const basisNote = taxBasisPeriodNote(year);
+  const heroTitle = owe
+    ? (TAX_WITHHOLDING_MODE === "giro_assessment" ? tr("Estimated tax payable") : tr("Tax still to pay"))
+    : tr("Estimated refund");
+  taxEl("tax-hero-label").textContent = `${heroTitle} · ${taxYearLabel(year)}${basisNote ? ` (${basisNote})` : ""}`;
   const fig = taxEl("tax-hero");
   fig.textContent = fmtMoney(Math.abs(s.balance));
   fig.classList.toggle("is-owe", owe);
@@ -1999,6 +2376,14 @@ function taxRenderHero(year, s, pending, claims) {
   // Two bars on one scale: the gap between them is the refund (or the bill).
   const split = taxEl("tax-split");
   split.hidden = !hasIncome;
+  const paidLbl = taxEl("tax-split-paid-label");
+  if (paidLbl) {
+    paidLbl.textContent = TAX_WITHHOLDING_MODE === "provisional"
+      ? tr("Provisional paid")
+      : TAX_WITHHOLDING_MODE === "giro_assessment"
+        ? tr("Tax paid")
+        : tr("{wh} paid", { wh: TAX_TERMS.withholding });
+  }
   if (hasIncome) {
     const max = Math.max(s.payable, s.pcb, 1);
     taxEl("tax-split-due").style.width = `${(s.payable / max) * 100}%`;
@@ -2010,9 +2395,15 @@ function taxRenderHero(year, s, pending, claims) {
   let note;
   if (!hasIncome) {
     note = tr("Add your salary in the Monthly tab, or {link}, to see your refund.", { link: `<button type="button" class="tax-inline-btn" data-tax-numbers="tax-in-income">${tr("type your yearly income")}</button>` });
-  } else if (!s.pcb) {
+  } else if (!s.pcb && TAX_WITHHOLDING_MODE === "paye") {
     const wh = escapeHtml(TAX_TERMS.withholding);
     note = `${tr("Without your {wh} this is your tax bill, not your refund.", { wh })} <button type="button" class="tax-inline-btn" data-tax-numbers="tax-in-pcb">${tr("Add the {wh} from your payslips", { wh })}</button>.`;
+  } else if (!s.pcb && TAX_WITHHOLDING_MODE === "provisional") {
+    note = `${tr("Estimated Salaries Tax before provisional tax paid.")} <button type="button" class="tax-inline-btn" data-tax-numbers="tax-in-pcb">${tr("Add provisional tax paid")}</button>.`;
+  } else if (!s.pcb && TAX_WITHHOLDING_MODE === "giro_assessment") {
+    note = s.savedByClaims > 0
+      ? tr("Your claims are saving you about {a} on your {who} assessment.", { a: amt(s.savedByClaims), who: escapeHtml(TAX_TERMS.authority) })
+      : tr("Estimated {who} tax assessment (GIRO / Notice of Assessment).", { who: escapeHtml(TAX_TERMS.authority) });
   } else if (s.savedByClaims > 0) {
     note = tr("Your claims are saving you about {a}.", { a: amt(s.savedByClaims) });
   } else {
@@ -2027,9 +2418,10 @@ function taxRenderHero(year, s, pending, claims) {
     step("−", tr("Automatic reliefs (you, family)"), s.autoRelief),
     step("−", tr("Reliefs you've claimed, with {pen}", { pen: TAX_TERMS.pension }), s.claimedTotal),
     step("=", tr("Taxable income"), s.chargeable, "is-sum"),
-    step("", tr("Tax on that, at resident rates"), s.gross),
+    step("", s.usedStandardRate ? tr("Tax at two-tier standard rate (15% / 16%)") : tr("Tax on that, at resident rates"), s.gross),
   ];
   if (s.rebate > 0) rows.push(step("−", `${taxWhole(s.rebate)} ${TAX_TERMS.rebate}`, s.rebate));
+  if (s.reduction > 0) rows.push(step("−", tr("One-off tax reduction"), s.reduction));
   if (s.zakat > 0) rows.push(step("−", tr("Zakat paid"), s.zakat));
   rows.push(step("=", tr("Tax due"), s.payable, "is-sum"));
   rows.push(step("−", tr("{wh} already paid", { wh: TAX_TERMS.withholding }), s.pcb));
@@ -2043,7 +2435,7 @@ function taxRenderHero(year, s, pending, claims) {
   const nextCheck = [fd.novCheck, fd.finalCheck].find((d) => d > now);
   const status = [];
   if (days != null && now.getMonth() >= 9 && hasIncome && room > 0) {
-    status.push(`<li class="is-warn">${TAX_ICON.clock}<span>${trn(days, "{n} day left in {year} — unused relief could still save you up to {a}.", "{n} days left in {year} — unused relief could still save you up to {a}.", { year, a: amt(room) })}</span></li>`);
+    status.push(`<li class="is-warn">${TAX_ICON.clock}<span>${trn(days, "{n} day left in {year} — unused relief could still save you up to {a}.", "{n} days left in {year} — unused relief could still save you up to {a}.", { year: taxYearLabel(year), a: amt(room) })}</span></li>`);
   }
   if (missing) {
     status.push(`<li>${TAX_ICON.receipt}<span>${trn(missing, "{n} claim still needs a receipt — add by {date}.", "{n} claims still need a receipt — add by {date}.", { date: escapeHtml(taxDateLabel(fd.deadline)) })}</span></li>`);
@@ -2104,6 +2496,21 @@ function taxRenderInbox(year, s, pending) {
 
 /* 3. Reliefs as tiles; one opens into its detail. */
 function taxRenderReliefs(year, s) {
+  const capBanner = taxEl("tax-cap-banner");
+  if (capBanner) {
+    if (s.overallCap > 0) {
+      const capUsed = Math.min(s.overallCap, Math.round((s.overallCap - (s.overallCapRoom || 0)) * 100) / 100);
+      capBanner.hidden = false;
+      capBanner.classList.toggle("is-hit", !!s.overallCapHit);
+      capBanner.textContent = s.overallCapHit
+        ? tr("Overall personal relief cap of {cap} reached. Qualifying IPC donations (250%) sit outside this cap.", { cap: taxWhole(s.overallCap) })
+        : tr("Overall personal relief cap: {used} of {cap} used · {room} left (IPC 250% donations sit outside this cap).", { used: taxWhole(capUsed), cap: taxWhole(s.overallCap), room: taxWhole(s.overallCapRoom || 0) });
+    } else {
+      capBanner.hidden = true;
+      capBanner.textContent = "";
+    }
+  }
+
   const live = taxReliefsFor(year);
   const hasIncome = s.inputs.income > 0;
   const top = s.opportunities.filter((o) => o.saving > 0).slice(0, 3).map((o) => o.id);
@@ -2124,17 +2531,25 @@ function taxRenderReliefs(year, s) {
 
   taxEl("tax-reliefs").innerHTML = shown.map((r) => {
     const used = s.used[r.id] || 0;
-    const full = used >= r.cap;
+    const isPctCap = r.pctOfIncomeCap > 0;
+    const full = !isPctCap && used >= r.cap;
     const opp = hasIncome && top.includes(r.id) && s.opportunities.find((o) => o.id === r.id);
     const isOpen = taxUi.reliefOpen === r.id;
+    const capText = isPctCap
+      ? tr("up to {pct}% net income", { pct: Math.round(r.pctOfIncomeCap * 100) })
+      : r.deductionMultiplier > 1
+        ? tr("{mult}% deduction", { mult: Math.round(r.deductionMultiplier * 100) })
+        : tr("of {cap}", { cap: escapeHtml(taxCap(r.cap)) });
     const note = full ? `${TAX_ICON.check}<span>${tr("Limit reached")}</span>`
       : opp ? `<span>${tr("saves about {a}", { a: amt(opp.saving) })}</span>`
+      : isPctCap ? `<span>${tr("Up to {pct}% of net income", { pct: Math.round(r.pctOfIncomeCap * 100) })}</span>`
+      : r.deductionMultiplier > 1 ? `<span>${tr("{mult}% tax deduction", { mult: Math.round(r.deductionMultiplier * 100) })}</span>`
       : `<span>${tr("{a} left", { a: amt(r.cap - used) })}</span>`;
     return `<li><button type="button" class="tax-tile${full ? " is-full" : ""}${opp ? " is-room" : ""}${isOpen ? " is-open" : ""}"
         data-tax-relief-open="${r.id}" aria-expanded="${isOpen ? "true" : "false"}" aria-controls="tax-relief-detail">
       <span class="tax-tile-name">${escapeHtml(taxShort(r.label))}</span>
-      <span class="tax-tile-val">${used > 0 ? amt(used) : escapeHtml(taxWhole(0))} <span class="tax-tile-cap">${tr("of {cap}", { cap: escapeHtml(taxCap(r.cap)) })}</span></span>
-      <span class="tax-tile-bar"><span style="width:${taxPct(used, r.cap)}%"></span></span>
+      <span class="tax-tile-val">${used > 0 ? amt(used) : escapeHtml(taxWhole(0))} <span class="tax-tile-cap">${capText}</span></span>
+      <span class="tax-tile-bar"><span style="width:${isPctCap ? (used > 0 ? 50 : 0) : taxPct(used, r.cap)}%"></span></span>
       <span class="tax-tile-note">${note}</span>
     </button></li>`;
   }).join("");
@@ -2159,7 +2574,7 @@ function taxRenderReliefs(year, s) {
       </button>
     </div>
     <p class="hint">${escapeHtml(r.hint)}</p>
-    <p class="tax-detail-figure">${amt(used)} <span class="tax-tile-cap">${tr("of {cap} used", { cap: escapeHtml(taxCap(r.cap)) })}</span>${opp && opp.saving > 0 && s.inputs.income > 0 ? ` · ${tr("filling it saves about {a}", { a: amt(opp.saving) })}` : ""}</p>
+    <p class="tax-detail-figure">${amt(used)} <span class="tax-tile-cap">${r.pctOfIncomeCap > 0 ? tr("up to {pct}% of net income", { pct: Math.round(r.pctOfIncomeCap * 100) }) : tr("of {cap} used", { cap: escapeHtml(taxCap(r.cap)) })}</span>${opp && opp.saving > 0 && s.inputs.income > 0 ? ` · ${tr("filling it saves about {a}", { a: amt(opp.saving) })}` : ""}</p>
     ${subs ? `<h4>${tr("Limits inside this relief")}</h4><ul class="tax-detail-subs">${subs}</ul>` : ""}
     <h4>${inRelief.length ? tr("Your claims ({n})", { n: inRelief.length }) : tr("No claims yet")}</h4>
     ${inRelief.length ? `<ul class="tax-detail-claims">${inRelief.slice(0, 6).map((c) => `<li><span>${escapeHtml(c.note || taxClaimShortLabel(c))}</span><span class="hint">${escapeHtml(taxDay(c.date))}</span><span>${amt(c.amount)}</span></li>`).join("")}</ul>` : ""}
@@ -2185,7 +2600,9 @@ function taxRenderClaims(claims) {
   empty.hidden = list.length > 0;
   if (!list.length) empty.innerHTML = claims.length
     ? tr("Every claim has its receipt.")
-    : tr("Nothing claimed yet. Claim a spend from <em>To check</em>, or add one yourself.");
+    : TAX_MODE === "vault_only"
+      ? tr("No tax receipts saved yet. Tap Add to tag a receipt and keep an encrypted copy on this device.")
+      : tr("Nothing claimed yet. Claim a spend from <em>To check</em>, or add one yourself.");
   taxEl("tax-claims").innerHTML = list.map((c) => {
     const docs = (c.docIds || []).length;
     const files = c.receiptId
@@ -2234,11 +2651,13 @@ function taxRenderDetails(year, s) {
   ].join(" · ") : "";
   // One thing to do next, instead of a tile per missing figure.
   const prompt = taxEl("tax-details-prompt");
-  const need = !hasIncome ? "income" : !f.pcb ? "pcb" : "";
+  const need = !hasIncome ? "income" : (!f.pcb && TAX_WITHHOLDING_MODE === "paye") ? "pcb" : "";
   prompt.hidden = !need;
   taxEl("btn-tax-numbers").hidden = !hasIncome;
-  // One "Scan EA form": beside the prompt when there is one, else quietly under the line.
-  if (taxEl("btn-tax-ea")) taxEl("btn-tax-ea").hidden = !!need;
+  // Borang EA is Malaysia-specific; hide it for SGP, HKG, and custom rules.
+  const isMy = !TAX_CUSTOM && TAX_PACK_CODE === "MYS";
+  if (taxEl("btn-tax-ea")) taxEl("btn-tax-ea").hidden = !isMy || !!need;
+  if (taxEl("tax-details-ea")) taxEl("tax-details-ea").hidden = !isMy;
   if (need) {
     const add = taxEl("tax-details-add");
     taxEl("tax-details-prompt-text").textContent = need === "income"
@@ -2254,7 +2673,7 @@ function taxRenderDetails(year, s) {
   taxWizFill();
   taxEl("tax-footnote").textContent = TAX_CUSTOM
     ? tr("An estimate from the {table} rules you added. Check {who}'s figures before you file.", { table: TAX_COUNTRY ? `${TAX_TABLE_LABEL} (${TAX_COUNTRY})` : TAX_TABLE_LABEL, who: TAX_TERMS.authority })
-    : tr("An estimate from the LHDN {table} schedule. Check LHDN's figures before you file.", { table: TAX_TABLE_LABEL });
+    : tr("An estimate from the {who} {table} schedule. Check {who}'s figures before you file.", { who: TAX_TERMS.authority, table: TAX_TABLE_LABEL });
 }
 
 /* Reports: the way in, with the number. */
@@ -2758,14 +3177,29 @@ eaEl("ea-dialog")?.addEventListener("close", () => {
 
 function taxClaimsCSV(year) {
   const esc = (v) => csvEscape(v);
-  const lines = [["Date", "Relief", "Amount", "Note", "Receipt saved", "Other documents"].join(",")];
+  const vault = TAX_MODE === "vault_only";
+  const lines = [[
+    "Date",
+    vault ? "Category" : "Relief",
+    "Amount",
+    "Note",
+    "Receipt saved",
+    "Other documents",
+  ].join(",")];
   for (const c of taxYearClaims(year).sort((a, b) => (a.date < b.date ? -1 : 1))) {
     lines.push([c.date, taxClaimLabel(c), c.amount.toFixed(2), c.note, c.receiptId ? "Yes" : "No", (c.docIds || []).length].map(esc).join(","));
   }
-  const s = taxSummary(year);
-  lines.push("");
-  lines.push(["Relief", "Claimed", "Limit"].join(","));
-  for (const r of taxReliefsFor(year)) if (s.used[r.id] > 0) lines.push([r.label, s.used[r.id].toFixed(2), r.cap].map(esc).join(","));
+  if (!vault) {
+    const s = taxSummary(year);
+    lines.push("");
+    lines.push(["Relief", "Claimed", "Limit"].join(","));
+    for (const r of taxReliefsFor(year)) {
+      if (s.used[r.id] > 0) {
+        const capLabel = r.pctOfIncomeCap > 0 ? `${Math.round(r.pctOfIncomeCap * 100)}% net income` : r.cap;
+        lines.push([r.label, s.used[r.id].toFixed(2), capLabel].map(esc).join(","));
+      }
+    }
+  }
   return lines.join("\n");
 }
 
@@ -2775,7 +3209,7 @@ async function taxExportClaims() {
   if (typeof isNative === "function" && isNative()) {
     try {
       await navigator.clipboard.writeText(csv);
-      notify(tr("Tax claims for {year} copied to the clipboard. Paste them into Notes or an email.", { year }));
+      notify(tr("Tax claims for {year} copied to the clipboard. Paste them into Notes or an email.", { year: taxYearLabel(year) }));
     } catch { notify(tr("Couldn't copy to the clipboard.")); }
     return;
   }
@@ -2906,8 +3340,8 @@ document.addEventListener("click", (e) => {
       taxState().enabled = false; save(); renderAll();
     }
   }
-  else if (hit("#btn-tax-add")) taxOpenClaim({});
-  else if (hit("#btn-tax-export")) taxExportClaims();
+  else if (hit("#btn-tax-add") || hit("#btn-tax-vault-add")) taxOpenClaim({});
+  else if (hit("#btn-tax-export") || hit("#btn-tax-vault-export")) taxExportClaims();
   else if (hit("#tax-year-prev")) { taxState().year = taxYear() - 1; save(); renderTax(); }
   else if (hit("#tax-year-next")) { taxState().year = taxYear() + 1; save(); renderTax(); }
   else if (hit("#tax-claim-cancel")) taxCloseClaim();
@@ -2939,6 +3373,10 @@ document.addEventListener("click", (e) => {
   }
   // File pickers are real buttons (keyboard-reachable) driving hidden inputs.
   else if ((b = hit("[data-tax-pick]"))) taxEl(b.dataset.taxPick)?.click();
+});
+
+taxEl("tax-pack-select")?.addEventListener("change", (e) => {
+  taxSetPack(e.target.value);
 });
 
 taxEl("tax-rules-file")?.addEventListener("change", async (e) => {
