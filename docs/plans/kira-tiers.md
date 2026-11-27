@@ -33,8 +33,9 @@ Pro taste never lowers anything. A Pro user who also has AI+ gets AI+.
 
 ## App (Duitful 2.0)
 
-- **Bubble:** Kira when `tier !== "free"`, the big **+** otherwise. The radial actions are the same for everyone.
-- **Meter** on the Kira sheet: "Kira this month: 14 of 20 left · resets 1 Dec".
+- **Bubble:** Kira when `tier !== "free"`, the big **+** otherwise. Both support tap (4-bubble Jelly capsule: Scan, Money out, Income, Kira/Docs) and hold-to-pop (Kira floats out on Paid/Pro/Trial; clean mic orb on-device voice on Free).
+- **Local-first metering:** Simple navigation (`open scanner`, `go to tax`) and rule-based statement matching run on-device for 0 quota. Smart voice parsing and `kira-ask` Q&A count as 1 text action each; AI+ receipt/statement/EA reading counts as 1 scan.
+- **Meter** on the unified Kira/Docs hub sheet (4th radial bubble or ☰ menu): "Kira this month: 14 of 20 left · resets 1 Dec".
 - **Trial, day 12:** Kira's recap of what it did ("38 spends logged, 6 receipts read, 3 split payments matched"), then the trial-end banner (`trialEndChanges`) names what changes for this user.
 - **After the trial:**
   - **Pro** keeps the taste.

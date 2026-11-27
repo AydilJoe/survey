@@ -562,8 +562,75 @@ function showKiraPurchaseThanks(opts) {
   setTimeout(() => { if (dlg.open) kiraBurst(stage, 20); }, 1550);
 }
 
+function showKiraPurchaseLoading(statusText) {
+  if (typeof document === "undefined") return;
+  const t = typeof tr === "function" ? tr : (s) => s;
+  const esc = typeof escapeHtml === "function"
+    ? escapeHtml
+    : (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
+
+  let dlg = document.getElementById("kira-wait-dialog");
+  if (!dlg) {
+    dlg = document.createElement("dialog");
+    dlg.id = "kira-wait-dialog";
+    dlg.className = "edit-dialog kira-wait-dialog";
+    // Prevent accidental Escape dismiss while a store purchase is in flight.
+    dlg.addEventListener("cancel", (e) => e.preventDefault());
+    document.body.appendChild(dlg);
+  }
+  const quips = [
+    t("Checking with the store…"),
+    t("Almost there…"),
+    t("Hehe! Still checking…"),
+    t("Hang tight…"),
+  ];
+  let taps = 0;
+  dlg.innerHTML =
+    '<div class="kira-wait-body">' +
+      `<div class="kira-thanks-bubble kira-wait-bubble">${esc(quips[0])}</div>` +
+      `<button type="button" class="kira-wait-stage" aria-label="${esc(t("Tap Kira"))}">` +
+        '<span class="kira-wait-ring" aria-hidden="true"></span>' +
+        kiraSvg("happy", { idle: true, wave: true, cls: "kira-wait-svg" }) +
+      '</button>' +
+      `<p class="kira-wait-status" id="kira-wait-status">${esc(statusText || t("Completing purchase…"))}</p>` +
+      `<p class="hint kira-wait-hint">${esc(t("Tap Kira while you wait"))}</p>` +
+    '</div>';
+
+  const stage = dlg.querySelector(".kira-wait-stage");
+  const bubble = dlg.querySelector(".kira-wait-bubble");
+  if (stage) {
+    stage.addEventListener("click", () => {
+      taps += 1;
+      const svg = stage.querySelector("svg.kira");
+      if (svg) kiraTap(svg);
+      kiraBurst(stage, 10);
+      if (bubble) bubble.textContent = quips[taps % quips.length];
+    });
+  }
+  if (typeof dlg.showModal === "function") {
+    if (!dlg.open) dlg.showModal();
+  } else {
+    dlg.setAttribute("open", "");
+  }
+}
+
+function updateKiraPurchaseLoading(statusText) {
+  if (typeof document === "undefined" || !statusText) return;
+  const el = document.getElementById("kira-wait-status");
+  if (el) el.textContent = statusText;
+}
+
+function hideKiraPurchaseLoading() {
+  if (typeof document === "undefined") return;
+  const dlg = document.getElementById("kira-wait-dialog");
+  if (dlg && dlg.open && typeof dlg.close === "function") dlg.close();
+}
+
 if (typeof window !== "undefined") {
   window.kiraWithBowMarkup = kiraWithBowMarkup;
   window.showKiraPurchaseThanks = showKiraPurchaseThanks;
+  window.showKiraPurchaseLoading = showKiraPurchaseLoading;
+  window.updateKiraPurchaseLoading = updateKiraPurchaseLoading;
+  window.hideKiraPurchaseLoading = hideKiraPurchaseLoading;
 }
 

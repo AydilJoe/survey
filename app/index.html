@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=fdaf49d8" />
+    <link rel="stylesheet" href="styles.css?v=0c42b0a4" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -1579,6 +1579,39 @@
               <p class="hint" id="pro-refer-claim-status" hidden></p>
             </div>
           </div>
+
+          <!-- Duitful AI+ (cloud Gemini): merged cleanly into the Pro card. -->
+          <div class="ai-cloud-section" id="ai-cloud-card" hidden>
+            <div class="ai-cloud-head">
+              <span class="ai-cloud-kira" id="ai-cloud-kira" aria-hidden="true"></span>
+              <div class="ai-cloud-meta">
+                <div class="ai-cloud-title-row">
+                  <h3>Duitful AI+</h3>
+                  <span class="ai-cloud-expiry" id="ai-cloud-expiry" hidden></span>
+                </div>
+                <p class="hint" id="ai-cloud-meters"></p>
+              </div>
+            </div>
+            <div class="ai-cloud-controls">
+              <label class="toggle-row">
+                <input type="checkbox" id="ai-cloud-toggle" disabled />
+                <span>Use AI+</span>
+              </label>
+              <button type="button" class="primary" id="ai-plus-open-btn">Manage AI+</button>
+            </div>
+            <details class="form-more ai-pair-details">
+              <summary>Pair another device</summary>
+              <div class="ai-pair-body">
+                <button type="button" class="ghost" id="ai-pair-start-btn" hidden>Get 6-digit code</button>
+                <p class="hint" id="ai-pair-code-out" hidden></p>
+                <div class="ai-pair-row">
+                  <input type="text" id="ai-pair-code-input" inputmode="numeric" maxlength="6" placeholder="6-digit code" aria-label="6-digit pair code" />
+                  <button type="button" class="ghost" id="ai-pair-claim-btn">Pair</button>
+                </div>
+                <p class="hint" id="ai-pair-claim-status" hidden></p>
+              </div>
+            </details>
+          </div>
         </div>
 
         <!-- On-device AI: the phone's own model for tricky receipts and bank
@@ -1821,31 +1854,6 @@
             <button type="button" class="ghost" id="capture-check-open">Check auto-capture</button>
             <button type="button" class="ghost" data-capture-share>Share the wording</button>
           </div>
-        </div>
-
-        <!-- Duitful AI+ (cloud Gemini): off by default until user opts in. -->
-        <div class="card ai-cloud-card" id="ai-cloud-card" hidden>
-          <div class="ai-cloud-head">
-            <span class="ai-cloud-kira" id="ai-cloud-kira" aria-hidden="true"></span>
-            <div>
-              <h2>Duitful AI+ (cloud)</h2>
-              <p class="hint" id="ai-cloud-meters"></p>
-            </div>
-          </div>
-          <label class="toggle-row">
-            <input type="checkbox" id="ai-cloud-toggle" disabled />
-            <span>Enable Duitful AI+ (cloud)</span>
-          </label>
-          <div class="button-row">
-            <button type="button" class="primary" id="ai-plus-open-btn">Manage Duitful AI+</button>
-            <button type="button" class="ghost" id="ai-pair-start-btn" hidden>Pair another device</button>
-          </div>
-          <p class="hint" id="ai-pair-code-out" hidden></p>
-          <div class="ai-pair-row">
-            <input type="text" id="ai-pair-code-input" inputmode="numeric" maxlength="6" placeholder="6-digit pair code" aria-label="6-digit pair code" />
-            <button type="button" class="ghost" id="ai-pair-claim-btn">Pair with code</button>
-          </div>
-          <p class="hint" id="ai-pair-claim-status" hidden></p>
         </div>
 
         <div class="card own-accounts-card" id="own-accounts-card" hidden>
@@ -3668,7 +3676,7 @@
 
     <!-- Languages first: i18n-boot.js loads only the active pack (0 KB for English)
          synchronously before i18n.js walks the static markup. -->
-    <script src="i18n-langs.js?v=1dc4e608"></script>
+    <script src="i18n-langs.js?v=08b9fd37"></script>
     <script src="i18n-boot.js?v=e8f35f1d"></script>
     <script src="i18n.js?v=e94f1821"></script>
     <script src="drive-config.js?v=9aaf242d"></script>
@@ -3688,7 +3696,7 @@
     <script src="ea-extract.js?v=0036c413"></script>
     <script src="tax-data.js?v=a4c433a4"></script>
     <script src="tax.js?v=01b9d531"></script>
-    <script src="statement.js?v=16d6bff6"></script>
+    <script src="statement.js?v=9be6b33f"></script>
     <script src="wallets.js?v=39628be9"></script>
     <script src="recap.js?v=e4c2c931"></script>
     <script src="brands.js?v=73d9f7dc"></script>
@@ -3697,16 +3705,16 @@
     <script src="reports.js?v=6b3b772b"></script>
     <script src="onboarding.js?v=dd4ac4be"></script>
     <script src="kira-seasons.js?v=84d7b80b"></script>
-    <script src="kira.js?v=326b16a1"></script>
+    <script src="kira.js?v=0a738a14"></script>
     <script src="streak.js?v=ce95b7ab"></script>
     <script src="voice.js?v=60dae41a"></script>
     <script src="cloud.js?v=fcd02ad8"></script>
     <script src="capture.js?v=3af549e5"></script>
     <script src="ai-redact.js?v=e6257012"></script>
-    <script src="ai-cloud.js?v=0debcf4f"></script>
-    <script src="pro.js?v=885ede50"></script>
+    <script src="ai-cloud.js?v=cb3a5ae0"></script>
+    <script src="pro.js?v=6810a131"></script>
     <script src="ocr.js?v=d135377e"></script>
     <script src="kira-bubble.js?v=50f90bb5"></script>
-    <script src="script.js?v=ce661970"></script>
+    <script src="script.js?v=fee41f43"></script>
   </body>
 </html>

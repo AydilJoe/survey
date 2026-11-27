@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.82.0";
+const APP_VERSION = "1.83.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -1910,7 +1910,10 @@ function formatDayLabel(iso) {
   if (diff === 1) return tr("Yesterday");
   const [y, m, d] = iso.split("-").map(Number);
   const date = new Date(y, m - 1, d);
-  return date.toLocaleDateString(dateLocale(), { weekday: "short", day: "numeric", month: "short" });
+  const opts = y !== new Date().getFullYear()
+    ? { weekday: "short", day: "numeric", month: "short", year: "numeric" }
+    : { weekday: "short", day: "numeric", month: "short" };
+  return date.toLocaleDateString(dateLocale(), opts);
 }
 
 function formatMonths(months) {
@@ -7935,6 +7938,13 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.83.1": [
+    "<strong>Accurate statement years</strong> — Maybank PDF and AI+ statement imports now reliably read the printed statement year (e.g. 31/10/26 as 2026), and entries from another year now show the full year in All entries and statement review.",
+  ],
+  "1.83.0": [
+    "<strong>Interactive purchase waiting</strong> — Kira now keeps you company while the store verifies your purchase (tap Kira while you wait!), then dances and bows to say thank you once it's active.",
+    "<strong>Cleaner Pro &amp; AI+ card</strong> — Duitful Pro and Duitful AI+ are now merged into one tidy Settings card showing your AI+ active-until date.",
+  ],
   "1.82.0": [
     "<strong>Voice hears Malaysian words better</strong> — saying \"nasi\", \"roti canai\" or \"Touch 'n Go\" now comes out right, and \"ringgit\" never ends up in the note. Sheets no longer hide under the iPhone's clock, and a split request is simpler: your name is asked once, the QR waits behind Show QR, and the rest sits under More options.",
   ],

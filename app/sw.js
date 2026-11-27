@@ -15,20 +15,20 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "h-e9d63104";
+const VERSION = "h-7ed23554";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=fdaf49d8",
-  "/app/script.js?v=ce661970",
+  "/app/styles.css?v=0c42b0a4",
+  "/app/script.js?v=fee41f43",
   // Languages: registry + boot loader run at startup; packs are precached so
   // switching languages still works offline, without parsing unused packs at boot.
-  "/app/i18n-langs.js?v=1dc4e608",
+  "/app/i18n-langs.js?v=08b9fd37",
   "/app/i18n-boot.js?v=e8f35f1d",
-  "/app/i18n-ms.js?v=15cb24d2",
-  "/app/i18n-zh.js?v=ffe4ec5c",
+  "/app/i18n-ms.js?v=67724ec2",
+  "/app/i18n-zh.js?v=2c79b0dc",
   "/app/i18n.js?v=e94f1821",
   "/app/drive-config.js?v=9aaf242d",
   "/app/drive-sync.js?v=08041907",
@@ -41,7 +41,7 @@ const SHELL = [
   "/app/ea-extract.js?v=0036c413",
   "/app/tax-data.js?v=a4c433a4",
   "/app/tax.js?v=01b9d531",
-  "/app/statement.js?v=16d6bff6",
+  "/app/statement.js?v=9be6b33f",
   "/app/wallets.js?v=39628be9",
   "/app/recap.js?v=e4c2c931",
   // pdf.js (Apache-2.0) for statement import: injected only when a PDF is
@@ -54,14 +54,14 @@ const SHELL = [
   "/app/reports.js?v=6b3b772b",
   "/app/onboarding.js?v=dd4ac4be",
   "/app/kira-seasons.js?v=84d7b80b",
-  "/app/kira.js?v=326b16a1",
+  "/app/kira.js?v=0a738a14",
   "/app/streak.js?v=ce95b7ab",
   "/app/voice.js?v=60dae41a",
   "/app/cloud.js?v=fcd02ad8",
   "/app/capture.js?v=3af549e5",
   "/app/ai-redact.js?v=e6257012",
-  "/app/ai-cloud.js?v=0debcf4f",
-  "/app/pro.js?v=885ede50",
+  "/app/ai-cloud.js?v=cb3a5ae0",
+  "/app/pro.js?v=6810a131",
   "/app/ocr.js?v=d135377e",
   "/app/kira-bubble.js?v=50f90bb5",
   "/app/analytics.js?v=01a6bc4a",

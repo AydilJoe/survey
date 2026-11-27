@@ -221,5 +221,15 @@
   "Verification timed out. Tap Restore if you completed the payment.": "验证超时。如果已完成付款，请点“恢复购买”。",
   "Could not start checkout": "无法开始结账",
   "Automatic backup to iCloud is a Pro feature. Back up now and Export CSV in Settings stay free.": "自动备份到 iCloud 是 Pro 功能。设置里的“立即备份”和“导出 CSV”仍然免费。",
-  "Duitful AI+ is active.": "Duitful AI+ 已启用。"
+  "Duitful AI+ is active.": "Duitful AI+ 已启用。",
+  "Until {date}": "有效期至 {date}",
+  "Manage AI+": "管理 AI+",
+  "Get AI+": "开通 AI+",
+  "Cloud AI for receipts, voice & PDFs.": "用于收据、语音和 PDF 的云端 AI。",
+  "Verifying your subscription…": "正在验证您的订阅…",
+  "Duitful AI+": "Duitful AI+",
+  "Use AI+": "启用 AI+",
+  "Get 6-digit code": "获取 6 位配对码",
+  "6-digit code": "6 位配对码",
+  "Pair": "配对"
 }

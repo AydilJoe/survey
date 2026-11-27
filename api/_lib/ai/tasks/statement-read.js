@@ -15,7 +15,7 @@ module.exports = {
   prompt(input) {
     return [
       "Extract bank or e-wallet statement transactions as JSON only.",
-      "Rules: Only return amounts printed on the page. Never invent rows or balances.",
+      "Rules: Only return amounts printed on the page. Never invent rows or balances. Use the exact statement year printed on the page (for example 31/10/26 is 2026); never guess a past year.",
       input.bankName ? `Bank/wallet: ${input.bankName}` : "",
       input.text ? `Redacted page text:\n${input.text}` : "",
     ].filter(Boolean).join("\n");
