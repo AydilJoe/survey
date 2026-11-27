@@ -495,6 +495,9 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
     /// nothing was heard). Rejects DENIED when speech or the mic is refused.
     @objc func speechStart(_ call: CAPPluginCall) {
         let lang = call.getString("lang") ?? "en-MY"
+        // 1.82.0: words the recogniser should expect (Malaysian spend words,
+        // the person's categories, wallets and split first names), from JS.
+        let hints = DuitfulSpeech.cleanHints((call.getArray("hints") ?? []).compactMap { $0 as? String })
         DuitfulSpeech.authorize { granted in
             guard granted else {
                 call.reject("Speech recognition or the microphone isn't allowed", "DENIED")
@@ -506,7 +509,7 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
                     forName: UIApplication.willResignActiveNotification, object: nil, queue: .main
                 ) { _ in DuitfulSpeech.shared.stop() }
             }
-            DuitfulSpeech.shared.start(lang: lang, partial: { [weak self] text in
+            DuitfulSpeech.shared.start(lang: lang, hints: hints, partial: { [weak self] text in
                 self?.notifyListeners("speechPartial", data: ["text": text])
             }, finish: { result in
                 switch result {

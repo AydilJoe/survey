@@ -75,11 +75,23 @@ final class DuitfulKitSpeech {
         }
     }
 
+    private ArrayList<String> hints;
+
     boolean busy() {
         return cb != null;
     }
 
     void start(final String language, final Callback callback) {
+        start(language, null, callback);
+    }
+
+    /**
+     * 1.82.0: hints are words the person is likely to say (Malaysian spend
+     * words, their categories, wallets and split first names, from JS). On
+     * Android 13+ they go in EXTRA_BIASING_STRINGS for the on-device
+     * recogniser only; the fallback service and older phones never get them.
+     */
+    void start(final String language, final ArrayList<String> hintList, final Callback callback) {
         main.post(() -> {
             if (cb != null) {
                 callback.error("BUSY", "Already listening");
@@ -88,6 +100,7 @@ final class DuitfulKitSpeech {
             cb = callback;
             gen++;
             lang = language == null || language.isEmpty() ? "en-MY" : language;
+            hints = hintList;
             last = "";
             triedFallback = false;
             if (!begin(onDeviceAvailable(ctx))) return;
@@ -137,6 +150,12 @@ final class DuitfulKitSpeech {
         intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
         intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
         intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, ctx.getPackageName());
+        // Only the on-device recogniser gets the hints (names and wallet
+        // names included), so they never go to a speech service off the phone.
+        if (onDevice && hints != null && !hints.isEmpty()
+                && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.putStringArrayListExtra(RecognizerIntent.EXTRA_BIASING_STRINGS, hints);
+        }
         try {
             rec.startListening(intent);
         } catch (Throwable t) {

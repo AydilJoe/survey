@@ -250,7 +250,7 @@ Navigation follows the screen, not the device:
 
 The same rule lives in `FoldLab.navFor` in `folds/fold-lab.js`, and the e2e suite checks the two agree. Daily, Reports and Tax are subpages of Home, reached from Home and left with a pill-shaped back button.
 
-Touch targets are at least 44px, sidebar rows included (an iPad is fingers). Safe-area insets pad the header, the bottom bar and the rail. On iPad the app runs full screen in every orientation (no Split View), so these sizes are the whole screen.
+Touch targets are at least 44px, sidebar rows included (an iPad is fingers). Safe-area insets pad the header, the bottom bar and the rail. Every modal sheet keeps 8px clear of the status bar and the home indicator (`--sat` / `--sab` on `:root`, which are `env(safe-area-inset-top/bottom)`) and scrolls inside when it is taller. On iPad the app runs full screen in every orientation (no Split View), so these sizes are the whole screen.
 
 ## Elevation & Depth
 
