@@ -19367,7 +19367,7 @@ check('the brand catalogue makes no network calls at all',
     const tnb = state.expenses.find((x) => x.id === 'rb-tnb');
     const dailyDebtCount = state.dailyExpenses.filter((e) => e.kind === 'debt' && e.source === 'statement').length;
     const dailySpendCount = state.dailyExpenses.filter((e) => e.kind === 'expense' && e.source === 'statement').length;
-    const hasPaidBadge = !!document.querySelector('#expense-list .bill-paid-tag');
+    const hasPaidBadge = !!document.querySelector('#list-expense .bill-paid-tag');
 
     // Re-running statementItems on the same statement detects both debt & bill as duplicates (unticked)
     const reItems = statementItems(parsed, recon);
