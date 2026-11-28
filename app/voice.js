@@ -1616,8 +1616,12 @@
 
   function voiceApplyLevelRing(level) {
     const ring = document.getElementById("voice-rm-ring");
+    const holdMic = document.getElementById("voice-hold-mic");
+    const lv = Math.max(0, Math.min(1, Number(level) || 0));
+    // The held bubble's mic pulses with the same level (no-preference only, CSS).
+    if (holdMic) holdMic.style.setProperty("--hold-level", lv.toFixed(3));
     if (!ring) return;
-    const scale = 1 + Math.max(0, Math.min(1, Number(level) || 0)) * 0.35;
+    const scale = 1 + lv * 0.35;
     ring.style.setProperty("--voice-level", scale.toFixed(3));
   }
 
@@ -1875,6 +1879,7 @@
     const o = opts || {};
     const dlg = document.getElementById("voice-dialog");
     const snap = o.animateReturn !== false ? voiceCaptureFigure() : null;
+    voiceHoldExit();
     voiceStopListening({ cancel: true });
     if (o.clearThread !== false) clearVoiceThread();
     voiceClearFlight();
@@ -1947,19 +1952,56 @@
   function voiceStopListening(opts) {
     const cancel = !!(opts && opts.cancel);
     if (voiceStarting) voiceStarting.stop = true;
+    // A cancel also drops final words still on their way from an earlier stop.
+    if (cancel) voiceDropPendingStop();
     if (voiceRec) {
       const rec = voiceRec;
       voiceRec = null;
       if (cancel) rec.duitfulCancelled = true;
+      else voicePendingStop = { rec };
       try { if (cancel && typeof rec.abort === "function") rec.abort(); else rec.stop(); } catch {}
     }
     if (voiceNative) {
       const s = voiceNative;
       voiceNative = null;
       if (cancel) s.cancelled = true;
+      else voicePendingStop = { session: s };
       try { Promise.resolve(s.kit.speechStop()).catch(() => {}); } catch {}
     }
     voiceSetListening(false);
+  }
+
+  /* A plain stop leaves the recogniser's final words on their way: the
+     native speechStart resolves, or the browser's onend fires. The slide to
+     Save waits for them (voiceWaitFinal), then drops anything later. */
+  let voicePendingStop = null;
+  let voiceFinalWaiters = [];
+
+  function voiceFinalArrived(ref) {
+    const p = voicePendingStop;
+    if (!p || (ref && p.session !== ref && p.rec !== ref)) return;
+    voicePendingStop = null;
+    const w = voiceFinalWaiters;
+    voiceFinalWaiters = [];
+    w.forEach((f) => f());
+  }
+
+  function voiceDropPendingStop() {
+    const p = voicePendingStop;
+    if (!p) return;
+    if (p.session) p.session.cancelled = true;
+    if (p.rec) p.rec.duitfulCancelled = true;
+    voiceFinalArrived();
+  }
+
+  function voiceWaitFinal(ms) {
+    if (!voicePendingStop) return Promise.resolve();
+    return new Promise((res) => {
+      let done = false;
+      const fin = () => { if (!done) { done = true; res(); } };
+      voiceFinalWaiters.push(fin);
+      setTimeout(fin, ms);
+    });
   }
 
   // Recognised speech only (typing never goes through here).
@@ -2053,10 +2095,11 @@
     try { if (session.partialHandle && typeof session.partialHandle.remove === "function") session.partialHandle.remove(); } catch {}
     try { if (session.levelHandle && typeof session.levelHandle.remove === "function") session.levelHandle.remove(); } catch {}
     if (voiceNative === session) { voiceNative = null; voiceSetListening(false); }
-    if (session.cancelled) return;
+    if (session.cancelled) { voiceFinalArrived(session); return; }
     if (denied) voiceShowDenied();
     if (text) voiceFill(text);
     voiceAfterSpeech();
+    voiceFinalArrived(session);
   }
 
   function voiceStartWeb(Ctor) {
@@ -2079,6 +2122,7 @@
     rec.onend = () => {
       if (voiceRec === rec) { voiceRec = null; voiceSetListening(false); }
       if (!rec.duitfulCancelled) voiceAfterSpeech();
+      voiceFinalArrived(rec);
     };
     try { rec.start(); } catch { voiceStopListening(); }
   }
@@ -2131,6 +2175,7 @@
       saveBtn.textContent = typeof tr === "function" ? tr("Save spend") : "Save spend";
       if (hint) hint.hidden = voiceTurns.length > 0;
       voiceKiraSync();
+      voiceHoldSync();
       return;
     }
 
@@ -2142,6 +2187,7 @@
     if (parsed.items && parsed.items.length > 1) {
       voiceRenderItems(parsed, spendLine, itemsList, splitBox, saveBtn);
       voiceKiraSync();
+      voiceHoldSync();
       return;
     }
     if (itemsList) { itemsList.hidden = true; itemsList.replaceChildren(); }
@@ -2191,6 +2237,7 @@
       }
     }
     voiceKiraSync();
+    voiceHoldSync();
   }
 
   function voiceMoney(n) {
@@ -2372,7 +2419,8 @@
     focusNext();
   }
 
-  function voiceSaveItems(p) {
+  function voiceSaveItems(p, opts) {
+    const undo = !!(opts && opts.undo);
     const date = typeof todayISO === "function" ? todayISO() : new Date().toISOString().slice(0, 10);
     p.items.forEach(voiceRemember);
     const booked = p.items.filter((it) => it.amount > 0).map((it) => voiceBook(it, date));
@@ -2389,7 +2437,7 @@
         ? (allSpends
           ? trn(n, "Saved {n} spend · {a}", "Saved {n} spends · {a}", { a: voiceMoney(spent) })
           : trn(n, "Saved {n} entry", "Saved {n} entries"))
-        : `Saved ${n}`);
+        : `Saved ${n}`, undo ? { action: voiceUndoAction(booked) } : undefined);
       if (typeof kiraHop === "function") kiraHop();
     }
     // A split request still needs sending: open the first one's share sheet.
@@ -2413,6 +2461,7 @@
     let splitRec = null;
     let destTab = "dashboard";
     let destLabel = voiceT("Added to Today → View");
+    let debtBefore = null;
 
     if (p.entryKind === "income") {
       const month = date.slice(0, 7);
@@ -2434,6 +2483,8 @@
     } else if (p.entryKind === "debt" && p.debtId) {
       const debt = (state.debts || []).find((d) => d && d.id === p.debtId);
       if (debt) {
+        // Undo puts back exactly this figure (the payment may be clamped).
+        debtBefore = { id: debt.id, balance: debt.balance };
         const applied = Math.min(p.amount, Number(debt.balance) || 0);
         debt.balance = Math.max(0, voiceRound2((Number(debt.balance) || 0) - applied));
         expense = {
@@ -2492,16 +2543,53 @@
     }
 
     if (typeof kiraBumpStat === "function") kiraBumpStat("voiceLogged");
-    return { id, expense, splitRec, destTab, destLabel };
+    return { id, expense, splitRec, destTab, destLabel, debtBefore };
   }
 
-  function voiceSaveConfirmed() {
+  /* Undo after a slide to Save: takes out exactly what voiceBook added (the
+     spends, the income, a split record, a debt's balance as it was) — by id,
+     so anything else that arrived meanwhile stays. */
+  function voiceUndoAction(booked) {
+    return { label: voiceT("Undo"), run: () => voiceUndoBooked(booked) };
+  }
+
+  function voiceUndoBooked(booked) {
+    if (!state || !Array.isArray(booked)) return;
+    for (const x of booked) {
+      if (!x || !x.expense) continue;
+      const id = x.expense.id;
+      if (x.destTab === "flow") {
+        state.income = (state.income || []).filter((i) => i.id !== id);
+      } else if (typeof removeDailyEntry === "function") {
+        removeDailyEntry(id);
+      } else {
+        state.dailyExpenses = (state.dailyExpenses || []).filter((e) => e.id !== id);
+      }
+      if (x.debtBefore) {
+        const d = (state.debts || []).find((y) => y && y.id === x.debtBefore.id);
+        if (d) d.balance = x.debtBefore.balance;
+      }
+      if (x.splitRec && typeof splitOutList === "function") {
+        const list = splitOutList();
+        const at = list.findIndex((r) => r && r.id === x.splitRec.id);
+        if (at >= 0) list.splice(at, 1);
+      }
+      if (state.kiraStats && Number(state.kiraStats.voiceLogged) > 0) state.kiraStats.voiceLogged -= 1;
+    }
+    if (typeof save === "function") save();
+    if (typeof renderAll === "function") renderAll();
+    if (typeof toast === "function") toast(voiceT("Removed"));
+  }
+
+  // opts.undo: the toast offers Undo (a slide to Save, which never carries a split).
+  function voiceSaveConfirmed(opts) {
     const p = voiceCurrent;
     if (!p || !(p.amount > 0) || !state) return null;
-    if (Array.isArray(p.items) && p.items.length > 1) return voiceSaveItems(p);
+    if (Array.isArray(p.items) && p.items.length > 1) return voiceSaveItems(p, opts);
     const date = typeof todayISO === "function" ? todayISO() : new Date().toISOString().slice(0, 10);
     voiceRemember(p);
-    const { id, expense, splitRec, destTab, destLabel } = voiceBook(p, date);
+    const booked = voiceBook(p, date);
+    const { id, expense, splitRec, destTab, destLabel } = booked;
     if (typeof save === "function") save();
     if (typeof renderAll === "function") renderAll();
 
@@ -2513,18 +2601,20 @@
       splitOpenShare(splitRec.id, 0).catch(() => {});
     } else if (typeof toast === "function") {
       const m = typeof fmtMoney === "function" ? fmtMoney(p.amount) : `RM ${p.amount.toFixed(2)}`;
-      toast(tr("Saved {a}", { a: m }));
+      toast(tr("Saved {a}", { a: m }), opts && opts.undo ? { action: voiceUndoAction([booked]) } : undefined);
       // Kira hops on the toast, like a typed spend (kira.js).
       if (typeof kiraHop === "function") kiraHop();
     }
     if (typeof kiraHighlightLanding === "function") {
       kiraHighlightLanding({ kind: p.entryKind || "expense", id, tab: destTab, label: destLabel });
     }
-    return { expense, splitRec };
+    return { expense, splitRec, booked: [booked] };
   }
 
   // opts.listen: open already listening (holding Kira on Home or bubble hold-pop).
   // opts.fromBubble: float Kira / orb up continuously from the popped center bubble.
+  // opts.hold: { pointerId } — the finger is still on the bubble: slide mode
+  // (voiceHoldBegin); letting go saves, cancels or leaves the rows to check.
   function openVoiceEntry(initialText, opts) {
     const o = opts || {};
     const dlg = document.getElementById("voice-dialog");
@@ -2550,6 +2640,8 @@
     const originRect = o.bubbleRect || (o.fromBubble && bubbleBtn ? bubbleBtn.getBoundingClientRect() : null);
 
     if (!dlg.open && typeof dlg.showModal === "function") dlg.showModal();
+    voiceHoldExit();
+    if (o.hold && o.listen) voiceHoldBegin(o.hold, originRect);
 
     const fig = document.getElementById("voice-figure");
     if (fig && o.fromBubble && !voiceReducedMotion()) {
@@ -2587,6 +2679,9 @@
       // the keyboard it is.
       micReady.then((m) => {
         if (!dlg.open) return;
+        // Nothing can hear on this device: the slide has nothing to finish.
+        if (!m && voiceSlide) voiceHoldRelease("review");
+        if (voiceSlide) return;
         const mic = document.getElementById("voice-mic-btn");
         try { if (m && mic) mic.focus({ preventScroll: true }); else input.focus(); } catch {}
       });
@@ -2648,6 +2743,246 @@
     }, { capture: true });
   }
 
+  /* ---------- Hold the bubble: slide to Save or Cancel (1.97.0) ----------
+     Spec: docs/plans/voice-hold-gesture.md (the WhatsApp voice-note pattern).
+     While the finger stays down after the bubble's hold-pop, the bubble is the
+     mic (#voice-hold-mic, at the bubble's own rect, pulsing with speechLevel),
+     Cancel sits up-left and Save up-right (#voice-hold-cancel / -save, 64px,
+     hit within VOICE_SLIDE_HIT of the centre). Save is armed only when there
+     is an amount and no split row (a split request is always sent knowingly,
+     from review). Letting go on armed Save stops the mic, waits for the final
+     words (≤ VOICE_SLIDE_FINAL_MS), re-parses locally and saves with Undo; on
+     Cancel closes; anywhere else, pointercancel, blur or the app going to the
+     background stops and leaves the rows to check with the tap buttons. The
+     targets are aria-hidden: the tap buttons are the accessible way. */
+  const VOICE_SLIDE_HIT = 44;
+  const VOICE_SLIDE_FINAL_MS = 600;
+  const VOICE_SLIDE_HINT_KEY = "duitful.holdSlideHint";
+  let voiceSlide = null;
+
+  function voiceHasSplit(it) {
+    return !!(it && it.split && Array.isArray(it.split.people) && it.split.people.length);
+  }
+
+  // Something to save, and nothing that would send a request.
+  function voiceHoldArmed() {
+    const p = voiceCurrent;
+    if (!p || !(p.amount > 0)) return false;
+    const items = Array.isArray(p.items) && p.items.length ? p.items : [p];
+    if (!items.some((it) => it && it.amount > 0)) return false;
+    return !voiceHasSplit(p) && !items.some(voiceHasSplit);
+  }
+
+  // Cancel up-left, Save up-right of the bubble on a small arc (135° / 45°),
+  // or beside it on the rail / sidebar; kept on screen.
+  function voiceHoldLayout(rect) {
+    const dlg = document.getElementById("voice-dialog");
+    const mic = document.getElementById("voice-hold-mic");
+    const cancel = document.getElementById("voice-hold-cancel");
+    const saveT = document.getElementById("voice-hold-save");
+    const hint = document.getElementById("voice-hold-hint");
+    if (!dlg || !mic || !cancel || !saveT || !rect) return null;
+    const vw = window.innerWidth || document.documentElement.clientWidth;
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    // The rect is the charged (scaled) bubble's: its centre, the resting size.
+    const bubble = document.getElementById("kira-bubble");
+    const size = Math.max(48, Math.round((bubble && bubble.offsetWidth) || rect.width || 64));
+    const cx = rect.left + (rect.width || size) / 2;
+    const cy = rect.top + (rect.height || size) / 2;
+    mic.style.left = `${Math.round(cx - size / 2)}px`;
+    mic.style.top = `${Math.round(cy - size / 2)}px`;
+    mic.style.width = `${size}px`;
+    mic.style.height = `${size}px`;
+    const side = typeof radialSide === "function" && radialSide();
+    const half = 32;
+    const clampX = (x) => Math.min(vw - half - 8, Math.max(half + 8, x));
+    const clampY = (y) => Math.min(vh - half - 8, Math.max(half + 8, y));
+    let pts;
+    if (side) {
+      pts = { cancel: { x: cx + 104, y: cy - 52 }, save: { x: cx + 104, y: cy + 52 } };
+    } else {
+      const r = Math.max(100, size / 2 + 66);
+      const k = Math.SQRT1_2;
+      pts = { cancel: { x: cx - r * k, y: cy - r * k }, save: { x: cx + r * k, y: cy - r * k } };
+    }
+    for (const key of ["cancel", "save"]) {
+      pts[key].x = Math.round(clampX(pts[key].x));
+      pts[key].y = Math.round(clampY(pts[key].y));
+      const el = key === "cancel" ? cancel : saveT;
+      el.style.left = `${pts[key].x}px`;
+      el.style.top = `${pts[key].y}px`;
+    }
+    const top = Math.min(pts.cancel.y, pts.save.y) - half;
+    if (hint) {
+      hint.style.left = `${Math.round(side ? cx + 104 : cx)}px`;
+      hint.style.top = `${Math.round(top - 10)}px`;
+    }
+    // Keep the rows above the targets (and the hint, when it shows).
+    const d = dlg.getBoundingClientRect();
+    const hintH = hint && !hint.hidden ? 40 : 0;
+    const zone = side ? 0 : Math.max(0, Math.round(d.bottom - (top - 14 - hintH)));
+    dlg.style.setProperty("--voice-hold-zone", `${zone}px`);
+    return pts;
+  }
+
+  function voiceHoldSync() {
+    const h = voiceSlide;
+    const saveT = document.getElementById("voice-hold-save");
+    if (!h || !saveT) return;
+    const armed = voiceHoldArmed();
+    saveT.classList.toggle("is-armed", armed);
+    if (!armed && h.over === "save") voiceHoldOver("");
+  }
+
+  function voiceHoldOver(which) {
+    const h = voiceSlide;
+    if (!h || h.over === which) return;
+    h.over = which;
+    const cancel = document.getElementById("voice-hold-cancel");
+    const saveT = document.getElementById("voice-hold-save");
+    if (cancel) cancel.classList.toggle("is-over", which === "cancel");
+    if (saveT) saveT.classList.toggle("is-over", which === "save");
+    if (which && typeof kiraHaptic === "function") kiraHaptic(10, "LIGHT");
+  }
+
+  function voiceHoldHit(x, y) {
+    const h = voiceSlide;
+    if (!h || !h.pts) return "";
+    let best = "";
+    let bestD = Infinity;
+    for (const key of ["cancel", "save"]) {
+      const p = h.pts[key];
+      const dd = Math.hypot(x - p.x, y - p.y);
+      if (dd <= VOICE_SLIDE_HIT && dd < bestD) { best = key; bestD = dd; }
+    }
+    // Unarmed Save is dimmed and does nothing.
+    if (best === "save" && !voiceHoldArmed()) return "";
+    return best;
+  }
+
+  function voiceHoldBegin(hold, rect) {
+    const dlg = document.getElementById("voice-dialog");
+    const layer = document.getElementById("voice-hold");
+    const hint = document.getElementById("voice-hold-hint");
+    if (!dlg || !layer || !rect) return;
+    let firstTime = false;
+    try {
+      firstTime = localStorage.getItem(VOICE_SLIDE_HINT_KEY) !== "1";
+      if (firstTime) localStorage.setItem(VOICE_SLIDE_HINT_KEY, "1");
+    } catch {}
+    if (hint) {
+      hint.textContent = voiceT("Slide to Save · Let go to check");
+      hint.hidden = !firstTime;
+    }
+    voiceSlide = { id: hold.pointerId, over: "", pts: null, rect };
+    layer.hidden = false;
+    dlg.classList.add("is-holding");
+    dlg.classList.remove("is-hold-review");
+    voiceSlide.pts = voiceHoldLayout(rect);
+    voiceHoldSync();
+    // The finger is captured by the bubble, now under the modal: hand it to
+    // the mic drawn in the same place, inside the dialog.
+    const mic = document.getElementById("voice-hold-mic");
+    try { if (mic && typeof mic.setPointerCapture === "function") mic.setPointerCapture(hold.pointerId); } catch {}
+    const live = document.getElementById("voice-hold-live");
+    if (live) {
+      live.textContent = "";
+      setTimeout(() => {
+        if (voiceSlide) live.textContent = voiceT("Release on Save to save, on Cancel to cancel, anywhere else to check");
+      }, 60);
+    }
+  }
+
+  // Back to the ordinary stage (no hold visuals). review: Cancel and Save sit
+  // above the input as tap buttons.
+  function voiceHoldExit(review) {
+    const dlg = document.getElementById("voice-dialog");
+    const layer = document.getElementById("voice-hold");
+    const h = voiceSlide;
+    voiceSlide = null;
+    if (layer) layer.hidden = true;
+    for (const id of ["voice-hold-cancel", "voice-hold-save"]) {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove("is-over");
+    }
+    if (dlg) {
+      dlg.classList.remove("is-holding");
+      dlg.classList.toggle("is-hold-review", !!review);
+      dlg.style.removeProperty("--voice-hold-zone");
+    }
+    const mic = document.getElementById("voice-hold-mic");
+    if (h && mic) { try { if (mic.hasPointerCapture && mic.hasPointerCapture(h.id)) mic.releasePointerCapture(h.id); } catch {} }
+  }
+
+  function voiceHoldReview() {
+    voiceHoldExit(true);
+    voiceStopListening();
+    const btn = document.getElementById("voice-save");
+    try { if (btn && !btn.disabled) btn.focus({ preventScroll: true }); } catch {}
+  }
+
+  async function voiceHoldSave() {
+    const dlg = document.getElementById("voice-dialog");
+    const input = document.getElementById("voice-input");
+    voiceHoldExit(true);
+    voiceStopListening();
+    await voiceWaitFinal(VOICE_SLIDE_FINAL_MS);
+    // Anything the recogniser says after this is dropped.
+    voiceDropPendingStop();
+    if (!dlg || !dlg.open) return;
+    const raw = input ? input.value.trim() : "";
+    // The final words, parsed locally with what Kira learned (never the AI+
+    // upgrade, which can't be waited for).
+    if (raw && !(voiceCurrent && String(voiceCurrent.raw || "").trim() === raw)) {
+      renderVoicePreview(parseVoiceEntry(raw));
+    }
+    if (voiceHoldArmed()) {
+      voiceSaveConfirmed({ undo: true });
+      return;
+    }
+    const btn = document.getElementById("voice-save");
+    try { if (btn && !btn.disabled) btn.focus({ preventScroll: true }); } catch {}
+  }
+
+  // kind: "up" (with coordinates) or "review" (pointercancel, blur, hidden).
+  function voiceHoldRelease(kind, x, y) {
+    if (!voiceSlide) return;
+    const at = kind === "up" ? voiceHoldHit(x, y) : "";
+    if (at === "cancel") { voiceCloseStage(); return; }
+    if (at === "save") { voiceHoldSave(); return; }
+    voiceHoldReview();
+  }
+
+  function initVoiceSlide() {
+    document.addEventListener("pointermove", (e) => {
+      const h = voiceSlide;
+      if (!h || e.pointerId !== h.id) return;
+      voiceHoldOver(voiceHoldHit(e.clientX, e.clientY));
+    }, { capture: true, passive: true });
+    document.addEventListener("pointerup", (e) => {
+      const h = voiceSlide;
+      if (!h || e.pointerId !== h.id) return;
+      voiceHoldRelease("up", e.clientX, e.clientY);
+    }, { capture: true, passive: true });
+    document.addEventListener("pointercancel", (e) => {
+      const h = voiceSlide;
+      if (!h || e.pointerId !== h.id) return;
+      voiceHoldRelease("review");
+    }, { capture: true, passive: true });
+    window.addEventListener("blur", () => voiceHoldRelease("review"));
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") voiceHoldRelease("review");
+    });
+    window.addEventListener("resize", () => {
+      const h = voiceSlide;
+      if (!h) return;
+      const b = document.getElementById("kira-bubble");
+      const r = b && b.getClientRects().length ? b.getBoundingClientRect() : h.rect;
+      h.rect = r;
+      h.pts = voiceHoldLayout(r);
+    });
+  }
+
   function initVoiceUI() {
     const openBtn = document.getElementById("btn-voice");
     const dlg = document.getElementById("voice-dialog");
@@ -2679,6 +3014,7 @@
         voiceAiGen++;
         clearTimeout(voiceAiTimer);
         voiceClearFlight();
+        voiceHoldExit();
         voiceStopListening({ cancel: true });
         voiceStatus("");
         clearVoiceThread();
@@ -2749,6 +3085,8 @@
 
     initVoiceHold();
 
+    initVoiceSlide();
+
     if (saveBtn) saveBtn.addEventListener("click", () => voiceSaveConfirmed());
   }
 
@@ -2767,6 +3105,8 @@
   window.voiceOnSpeechLevel = voiceOnSpeechLevel;
   window.openVoiceEntry = openVoiceEntry;
   window.voiceSaveConfirmed = voiceSaveConfirmed;
+  window.voiceUndoBooked = voiceUndoBooked;
+  window.voiceHoldArmed = voiceHoldArmed;
   window.voiceStopListening = voiceStopListening;
   window.voiceSpeechMode = voiceSpeechMode;
 

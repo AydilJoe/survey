@@ -11160,7 +11160,8 @@ html[data-theme="pastel"] {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   user-select: none;
-  touch-action: manipulation;
+  /* A hold slides to Save / Cancel: no pan, or the drag ends in pointercancel. */
+  touch-action: none;
 }
 .kira-bubble:not(.is-kira),
 .radial-item[data-radial="outflow"] .radial-dot {
@@ -12374,6 +12375,127 @@ html.kb-open .voice-waves {
   transform: translate(0, -50%);
 }
 .bubble-hold-hint[hidden] { display: none; }
+
+/* Holding the bubble (1.97.0, voice.js voiceHoldBegin): the bubble is the mic
+   under the thumb, Cancel up-left and Save up-right (64px). The rows stay
+   above them (--voice-hold-zone, set from the targets' top). Calm: the
+   thumb's path is not drawn; grow and pulse only with no-preference motion. */
+dialog.voice-stage.is-holding { padding-bottom: var(--voice-hold-zone, 0.75rem); }
+dialog.voice-stage.is-holding .voice-input-field,
+dialog.voice-stage.is-holding .voice-actions,
+dialog.voice-stage.is-holding .voice-hint { display: none; }
+dialog.voice-stage.is-holding .voice-figure { width: 88px; height: 106px; }
+dialog.voice-stage.is-holding .voice-kira { width: 84px; height: 102px; }
+dialog.voice-stage.is-holding .voice-waves { height: 44px; }
+/* Let go anywhere else: check the rows; Cancel and Save sit above the input. */
+dialog.voice-stage.is-hold-review .voice-input-field { order: 1; }
+.voice-hold {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+.voice-hold[hidden] { display: none; }
+.voice-hold-hint {
+  z-index: 6;
+  cursor: default;
+  margin: 0;
+}
+.voice-hold-mic {
+  position: fixed;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--text) 18%, transparent);
+  pointer-events: auto;
+  touch-action: none;
+}
+.voice-hold-mic svg { width: 28px; height: 28px; position: relative; }
+.voice-hold-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 999px;
+  border: 2.5px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  pointer-events: none;
+}
+.voice-hold-target {
+  position: fixed;
+  width: 64px;
+  height: 64px;
+  margin: -32px 0 0 -32px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--text) 14%, transparent);
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.voice-hold-target svg { width: 24px; height: 24px; }
+/* Labels sit outward (Cancel left, Save right), clear of the mic below. */
+.voice-hold-label {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.18rem 0.6rem;
+  border-radius: var(--r-pill, 999px);
+  background: var(--card);
+  border: 0.5px solid var(--border);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.voice-hold-cancel .voice-hold-label { right: calc(100% + 8px); }
+.voice-hold-save .voice-hold-label { left: calc(100% + 8px); }
+.voice-hold-target.is-over .voice-hold-label { opacity: 1; }
+.voice-hold-cancel.is-over {
+  background: color-mix(in srgb, var(--text) 12%, var(--card));
+  border-color: var(--text);
+}
+/* Save: dimmed until there is something to save. */
+.voice-hold-save {
+  color: color-mix(in srgb, var(--text) 38%, transparent);
+  background: var(--card-soft);
+  box-shadow: none;
+}
+.voice-hold-save.is-armed {
+  background: var(--text);
+  color: var(--card);
+  border-color: transparent;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--text) 22%, transparent);
+}
+.voice-hold-save.is-armed.is-over { background: color-mix(in srgb, var(--text) 86%, var(--brand)); }
+html[data-theme="dark"] .voice-hold-save.is-armed { background: var(--primary); color: var(--bg); }
+html[data-theme="dark"] .voice-hold-save.is-armed.is-over { background: var(--primary-hover); }
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]):not([data-theme="pastel"]) .voice-hold-save.is-armed { background: var(--primary); color: var(--bg); }
+  html:not([data-theme="light"]):not([data-theme="pastel"]) .voice-hold-save.is-armed.is-over { background: var(--primary-hover); }
+}
+html[data-theme="pastel"] .voice-hold-save.is-armed { background: var(--pastel-action); color: var(--text); }
+html[data-theme="pastel"] .voice-hold-save.is-armed.is-over { background: var(--pastel-action-hover); }
+@media (prefers-reduced-motion: no-preference) {
+  .voice-hold-target { transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .voice-hold-target.is-over { transform: scale(1.12); }
+  .voice-hold-ring { transform: scale(calc(1 + var(--hold-level, 0) * 0.22)); transition: transform 90ms linear; }
+}
+
+/* An empty stage's Save looks off in every theme: no base rule styles a
+   disabled .primary, so the theme fills (dark: --primary) showed it armed. */
+dialog.voice-stage #voice-save:disabled,
+dialog.voice-stage #voice-save:disabled:hover {
+  background: color-mix(in srgb, var(--text) 10%, var(--card));
+  color: color-mix(in srgb, var(--text) 42%, var(--card));
+  box-shadow: none;
+  cursor: default;
+  transform: none;
+}
 
 .voice-nudge-chip,
 .save-jump-chip {

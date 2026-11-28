@@ -15,7 +15,8 @@
    - A hold (BUBBLE_HOLD_MS = 480ms, both Free and Paid) plays initial bloop →
      rising liquid bubbling blips synced with escalating vibration/haptics
      (cancelling immediately on early release / move / cancel) → POP! + 14
-     droplets and opens #voice-dialog already listening hands-free.
+     droplets and opens #voice-dialog already listening, in slide mode while
+     the finger stays down (voice.js: slide to Save or Cancel, let go to check).
    - Money out (#add-dialog, openAddEntry) is a 3-tab modal (Spend / Split /
      Pay debt) reusing #form-daily with every id kept.
    - Income (#income-dialog, openIncomeModal) shares state.income save logic
@@ -822,7 +823,9 @@ function initBubble() {
       kiraHaptic(38, "HEAVY", 1.0);
       markHoldTalkDone();
       radialClose();
-      if (typeof openVoiceEntry === "function") openVoiceEntry("", { listen: true, fromBubble: true, bubbleRect });
+      // The finger is still down: the stage opens in slide mode (voice.js
+      // voiceHoldBegin — Cancel up-left, Save up-right, let go to check).
+      if (typeof openVoiceEntry === "function") openVoiceEntry("", { listen: true, fromBubble: true, bubbleRect, hold: { pointerId: h.id } });
       const voiceDlg = bubbleEl("voice-dialog");
       spawnPopDroplets(btn, bubbleRect, voiceDlg && voiceDlg.open ? voiceDlg : document.body);
       setTimeout(() => btn.classList.remove("is-popped"), 340);
@@ -846,7 +849,8 @@ function initBubble() {
     const h = bubbleHold;
     if (!h || e.pointerId !== h.id) return;
     if (h.fired) bubbleHoldFiredAt = Date.now();
-    // Do NOT call voiceStopListening() after POP so #voice-dialog stays listening hands-free.
+    // After the pop, voice.js owns the release (slide to Save / Cancel, or
+    // stop and check the rows).
     cancelHold(e.type === "pointerup");
   };
   document.addEventListener("pointerup", release, { capture: true, passive: true });
