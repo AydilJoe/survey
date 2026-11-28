@@ -20196,15 +20196,19 @@ check('the brand catalogue makes no network calls at all',
       { page: 1, y: 30, text: '01/10/2026 Groceries 80.00' },
     ] });
 
-    // 2) First-time UI review: Maybank card statement auto-selects Maybank Visa (NOT Maybank Savings) & shows hint.
-    openStatementImport();
-    showStatementReview({ lines: [
+    const mbbCardLines = [
       { page: 1, y: 10, text: 'Malayan Banking Berhad' },
       { page: 1, y: 20, text: 'STATEMENT OF CREDIT CARD ACCOUNT' },
       { page: 1, y: 30, text: 'MAYBANK VISA PLATINUM' },
       { page: 1, y: 40, text: 'STATEMENT DATE 15/10/26' },
+      { page: 1, y: 50, text: 'YOUR PREVIOUS STATEMENT BALANCE 100.00' },
       { page: 1, y: 60, text: '05/10 06/10 KEDAI KOPI KL 18.50' },
-    ] });
+      { page: 1, y: 70, text: 'SUB TOTAL / JUMLAH 118.50' },
+    ];
+
+    // 2) First-time UI review: Maybank card statement auto-selects Maybank Visa (NOT Maybank Savings) & shows hint.
+    openStatementImport();
+    showStatementReview({ lines: mbbCardLines });
     const sel = document.getElementById('stmt-wallet');
     const hint = document.getElementById('stmt-wallet-hint');
     const firstCard = {
@@ -20221,13 +20225,7 @@ check('the brand catalogue makes no network calls at all',
     // 3) Remembered wallet in state.statementLast takes priority over auto-match.
     state.statementLast = [{ key: 'maybank-card', bank: 'Maybank', kind: 'card', end: '2026-10-15', skipped: '', wallet: 'w-mbb-sav' }];
     openStatementImport();
-    showStatementReview({ lines: [
-      { page: 1, y: 10, text: 'Malayan Banking Berhad' },
-      { page: 1, y: 20, text: 'STATEMENT OF CREDIT CARD ACCOUNT' },
-      { page: 1, y: 30, text: 'MAYBANK VISA PLATINUM' },
-      { page: 1, y: 40, text: 'STATEMENT DATE 15/10/26' },
-      { page: 1, y: 60, text: '05/10 06/10 KEDAI KOPI KL 18.50' },
-    ] });
+    showStatementReview({ lines: mbbCardLines });
     const remembered = { val: document.getElementById('stmt-wallet').value, hintHidden: document.getElementById('stmt-wallet-hint').hidden };
     document.getElementById('stmt-dialog').close();
 
