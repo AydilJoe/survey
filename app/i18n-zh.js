@@ -2980,6 +2980,7 @@
   "Move": "转账",
   "Into which wallet?": "记入哪个钱包？",
   "Into {name}": "记入{name}",
+  "Matched to {bank} — change if needed": "已自动匹配 {bank} — 如需可更改",
   "{u} of {l} free wallets used": "已用 {u}/{l} 个免费钱包",
   "{u} wallets · Free adds up to {l}. Yours stay.": "{u} 个钱包 · 免费版最多添加 {l} 个，已有的都保留。",
   "Free keeps {n} wallets. Pro keeps every one. Archived wallets don't count.": "免费版可用 {n} 个钱包，Pro 不限数量。已归档的不计算在内。",

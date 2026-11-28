@@ -70,6 +70,7 @@
   "Move": "Pindah",
   "Into which wallet?": "Masuk ke dompet mana?",
   "Into {name}": "Masuk ke {name}",
+  "Matched to {bank} — change if needed": "Dipadankan dengan {bank} — tukar jika perlu",
   "{u} of {l} free wallets used": "{u} daripada {l} dompet percuma digunakan",
   "{u} wallets · Free adds up to {l}. Yours stay.": "{u} dompet · Percuma boleh tambah hingga {l}. Yang ada kekal.",
   "Free keeps {n} wallets. Pro keeps every one. Archived wallets don't count.": "Percuma simpan {n} dompet. Pro simpan semuanya. Dompet yang diarkib tidak dikira.",
