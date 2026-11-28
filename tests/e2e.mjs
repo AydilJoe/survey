@@ -20941,7 +20941,7 @@ check('the brand catalogue makes no network calls at all',
     state.aiSub = {
       active: true,
       tier: 'aiplus',
-      token: 'dev.mock.tok',
+      subToken: 'dev.mock.tok',
       expiresAt: Date.now() + 30 * 86400000,
       textUsed: 0,
       textLimit: 1000,
