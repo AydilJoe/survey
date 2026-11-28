@@ -20757,26 +20757,31 @@ check('the brand catalogue makes no network calls at all',
   const sp = await sCtx.newPage();
   const sErr = [];
   sp.on('pageerror', (e) => sErr.push(e.message));
-  await sp.goto(URL + '/app/');
-  await sp.waitForSelector('#setup');
-  await sp.evaluate(async () => {
-    document.querySelector('#setup-open-btn')?.click();
-    await new Promise((r) => setTimeout(r, 120));
+  await sp.goto(`${BASE}/app/index.html`);
+  await sp.waitForTimeout(500);
+  await sp.click('#btn-start-open');
+  await sp.waitForTimeout(1200);
+  await sp.evaluate(() => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
     state.savings = [{ id: 'g-emg', name: 'Emergency fund', target: 5000, current: 200 }];
     state.wallets = [{ id: 'w-main', name: 'Main Bank', type: 'bank', balance: 1000, currency: 'MYR' }];
     save(); renderAll();
   });
 
   // 1) "To savings" tab sits in Money out beside Spend / Split / Pay debt, never overflows at 360px across EN/MS/ZH, and records a goal deposit cleanly.
-  const out = await sp.evaluate(async () => {
-    const res = { langs: {} };
-    for (const lang of ['en', 'ms', 'zh']) {
-      if (typeof setLanguage === 'function') await setLanguage(lang);
+  const langs = {};
+  for (const lang of ['en', 'ms', 'zh']) {
+    await sp.evaluate((v) => {
+      const sel = document.getElementById('pref-language');
+      if (sel) { sel.value = v; sel.dispatchEvent(new Event('change')); }
+    }, lang);
+    await sp.waitForFunction((want) => typeof I18N !== 'undefined' && I18N.lang === want, lang, { timeout: 5000 });
+    langs[lang] = await sp.evaluate(() => {
       openAddEntry('expense');
       const pills = [...document.querySelectorAll('#add-dialog .type-pills .pill')];
       const box = document.querySelector('#add-dialog .type-pills').getBoundingClientRect();
       const saveTab = document.querySelector('#add-dialog [data-type="saving"]');
-      res.langs[lang] = {
+      const info = {
         count: pills.length,
         saveLabel: saveTab ? saveTab.textContent.trim() : '',
         allFit: pills.every((p) => {
@@ -20785,9 +20790,17 @@ check('the brand catalogue makes no network calls at all',
         }),
       };
       closeAddEntry();
-    }
-    if (typeof setLanguage === 'function') await setLanguage('en');
+      return info;
+    });
+  }
+  await sp.evaluate(() => {
+    const sel = document.getElementById('pref-language');
+    if (sel) { sel.value = 'en'; sel.dispatchEvent(new Event('change')); }
+  });
+  await sp.waitForFunction(() => typeof I18N !== 'undefined' && I18N.lang === 'en', { timeout: 5000 });
 
+  const out = await sp.evaluate(() => {
+    const res = {};
     // Click "To savings", enter RM 150, submit -> updates Emergency fund to 350 and logs kind:'saving'
     openAddEntry('expense');
     document.querySelector('#add-dialog [data-type="saving"]').click();
@@ -20817,10 +20830,10 @@ check('the brand catalogue makes no network calls at all',
   });
 
   check('v1.95.0: Money out has 4 tabs including "To savings" (EN/MS "Ke simpanan"/ZH "存入储蓄") fitting cleanly at 360px',
-    out.langs.en.count === 4 && out.langs.en.saveLabel === 'To savings' && out.langs.en.allFit
-    && out.langs.ms.saveLabel === 'Ke simpanan' && out.langs.ms.allFit
-    && out.langs.zh.saveLabel === '存入储蓄' && out.langs.zh.allFit,
-    JSON.stringify(out.langs));
+    langs.en.count === 4 && langs.en.saveLabel === 'To savings' && langs.en.allFit
+    && langs.ms.saveLabel === 'Ke simpanan' && langs.ms.allFit
+    && langs.zh.saveLabel === '存入储蓄' && langs.zh.allFit,
+    JSON.stringify(langs));
   check('v1.95.0: "To savings" tab deposits RM 150 into Emergency fund with "Save deposit" submit label',
     out.typeAfterClick === 'saving' && out.submitLabel === 'Save deposit'
     && out.goalAfter === 350 && out.savingEntry && out.addClosed,
