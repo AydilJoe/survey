@@ -21104,6 +21104,70 @@ check('the brand catalogue makes no network calls at all',
     && vRes.row0Kept && vRes.row1Upgraded
     && vRes.offlineSavedExp === 1 && vRes.offlineSavedInc === 1,
     JSON.stringify(vRes));
+  // Review fixes: the phone's reading wins where it knows better.
+  const vFix = await vp.evaluate(async () => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    const origRun = window.aiCloudRun;
+    const out = {};
+    const stub = (reply) => { window.aiCloudRun = async () => reply; };
+    // a) cloud "debt" on a row the phone didn't match to a debt stays a spend
+    stub({ items: [{ kind: 'debt', amount: 30 }] });
+    const a = await parseVoiceSmart('RM 30 lunch');
+    out.debt = a.entryKind;
+    // b) a learned row (the person's own correction) keeps its kind
+    state.voiceLearn = { ...(state.voiceLearn || {}), tutoring: { kind: 'income', category: 'Income', at: Date.now() } };
+    stub({ items: [{ kind: 'spend', amount: 100, category: 'Bills' }] });
+    const b = await parseVoiceSmart('RM 100 tutoring');
+    out.learned = b.entryKind;
+    // c) a rule-strong kind ("salary") keeps its kind
+    stub({ items: [{ kind: 'spend', amount: 50, category: 'Food' }] });
+    const c = await parseVoiceSmart('RM 50 salary');
+    out.strong = c.entryKind;
+    // d) no figure the phone can read: an invented cloud amount is ignored
+    stub({ items: [{ kind: 'spend', amount: 15, category: 'Food', note: 'nasi lemak' }] });
+    const d = await parseVoiceSmart('nasi lemak');
+    out.invented = d.amount || 0;
+    // e) the phone's exact split request stays exact
+    state.split = state.split || { people: [], out: [] };
+    if (!state.split.people.includes('Ali')) state.split.people.push('Ali');
+    stub({ items: [{ kind: 'spend', amount: 50, category: 'Food', split: { mode: 'equal', people: [{ name: 'Ali' }] } }] });
+    const e = await parseVoiceSmart('RM 50 dinner request RM 20 from Ali');
+    out.exact = e.split && e.split.people[0] ? e.split.people[0].amount : 0;
+    // f) a weak "found" income the cloud calls a spend gets a spend category, never "Income"
+    stub({ items: [{ kind: 'spend', amount: 40 }] });
+    const f = await parseVoiceSmart('RM 40 found at shop');
+    out.flipCat = `${f.entryKind}:${f.category}`;
+    // g) a row dropped while the cloud is out stays dropped
+    let release;
+    window.aiCloudRun = () => new Promise((r) => { release = () => r({ items: [
+      { kind: 'spend', amount: 15, category: 'Transport', note: 'misteri' },
+      { kind: 'spend', amount: 9, category: 'Food', note: 'kopi' },
+    ] }); });
+    openVoiceEntry('RM 15 misteri and RM 9 kopi');
+    await new Promise((r) => setTimeout(r, 40));
+    document.querySelector('#voice-preview .voice-item[data-voice-idx="1"] .voice-item-drop')?.click();
+    if (release) release();
+    await new Promise((r) => setTimeout(r, 80));
+    out.afterDrop = document.querySelectorAll('#voice-preview .voice-item').length;
+    out.afterDropLine = document.getElementById('voice-preview-spend')?.textContent || '';
+    document.getElementById('voice-dialog').close();
+    // h) an item with a note made of another row's words keeps the phone's note
+    stub({ items: [
+      { kind: 'spend', amount: 12, note: 'teh tarik' },
+      { kind: 'spend', amount: 5, note: 'teh tarik' },
+    ] });
+    const h = await parseVoiceSmart('RM 12 nasi lemak and RM 5 teh tarik');
+    out.notes = h.items ? h.items.map((x) => x.note).join('|') : '';
+    delete state.voiceLearn.tutoring;
+    window.aiCloudRun = origRun;
+    return out;
+  });
+  check('v1.97.0 review: cloud never makes a debt the phone didn\'t match, never beats learned or rule-strong kinds, never invents an amount, keeps an exact split, flips to a real category, keeps dropped rows dropped, and checks notes per row',
+    vFix.debt === 'expense' && vFix.learned === 'income' && vFix.strong === 'income' && vFix.invented === 0
+    && vFix.exact === 20 && /^expense:/.test(vFix.flipCat) && vFix.flipCat !== 'expense:Income'
+    && vFix.afterDrop === 0 && /15/.test(vFix.afterDropLine)
+    && !/^teh tarik\|/i.test(vFix.notes),
+    JSON.stringify(vFix));
   check('v1.97.0: no page errors in multi-item AI+ voice merge suite', vErr.length === 0, JSON.stringify(vErr));
   await vCtx.close();
 }
