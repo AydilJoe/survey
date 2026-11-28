@@ -657,17 +657,116 @@ function parseGenericStatement(lines) {
   return { stmt, rows, sections: opening != null ? [{ opening, closing, rows, page: rows[0] ? rows[0].page : 1 }] : [], kind };
 }
 
-/* Text → { layout, bank, kind, stmt, rows, sections }. */
+/* Header-only bank / e-wallet detection for generic statements & first-time
+   wallet matching. Specific sub-brands sit before broader names so "Boost Bank"
+   never collapses into "Boost" e-wallet. Never stores account numbers or PII. */
+const STMT_BANK_DETECTORS = [
+  { bank: "Boost Bank",         provider: "boostbank",    providers: ["boostbank"],              re: /\bboost\s+bank\b/i,                                                   aliases: /\bboost\s+bank\b/i },
+  { bank: "Maybank",            provider: "maybank",      providers: ["maybank", "maybank-mae"], re: /\b(?:maybank|malayan\s+banking|maybank2u|m2u|mae\s+by\s+maybank)\b/i, aliases: /\b(?:maybank|mbb|m2u|mae)\b/i },
+  { bank: "CIMB",               provider: "cimb",         providers: ["cimb"],                   re: /\b(?:cimb\s+bank|cimb\s+islamic|cimb\s+clicks|cimb\s+octo|cimb)\b/i,  aliases: /\b(?:cimb|octo)\b/i },
+  { bank: "Public Bank",        provider: "publicbank",   providers: ["publicbank"],             re: /\b(?:public\s+bank|public\s+islamic\s+bank|pb\s+engage|pbe\s+bank)\b/i, aliases: /\b(?:public\s+bank|pbb|pb\s+card|pbe)\b/i },
+  { bank: "Alliance Bank",      provider: "alliance",     providers: ["alliance"],               re: /\b(?:alliance\s+bank|alliance\s+islamic)\b/i,                         aliases: /\balliance\b/i },
+  { bank: "Hong Leong",         provider: "hlb",          providers: ["hlb"],                    re: /\b(?:hong\s+leong|hlb\s+connect)\b/i,                                 aliases: /\b(?:hong\s+leong|hlb)\b/i },
+  { bank: "RHB",                provider: "rhb",          providers: ["rhb"],                    re: /\b(?:rhb\s+bank|rhb\s+islamic|rhb\s+banking|rhb\s+now)\b/i,           aliases: /\brhb\b/i },
+  { bank: "AmBank",             provider: "ambank",       providers: ["ambank"],                 re: /\b(?:ambank|amislamic|amonline)\b/i,                                  aliases: /\b(?:ambank|amislamic)\b/i },
+  { bank: "Bank Islam",         provider: "bankislam",    providers: ["bankislam"],              re: /\bbank\s+islam\b/i,                                                   aliases: /\b(?:bank\s+islam|bimb)\b/i },
+  { bank: "BSN",                provider: "bsn",          providers: ["bsn"],                    re: /\b(?:bank\s+simpanan\s+nasional|mybsn|bsn\s+malaysia)\b/i,            aliases: /\b(?:bsn|mybsn)\b/i },
+  { bank: "Affin",              provider: "affin",        providers: ["affin"],                  re: /\b(?:affin\s+bank|affin\s+islamic|affin\s+hwang)\b/i,                 aliases: /\baffin\b/i },
+  { bank: "Bank Rakyat",        provider: "bankrakyat",   providers: ["bankrakyat"],             re: /\b(?:bank\s+rakyat|irakyat)\b/i,                                      aliases: /\b(?:bank\s+rakyat|irakyat)\b/i },
+  { bank: "Bank Muamalat",      provider: "muamalat",     providers: ["muamalat"],               re: /\bbank\s+muamalat\b/i,                                                aliases: /\bmuamalat\b/i },
+  { bank: "Agrobank",           provider: "agrobank",     providers: ["agrobank"],               re: /\bagrobank\b/i,                                                       aliases: /\bagrobank\b/i },
+  { bank: "MBSB Bank",          provider: "mbsb",         providers: ["mbsb"],                   re: /\bmbsb\s+bank\b/i,                                                    aliases: /\bmbsb\b/i },
+  { bank: "GXBank",             provider: "gxbank",       providers: ["gxbank"],                 re: /\b(?:gxbank|gx\s+bank)\b/i,                                           aliases: /\b(?:gxbank|gx\s+bank|gx)\b/i },
+  { bank: "AEON Bank",          provider: "aeonbank",     providers: ["aeonbank"],               re: /\baeon\s+bank\b/i,                                                    aliases: /\baeon\s+bank\b/i },
+  { bank: "Ryt Bank",           provider: "rytbank",      providers: ["rytbank"],                re: /\bryt\s+bank\b/i,                                                     aliases: /\bryt\b/i },
+  { bank: "HSBC",               provider: "hsbc-my",      providers: ["hsbc-my", "hsbc"],        re: /\b(?:hsbc\s+bank|hsbc\s+amanah|hsbc\s+malaysia|hsbc\s+singapore|hsbc\s+hong\s+kong)\b/i, aliases: /\bhsbc\b/i },
+  { bank: "OCBC",               provider: "ocbc-my",      providers: ["ocbc-my", "ocbc-sg", "ocbc"], re: /\b(?:ocbc\s+bank|ocbc\s+al-?amin|ocbc\s+malaysia|ocbc\s+singapore)\b/i, aliases: /\bocbc\b/i },
+  { bank: "UOB",                provider: "uob-my",       providers: ["uob-my", "uob-sg", "uob"], re: /\b(?:united\s+overseas\s+bank|uob\s+malaysia|uob\s+singapore|uob\s+tmrw|uob\s+mighty)\b/i, aliases: /\buob\b/i },
+  { bank: "Standard Chartered", provider: "scb-my",       providers: ["scb-my", "scb"],          re: /\bstandard\s+chartered\b/i,                                           aliases: /\b(?:standard\s+chartered|scb)\b/i },
+  { bank: "TNG eWallet",        provider: "tng",          providers: ["tng"],        walletKind: "ewallet", re: /\b(?:touch\s*'?n\s*go\s+e-?wallet|tng\s+digital|tng\s+e-?wallet)\b/i, aliases: /\b(?:touch\s*'?n\s*go|tng)\b/i },
+  { bank: "GrabPay",            provider: "grabpay",      providers: ["grabpay"],    walletKind: "ewallet", re: /\b(?:grabpay|grabfin)\b/i,                                           aliases: /\bgrabpay\b/i },
+  { bank: "BigPay",             provider: "bigpay",       providers: ["bigpay"],     walletKind: "ewallet", re: /\bbigpay\b/i,                                                        aliases: /\bbigpay\b/i },
+  { bank: "Boost",              provider: "boost",        providers: ["boost"],      walletKind: "ewallet", re: /\b(?:boost\s+e-?wallet|axiata\s+digital)\b/i,                        aliases: /\bboost\b/i },
+  { bank: "ShopeePay",          provider: "shopeepay-my", providers: ["shopeepay-my", "shopeepay"], walletKind: "ewallet", re: /\bshopeepay\b/i,                                      aliases: /\bshopeepay\b/i },
+  { bank: "Setel",              provider: "setel",        providers: ["setel"],      walletKind: "ewallet", re: /\b(?:setel\s+wallet|setel\s+statement)\b/i,                          aliases: /\bsetel\b/i },
+  { bank: "Wise",               provider: "wise",         providers: ["wise"],       walletKind: "ewallet", re: /\b(?:wise\s+payments|wise\s+malaysia|wise\s+asia|transferwise)\b/i,  aliases: /\b(?:wise|transferwise)\b/i },
+  { bank: "DBS",                provider: "dbs-sg",       providers: ["dbs-sg", "dbs"],          re: /\b(?:dbs\s+bank|posb\s+bank|dbs\s+digibank)\b/i,                      aliases: /\b(?:dbs|posb)\b/i },
+  { bank: "Hang Seng",          provider: "hangseng",     providers: ["hangseng"],               re: /\bhang\s+seng\s+bank\b/i,                                             aliases: /\bhang\s+seng\b/i },
+  { bank: "Citibank",           provider: "citi",         providers: ["citi"],                   re: /\bcitibank\b/i,                                                       aliases: /\b(?:citibank|citi)\b/i },
+];
+
+const STMT_HEADER_KW_RE = /\b(visa|mastercard|master|amex|american\s+express|islamic|ikhwan|mae|octo|platinum|signature|world|gold|savings|simpanan|current|semasa|mudharabah|ewallet|e-wallet)\b/gi;
+
+function stmtHeaderText(lines) {
+  if (!Array.isArray(lines)) return String(lines || "").slice(0, 2400);
+  const head = [];
+  let chars = 0;
+  const txnStartRe = /^(?:\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?|\d{1,2}\s+(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(?:\s+\d{2,4})?)\s+\S/i;
+  for (let i = 0; i < lines.length && i < 35 && chars < 2400; i++) {
+    const t = String((lines[i] && lines[i].text) || "").trim();
+    if (!t) continue;
+    // Stop before the first dated transaction row so payees ("Transfer to Maybank") never match as the issuer.
+    if (head.length && txnStartRe.test(t) && /\d+\.\d{2}/.test(t)) break;
+    head.push(t);
+    chars += t.length + 1;
+  }
+  return head.join("\n");
+}
+
+function stmtDetectBank(linesOrText, forcedBank) {
+  if (forcedBank) {
+    const byName = STMT_BANK_DETECTORS.find((d) => d.bank.toLowerCase() === String(forcedBank).toLowerCase());
+    if (byName) return byName;
+  }
+  const head = stmtHeaderText(linesOrText);
+  if (!head) return null;
+  return STMT_BANK_DETECTORS.find((d) => d.re.test(head)) || null;
+}
+
+function stmtExtractHeaderKeywords(linesOrText) {
+  const head = stmtHeaderText(linesOrText);
+  if (!head) return [];
+  const found = new Set();
+  let m;
+  STMT_HEADER_KW_RE.lastIndex = 0;
+  while ((m = STMT_HEADER_KW_RE.exec(head)) !== null) {
+    let k = m[1].toLowerCase().replace(/\s+/g, " ");
+    if (k === "american express") k = "amex";
+    else if (k === "master") k = "mastercard";
+    else if (k === "simpanan") k = "savings";
+    else if (k === "semasa") k = "current";
+    else if (k === "e-wallet") k = "ewallet";
+    found.add(k);
+  }
+  return [...found];
+}
+
+/* Text → { layout, bank, kind, stmt, rows, sections, provider?, walletKind?, headerKeywords? }. */
 function parseStatement(read) {
   const text = read.lines.map((l) => l.text).join("\n");
   const layout = STATEMENT_LAYOUTS.find((L) => L.detect(text));
   const scanned = !!read.scanned;
+  const headerKeywords = stmtExtractHeaderKeywords(read.lines);
   if (layout) {
     const out = layout.parse(read.lines);
-    return { layout: layout.id, bank: layout.bank, kind: layout.kind, ...out, scanned };
+    const meta = stmtDetectBank(read.lines, layout.bank);
+    return {
+      layout: layout.id, bank: layout.bank, kind: layout.kind,
+      provider: meta ? meta.provider : "", walletKind: meta ? (meta.walletKind || "") : "",
+      headerKeywords, ...out, scanned,
+    };
   }
   const out = parseGenericStatement(read.lines);
-  return { layout: "generic", bank: "", ...out, scanned };
+  const meta = stmtDetectBank(read.lines);
+  const head = stmtHeaderText(read.lines);
+  let kind = out.kind;
+  if (meta && meta.walletKind === "ewallet") kind = "account";
+  else if (!out.rows.some((r) => r.balance != null) && /\b(?:credit\s+card|card\s+statement)\b/i.test(head)) kind = "card";
+  return {
+    layout: "generic", bank: meta ? meta.bank : "",
+    provider: meta ? meta.provider : "", walletKind: meta ? (meta.walletKind || "") : "",
+    headerKeywords, ...out, kind, scanned,
+  };
 }
 
 /* ---------- reconciliation ---------- */
@@ -1080,7 +1179,23 @@ function stmtParsedFromCloud(res, text, prev) {
   const opening = fig(res.opening), closing = fig(res.closing);
   const kind = prev && prev.rows && prev.rows.length && prev.kind ? prev.kind : rows.some((r) => r.balance != null) ? "account" : "card";
   const sections = opening != null && closing != null ? [{ opening, closing, rows, page: 1 }] : [];
-  return { layout: "generic", bank: (prev && prev.bank) || "", kind, stmt: (prev && prev.stmt) || null, rows, sections, scanned: true, aiPlus: true };
+  const meta = stmtDetectBank(text, prev && prev.bank);
+  const headerKeywords = (prev && Array.isArray(prev.headerKeywords) && prev.headerKeywords.length)
+    ? prev.headerKeywords
+    : stmtExtractHeaderKeywords(text);
+  return {
+    layout: "generic",
+    bank: (prev && prev.bank) || (meta ? meta.bank : ""),
+    provider: (prev && prev.provider) || (meta ? meta.provider : ""),
+    walletKind: (prev && prev.walletKind) || (meta ? (meta.walletKind || "") : ""),
+    headerKeywords,
+    kind,
+    stmt: (prev && prev.stmt) || null,
+    rows,
+    sections,
+    scanned: true,
+    aiPlus: true,
+  };
 }
 
 // The offer: shown while the phone's read doesn't check out.
@@ -1118,6 +1233,7 @@ async function statementCloudRead() {
   }
   const before = stmtUi.items;
   stmtUi.parsed = parsed; stmtUi.recon = recon;
+  if (!stmtUi.fixed && !stmtUi.wallet) stmtResolveWallet(parsed);
   stmtUi.items = statementItems(parsed, recon);
   for (const it of stmtUi.items) it.aiPlus = true;
   stmtCarryEdits(before, stmtUi.items);
@@ -1352,9 +1468,80 @@ function statementNativeReminders() {
 
 /* ---------- the screen ---------- */
 
+/* First-time wallet auto-matcher: when a statement wasn't opened from a
+   specific wallet and hasn't been imported before (state.statementLast has no
+   remembered wallet for this layout), pick the matching active wallet by bank
+   brand/name + card-vs-account type. Never forces a mismatch (e.g. won't drop
+   a bank savings statement into a credit card wallet or a Cash wallet). */
+function stmtAutoMatchWallet(parsed, wallets) {
+  if (!parsed || (!parsed.bank && !parsed.provider)) return null;
+  const list = Array.isArray(wallets) ? wallets : (typeof activeWallets === "function" ? activeWallets() : []);
+  if (!list.length) return null;
+
+  const meta = STMT_BANK_DETECTORS.find((d) =>
+    (parsed.provider && (d.provider === parsed.provider || (d.providers || []).includes(parsed.provider)))
+    || (parsed.bank && d.bank.toLowerCase() === String(parsed.bank).toLowerCase()));
+  const bankLower = String(parsed.bank || (meta && meta.bank) || "").toLowerCase();
+  const providerSet = new Set(meta ? (meta.providers || [meta.provider]) : (parsed.provider ? [parsed.provider] : []));
+  const kws = Array.isArray(parsed.headerKeywords) ? parsed.headerKeywords : [];
+  const isCardStmt = parsed.kind === "card";
+  const isEwalletStmt = parsed.walletKind === "ewallet" || (meta && meta.walletKind === "ewallet");
+  const cardNameRe = /\b(?:card|credit|visa|master(?:card)?|amex|kad|cc|ikhwan)\b/i;
+
+  const scored = [];
+  for (const w of list) {
+    if (!w || w.archived || w.type === "cash") continue;
+    const name = String(w.name || "");
+    const nameLower = name.toLowerCase();
+
+    // 1) Require a genuine bank/issuer hit via provider id or wallet name.
+    let bankScore = 0;
+    const prov = String(w.provider || "").toLowerCase();
+    if (prov && providerSet.has(prov)) {
+      bankScore = 100;
+    } else if (prov && typeof walletBrandById === "function") {
+      const b = walletBrandById(prov);
+      if (b && bankLower && b.name.toLowerCase() === bankLower) bankScore = 100;
+    }
+    if (!bankScore) {
+      if (meta && meta.aliases && meta.aliases.test(name)) bankScore = 90;
+      else if (bankLower && bankLower.length >= 3 && nameLower.includes(bankLower)) bankScore = 90;
+    }
+    if (!bankScore) continue;
+
+    // 2) Card vs account type safety: never cross-contaminate card and bank balances.
+    const nameHasCard = cardNameRe.test(name);
+    let typeScore = 0;
+    if (isCardStmt) {
+      if (w.type === "card") typeScore += 40;
+      else if (nameHasCard) typeScore += 25;
+      else continue;
+      if (nameHasCard) typeScore += 15;
+    } else {
+      if (w.type === "card" || nameHasCard) continue;
+      if (isEwalletStmt) typeScore += (w.type === "ewallet" ? 40 : 15);
+      else typeScore += (w.type === "bank" ? 40 : (w.type === "ewallet" ? 15 : 0));
+    }
+
+    // 3) Tie-break among same-bank wallets using header product keywords & alertDefault.
+    let kwScore = 0;
+    for (const kw of kws) {
+      if (kw && nameLower.includes(kw)) kwScore += 18;
+    }
+    if (w.alertDefault) kwScore += 6;
+
+    scored.push({ wallet: w, score: bankScore + typeScore + kwScore });
+  }
+
+  if (!scored.length) return null;
+  scored.sort((a, b) => b.score - a.score);
+  if (scored.length > 1 && scored[0].score === scored[1].score) return null;
+  return { id: scored[0].wallet.id, bank: parsed.bank || (meta ? meta.bank : ""), score: scored[0].score };
+}
+
 // wallet: the wallet the rows go into; fixed: chosen by opening the import
 // from that wallet, so the question isn't asked.
-const stmtUi = { items: [], parsed: null, recon: null, file: null, wallet: "", fixed: false, read: null, cloudBusy: false };
+const stmtUi = { items: [], parsed: null, recon: null, file: null, wallet: "", walletAuto: false, fixed: false, read: null, cloudBusy: false };
 const stmtEl = (id) => document.getElementById(id);
 
 function stmtFmtDate(iso) {
@@ -1378,6 +1565,7 @@ function openStatementImport(opts) {
   const wid = opts && typeof opts.walletId === "string" ? opts.walletId : "";
   stmtUi.fixed = !!(wid && typeof walletById === "function" && walletById(wid));
   stmtUi.wallet = stmtUi.fixed ? wid : "";
+  stmtUi.walletAuto = false;
   stmtEl("stmt-pick").hidden = false;
   const scan = stmtEl("stmt-scan");
   if (scan) scan.hidden = !(typeof duitfulKit === "function" && duitfulKit("scanDocument"));
@@ -1434,17 +1622,32 @@ async function statementFromPhotos(sources) {
   return showStatementReview(read);
 }
 
+function stmtResolveWallet(parsed) {
+  if (stmtUi.fixed) return;
+  const rec = (state.statementLast || []).find((x) => x.key === stmtKeyOf(parsed));
+  const remembered = rec && rec.wallet && typeof walletById === "function" ? walletById(rec.wallet) : null;
+  if (remembered && !remembered.archived) {
+    stmtUi.wallet = remembered.id;
+    stmtUi.walletAuto = false;
+    return;
+  }
+  const auto = stmtAutoMatchWallet(parsed);
+  if (auto) {
+    stmtUi.wallet = auto.id;
+    stmtUi.walletAuto = true;
+    return;
+  }
+  stmtUi.wallet = "";
+  stmtUi.walletAuto = false;
+}
+
 function showStatementReview(read) {
   const parsed = parseStatement(read);
   const recon = reconcileStatement(parsed);
   stmtUi.parsed = parsed; stmtUi.recon = recon; stmtUi.read = read;
   stmtUi.items = statementItems(parsed, recon);
-  // Not opened from a wallet: the one this bank layout went into last time.
-  if (!stmtUi.fixed) {
-    const rec = (state.statementLast || []).find((x) => x.key === stmtKeyOf(parsed));
-    const w = rec && rec.wallet && typeof walletById === "function" ? walletById(rec.wallet) : null;
-    stmtUi.wallet = w && !w.archived ? w.id : "";
-  }
+  // Not opened from a wallet: remembered pick first, else first-time auto-match.
+  stmtResolveWallet(parsed);
   stmtEl("stmt-pick").hidden = true;
   stmtEl("stmt-password").hidden = true;
   if (!parsed.rows.length) { stmtSay(tr("No transactions found in this statement.")); stmtCloudRefresh(); return parsed; }
@@ -1552,6 +1755,7 @@ function renderStatementReview() {
 function stmtRenderWallet() {
   const field = stmtEl("stmt-wallet-field");
   const fixed = stmtEl("stmt-wallet-fixed");
+  const hint = stmtEl("stmt-wallet-hint");
   if (!field || !fixed) return;
   const has = typeof activeWallets === "function" && activeWallets().length > 0;
   const w = stmtUi.wallet && typeof walletById === "function" ? walletById(stmtUi.wallet) : null;
@@ -1562,6 +1766,13 @@ function stmtRenderWallet() {
     const sel = stmtEl("stmt-wallet");
     sel.innerHTML = walletOptions(stmtUi.wallet);
     sel.value = w ? w.id : "";
+  }
+  if (hint) {
+    const showHint = !field.hidden && !!stmtUi.walletAuto && !!w;
+    hint.hidden = !showHint;
+    if (showHint) {
+      hint.textContent = tr("Matched to {bank} — change if needed", { bank: (stmtUi.parsed && stmtUi.parsed.bank) || w.name });
+    }
   }
 }
 
@@ -1646,7 +1857,12 @@ stmtEl("stmt-pw")?.addEventListener("keydown", (e) => { if (e.key === "Enter") {
 stmtEl("stmt-cancel")?.addEventListener("click", () => { stmtUi.file = null; stmtEl("stmt-dialog")?.close(); });
 stmtEl("stmt-cloud-read")?.addEventListener("click", () => { statementCloudRead(); });
 stmtEl("stmt-import")?.addEventListener("click", statementImportNow);
-stmtEl("stmt-wallet")?.addEventListener("change", (e) => { stmtUi.wallet = e.target.value; });
+stmtEl("stmt-wallet")?.addEventListener("change", (e) => {
+  stmtUi.wallet = e.target.value;
+  stmtUi.walletAuto = false;
+  const hint = stmtEl("stmt-wallet-hint");
+  if (hint) hint.hidden = true;
+});
 stmtEl("stmt-all")?.addEventListener("click", () => {
   const all = stmtUi.items.every((x) => x.on || x.kind === "move");
   for (const it of stmtUi.items) if (it.kind !== "move" && it.date) { it.on = !all; it.userOn = true; }

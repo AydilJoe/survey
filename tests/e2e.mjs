@@ -20152,6 +20152,106 @@ check('the brand catalogue makes no network calls at all',
   await fCtx.close();
 }
 
+// ── v1.92.0: First-time statement bank, card & wallet auto-matching ──
+{
+  const wCtx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  const wp = await wCtx.newPage();
+  const wErr = [];
+  wp.on('pageerror', (e) => wErr.push(e.message));
+  await wp.goto(`${BASE}/app/index.html`);
+  await wp.waitForTimeout(500);
+  await wp.click('#btn-start-open');
+  await wp.waitForTimeout(1500);
+  await wp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+
+  const res = await wp.evaluate(() => {
+    state.pro = true;
+    state.statementLast = [];
+    state.wallets = coerceWallets([
+      { id: 'w-cash', name: 'Cash', type: 'cash', opening: 100 },
+      { id: 'w-mbb-sav', name: 'Maybank Savings', type: 'bank', provider: 'maybank', opening: 1000 },
+      { id: 'w-mbb-visa', name: 'Maybank Visa', type: 'card', provider: 'maybank', opening: 0 },
+      { id: 'w-tng', name: 'TNG eWallet', type: 'ewallet', provider: 'tng', opening: 50 },
+      { id: 'w-boost-e', name: 'Boost', type: 'ewallet', provider: 'boost', opening: 20 },
+      { id: 'w-boost-b', name: 'Boost Bank', type: 'bank', provider: 'boostbank', opening: 500 },
+      { id: 'w-rhb', name: 'RHB Current', type: 'bank', provider: 'rhb', opening: 800 },
+    ]);
+    save(); renderAll();
+
+    // 1) Header-only bank/e-wallet detection (never fooled by payees inside transaction rows).
+    const pTng = parseStatement({ lines: [
+      { page: 1, y: 10, text: "Touch 'n Go eWallet Monthly Statement" },
+      { page: 1, y: 30, text: '01/10/2026 Kopi 5.00 45.00' },
+    ] });
+    const pBoostBank = parseStatement({ lines: [
+      { page: 1, y: 10, text: 'Boost Bank Berhad Savings Statement' },
+      { page: 1, y: 30, text: '01/10/2026 Salary 100.00 600.00' },
+    ] });
+    const pUnknown = parseStatement({ lines: [
+      { page: 1, y: 10, text: 'CONTOH BANK BERHAD' },
+      { page: 1, y: 30, text: '01/10/2026 Transfer to Maybank 50.00 950.00' },
+    ] });
+    const pRhbCard = parseStatement({ lines: [
+      { page: 1, y: 10, text: 'RHB Bank Berhad Credit Card Statement' },
+      { page: 1, y: 30, text: '01/10/2026 Groceries 80.00' },
+    ] });
+
+    // 2) First-time UI review: Maybank card statement auto-selects Maybank Visa (NOT Maybank Savings) & shows hint.
+    openStatementImport();
+    showStatementReview({ lines: [
+      { page: 1, y: 10, text: 'Malayan Banking Berhad' },
+      { page: 1, y: 20, text: 'STATEMENT OF CREDIT CARD ACCOUNT' },
+      { page: 1, y: 30, text: 'MAYBANK VISA PLATINUM' },
+      { page: 1, y: 40, text: 'STATEMENT DATE 15/10/26' },
+      { page: 1, y: 60, text: '05/10 06/10 KEDAI KOPI KL 18.50' },
+    ] });
+    const sel = document.getElementById('stmt-wallet');
+    const hint = document.getElementById('stmt-wallet-hint');
+    const firstCard = {
+      val: sel.value,
+      hintShown: !hint.hidden,
+      hintText: hint.textContent,
+    };
+
+    // Manual override hides the auto-match hint immediately.
+    sel.value = 'w-tng';
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    const afterManual = { val: stmtUi.wallet, hintHidden: hint.hidden };
+
+    // 3) Remembered wallet in state.statementLast takes priority over auto-match.
+    state.statementLast = [{ key: 'maybank-card', bank: 'Maybank', kind: 'card', end: '2026-10-15', skipped: '', wallet: 'w-mbb-sav' }];
+    openStatementImport();
+    showStatementReview({ lines: [
+      { page: 1, y: 10, text: 'Malayan Banking Berhad' },
+      { page: 1, y: 20, text: 'STATEMENT OF CREDIT CARD ACCOUNT' },
+      { page: 1, y: 30, text: 'MAYBANK VISA PLATINUM' },
+      { page: 1, y: 40, text: 'STATEMENT DATE 15/10/26' },
+      { page: 1, y: 60, text: '05/10 06/10 KEDAI KOPI KL 18.50' },
+    ] });
+    const remembered = { val: document.getElementById('stmt-wallet').value, hintHidden: document.getElementById('stmt-wallet-hint').hidden };
+    document.getElementById('stmt-dialog').close();
+
+    return {
+      tngMatch: pTng.bank === 'TNG eWallet' && stmtAutoMatchWallet(pTng)?.id === 'w-tng',
+      boostBankMatch: pBoostBank.bank === 'Boost Bank' && stmtAutoMatchWallet(pBoostBank)?.id === 'w-boost-b',
+      unknownSafe: pUnknown.bank === '' && stmtAutoMatchWallet(pUnknown) === null,
+      rhbCardNeverMatchesBank: pRhbCard.bank === 'RHB' && pRhbCard.kind === 'card' && stmtAutoMatchWallet(pRhbCard) === null,
+      firstCard, afterManual, remembered,
+    };
+  });
+
+  check('v1.92.0: header bank/e-wallet detection recognises TNG, Boost Bank (not Boost eWallet), RHB card, and ignores payees in transaction rows',
+    res.tngMatch && res.boostBankMatch && res.unknownSafe && res.rhbCardNeverMatchesBank,
+    JSON.stringify(res));
+  check('v1.92.0: first-time import auto-selects matching card wallet with subtle hint, manual change clears hint, and remembered wallet always wins',
+    res.firstCard.val === 'w-mbb-visa' && res.firstCard.hintShown && /Maybank/.test(res.firstCard.hintText)
+    && res.afterManual.val === 'w-tng' && res.afterManual.hintHidden
+    && res.remembered.val === 'w-mbb-sav' && res.remembered.hintHidden,
+    JSON.stringify(res));
+  check('v1.92.0: no page errors in statement wallet auto-match suite', wErr.length === 0, JSON.stringify(wErr));
+  await wCtx.close();
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();
