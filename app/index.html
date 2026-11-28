@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=5f2f984a" />
+    <link rel="stylesheet" href="styles.css?v=c7d0bc76" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -2437,16 +2437,18 @@
         </div>
 
         <div class="voice-stage-center" id="voice-stage-center" data-wave-mode="idle">
+          <div class="voice-figure" id="voice-figure">
+            <span class="voice-rm-ring" id="voice-rm-ring" aria-hidden="true"></span>
+            <span class="voice-kira" id="voice-kira" aria-hidden="true"></span>
+            <span class="voice-orb" id="voice-orb" aria-hidden="true" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>
+            </span>
+          </div>
           <svg class="voice-waves" id="voice-waves" viewBox="0 0 320 120" preserveAspectRatio="none" aria-hidden="true" focusable="false">
             <path class="voice-wave voice-wave-3" id="voice-wave-3" d="M0 60 Q 80 60 160 60 T 320 60" />
             <path class="voice-wave voice-wave-2" id="voice-wave-2" d="M0 60 Q 80 60 160 60 T 320 60" />
             <path class="voice-wave voice-wave-1" id="voice-wave-1" d="M0 60 Q 80 60 160 60 T 320 60" />
           </svg>
-          <span class="voice-rm-ring" id="voice-rm-ring" aria-hidden="true"></span>
-          <span class="voice-kira" id="voice-kira" aria-hidden="true"></span>
-          <span class="voice-orb" id="voice-orb" aria-hidden="true" hidden>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>
-          </span>
         </div>
 
         <p class="voice-status" id="voice-status" role="status" aria-live="polite" hidden></p>
@@ -3951,14 +3953,14 @@
     <script src="kira-seasons.js?v=84d7b80b"></script>
     <script src="kira.js?v=0a738a14"></script>
     <script src="streak.js?v=ce95b7ab"></script>
-    <script src="voice.js?v=632cbba2"></script>
+    <script src="voice.js?v=2d2bf490"></script>
     <script src="cloud.js?v=fcd02ad8"></script>
     <script src="capture.js?v=3af549e5"></script>
     <script src="ai-redact.js?v=e6257012"></script>
     <script src="ai-cloud.js?v=790422fa"></script>
     <script src="pro.js?v=c4ca182d"></script>
     <script src="ocr.js?v=d135377e"></script>
-    <script src="kira-bubble.js?v=f59e7083"></script>
-    <script src="script.js?v=a96d34cc"></script>
+    <script src="kira-bubble.js?v=8ba22a35"></script>
+    <script src="script.js?v=7fa7857c"></script>
   </body>
 </html>
