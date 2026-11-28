@@ -20845,6 +20845,297 @@ check('the brand catalogue makes no network calls at all',
   await sCtx.close();
 }
 
+// ── v1.97.0: Hold the bubble, slide to Save or Cancel, let go to check
+//    (docs/plans/voice-hold-gesture.md) ──
+{
+  const hCtx = await b.newContext({ viewport: { width: 360, height: 780 } });
+  const hp = await hCtx.newPage();
+  const hErr = [];
+  hp.on('pageerror', (e) => hErr.push(e.message));
+  await hp.goto(`${BASE}/app/index.html`);
+  await hp.waitForTimeout(500);
+  await hp.click('#btn-start-open');
+  await hp.waitForTimeout(1500);
+  await hp.evaluate(() => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    localStorage.removeItem('duitful.holdSlideHint');
+    state.pro = true;
+    state.debts = [{ id: 'd-hold', name: 'PTPTN', balance: 50, apr: 1, minPayment: 100 }];
+    state.dailyExpenses = [{ id: 'e-hold', date: todayISO(), amount: 9.5, category: 'Food', note: 'Kopi', kind: 'expense', createdAt: Date.now() }];
+    save(); renderAll();
+    // Native speech stand-in: partials on demand; speechStop resolves the
+    // pending speechStart with `final` after `finalMs`.
+    const st = window.__hold = { partial: [], level: [], res: null, final: '', finalMs: 30, starts: 0 };
+    window.Capacitor = {
+      isNativePlatform: () => true,
+      getPlatform: () => 'ios',
+      Plugins: { DuitfulKit: {
+        speechAvailable: async () => ({ available: true, onDevice: true }),
+        speechStart: () => { st.starts++; return new Promise((res) => { st.res = res; }); },
+        speechStop: async () => { const r = st.res; st.res = null; if (r) setTimeout(() => r({ text: st.final }), st.finalMs); return { ok: true }; },
+        addListener: async (ev, fn) => {
+          if (ev === 'speechPartial') st.partial.push(fn);
+          if (ev === 'speechLevel') st.level.push(fn);
+          return { remove: () => { st.partial = st.partial.filter((f) => f !== fn); st.level = st.level.filter((f) => f !== fn); } };
+        },
+      } },
+    };
+  });
+  await hp.waitForTimeout(1200); // the bottom bar settles
+  const bb = await hp.locator('#kira-bubble').boundingBox();
+  const bx = bb.x + bb.width / 2;
+  const by = bb.y + bb.height / 2;
+  const snap = () => hp.evaluate(() => JSON.stringify({
+    daily: state.dailyExpenses, income: state.income, debts: state.debts.map((d) => [d.id, d.balance]),
+    splits: (typeof splitOutList === 'function' ? splitOutList() : []).map((r) => r.id),
+  }));
+  // Press, pop, then (once the kit's listeners are in) say `words`.
+  const holdAndSay = async (words, final) => {
+    await hp.evaluate((f) => { document.querySelectorAll('dialog[open]').forEach((d) => d.close()); window.__hold.final = f; }, final == null ? words : final);
+    await hp.waitForTimeout(250);
+    await hp.mouse.move(bx, by);
+    await hp.mouse.down();
+    await hp.waitForTimeout(650);
+    await hp.waitForTimeout(150);
+    if (words) await hp.evaluate((w) => window.__hold.partial.forEach((fn) => fn({ text: w })), words);
+    await hp.waitForTimeout(80);
+  };
+  const centre = (r) => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
+  const targets = () => hp.evaluate(() => {
+    const r = (id) => { const x = document.getElementById(id).getBoundingClientRect(); return { x: x.left, y: x.top, width: x.width, height: x.height, bottom: x.bottom, right: x.right }; };
+    return { mic: r('voice-hold-mic'), cancel: r('voice-hold-cancel'), save: r('voice-hold-save') };
+  });
+  const toastUndo = () => hp.evaluate(() => {
+    const t = document.getElementById('toast');
+    const btn = t && t.querySelector('.toast-action');
+    return { text: t ? t.textContent : '', undo: !!btn && btn.textContent === 'Undo' };
+  });
+
+  // 1) Holding: the mic stays at the bubble, Cancel / Save above it, clear of the rows.
+  const before1 = await snap();
+  await holdAndSay('RM 12 nasi lemak');
+  const t1 = await targets();
+  const holding = await hp.evaluate(() => {
+    const dlg = document.getElementById('voice-dialog');
+    const ov = (a, b2) => !(a.right <= b2.left || b2.right <= a.left || a.bottom <= b2.top || b2.bottom <= a.top);
+    const rows = ['voice-preview', 'voice-transcript-wrap', 'voice-status'].map((id) => document.getElementById(id)).filter((el) => el && !el.hidden).map((el) => el.getBoundingClientRect());
+    const tg = ['voice-hold-cancel', 'voice-hold-save'].map((id) => document.getElementById(id).getBoundingClientRect());
+    return {
+      open: dlg.open, holding: dlg.classList.contains('is-holding'),
+      inputHidden: getComputedStyle(document.querySelector('#voice-dialog .voice-input-field')).display === 'none',
+      actionsHidden: getComputedStyle(document.querySelector('#voice-dialog .voice-actions')).display === 'none',
+      armed: document.getElementById('voice-hold-save').classList.contains('is-armed'),
+      overlap: tg.some((t) => rows.some((r) => ov(t, r))),
+      targetSize: tg.every((t) => t.width >= 56 && t.height >= 56),
+      hint: !document.getElementById('voice-hold-hint').hidden && document.getElementById('voice-hold-hint').textContent,
+      live: document.getElementById('voice-hold-live').textContent,
+      ariaHidden: ['voice-hold-cancel', 'voice-hold-save', 'voice-hold-mic'].every((id) => document.getElementById(id).getAttribute('aria-hidden') === 'true'),
+      bubbleLabel: document.getElementById('kira-bubble').getAttribute('aria-label'),
+    };
+  });
+  const micC = centre(t1.mic);
+  const sv = centre(t1.save);
+  const cn = centre(t1.cancel);
+  holding.micAtBubble = Math.abs(micC.x - bx) <= 1.5 && Math.abs(micC.y - by) <= 1.5 && Math.abs(t1.mic.width - bb.width) <= 1.5;
+  holding.targetsAbove = t1.save.bottom < t1.mic.y && t1.cancel.bottom < t1.mic.y && cn.x < micC.x && sv.x > micC.x;
+  // Slide onto Save: it grows and names itself.
+  await hp.mouse.move(sv.x, sv.y, { steps: 6 });
+  await hp.waitForTimeout(80);
+  holding.saveOver = await hp.evaluate(() => document.getElementById('voice-hold-save').classList.contains('is-over'));
+  await hp.mouse.up();
+  await hp.waitForTimeout(700);
+  const saved1 = await hp.evaluate(() => ({
+    closed: !document.getElementById('voice-dialog').open,
+    last: state.dailyExpenses[state.dailyExpenses.length - 1],
+    n: state.dailyExpenses.length,
+  }));
+  const toast1 = await toastUndo();
+  await hp.evaluate(() => document.querySelector('#toast .toast-action').click());
+  await hp.waitForTimeout(80);
+  const after1 = await snap();
+  check('v1.97.0: holding the bubble keeps the mic at the bubble, Cancel up-left and Save up-right (≥ 56px) clear of the rows at 360px; input row and tap buttons step aside; targets aria-hidden; live region explains once',
+    holding.open && holding.holding && holding.micAtBubble && holding.targetsAbove && holding.inputHidden && holding.actionsHidden
+    && !holding.overlap && holding.targetSize && holding.ariaHidden && holding.bubbleLabel === 'Kira: add or ask'
+    && /Release on Save to save/.test(holding.live),
+    JSON.stringify({ holding, t1, bb }));
+  check('v1.97.0: sliding onto armed Save and letting go books the spend at once; Undo removes exactly that entry',
+    holding.armed && holding.saveOver && saved1.closed && saved1.last.amount === 12 && /nasi lemak/i.test(saved1.last.note)
+    && toast1.undo && /12\.00/.test(toast1.text) && after1 === before1,
+    JSON.stringify({ saved1, toast1, same: after1 === before1 }));
+
+  // 2) Several entries incl. income and a debt payment above the debt's balance:
+  //    Undo restores every list and the debt balance exactly.
+  const before2 = await snap();
+  await holdAndSay('paid debt PTPTN RM 80 and received salary RM 500 and RM 7 teh tarik');
+  const t2 = await targets();
+  const parsed2 = await hp.evaluate(() => ({ armed: voiceHoldArmed() }));
+  await hp.mouse.move(centre(t2.save).x, centre(t2.save).y, { steps: 5 });
+  await hp.mouse.up();
+  await hp.waitForTimeout(700);
+  const mid2 = await hp.evaluate(() => ({
+    debt: state.debts.find((d) => d.id === 'd-hold').balance,
+    inc: (state.income || []).some((i) => i.amount === 500),
+    teh: state.dailyExpenses.some((e) => e.amount === 7),
+    pay: state.dailyExpenses.some((e) => e.kind === 'debt' && e.amount === 80),
+  }));
+  const toast2 = await toastUndo();
+  await hp.evaluate(() => document.querySelector('#toast .toast-action').click());
+  await hp.waitForTimeout(80);
+  const after2 = await snap();
+  check('v1.97.0: a slid multi-entry save (debt payment over the balance, income, spend) is undone exactly: dailyExpenses, income, splits and the debt balance as before',
+    parsed2.armed && mid2.debt === 0 && mid2.inc && mid2.teh && mid2.pay && toast2.undo && after2 === before2,
+    JSON.stringify({ parsed2, mid2, toast2, same: after2 === before2 }));
+
+  // 3) Save not armed (nothing heard): sliding onto it does nothing; letting go there leaves review.
+  const before3 = await snap();
+  await holdAndSay('', '');
+  const t3 = await targets();
+  const unarmed = await hp.evaluate(() => !document.getElementById('voice-hold-save').classList.contains('is-armed'));
+  await hp.mouse.move(centre(t3.save).x, centre(t3.save).y, { steps: 5 });
+  await hp.waitForTimeout(60);
+  const overUnarmed = await hp.evaluate(() => document.getElementById('voice-hold-save').classList.contains('is-over'));
+  await hp.mouse.up();
+  await hp.waitForTimeout(400);
+  const rev3 = await hp.evaluate(() => {
+    const dlg = document.getElementById('voice-dialog');
+    return { open: dlg.open, review: dlg.classList.contains('is-hold-review'), holding: dlg.classList.contains('is-holding'), saveDisabled: document.getElementById('voice-save').disabled };
+  });
+  // Armed while holding, but the final words carry no amount: no save, review.
+  await holdAndSay('RM 15 roti canai', 'roti canai');
+  const t3b = await targets();
+  await hp.mouse.move(centre(t3b.save).x, centre(t3b.save).y, { steps: 5 });
+  await hp.mouse.up();
+  await hp.waitForTimeout(700);
+  const rev3b = await hp.evaluate(() => ({ open: document.getElementById('voice-dialog').open, review: document.getElementById('voice-dialog').classList.contains('is-hold-review') }));
+  const after3 = await snap();
+  check('v1.97.0: Save not armed (nothing heard) ignores the slide and leaves review; final words without an amount never save',
+    unarmed && !overUnarmed && rev3.open && rev3.review && !rev3.holding && rev3.saveDisabled
+    && rev3b.open && rev3b.review && after3 === before3,
+    JSON.stringify({ unarmed, overUnarmed, rev3, rev3b, same: after3 === before3 }));
+
+  // 4) Release on Cancel: nothing booked, the stage closes.
+  const before4 = await snap();
+  await holdAndSay('RM 20 grab');
+  const t4 = await targets();
+  await hp.mouse.move(centre(t4.cancel).x, centre(t4.cancel).y, { steps: 5 });
+  await hp.waitForTimeout(60);
+  const overCancel = await hp.evaluate(() => document.getElementById('voice-hold-cancel').classList.contains('is-over'));
+  await hp.mouse.up();
+  await hp.waitForTimeout(400);
+  const c4 = await hp.evaluate(() => ({ open: document.getElementById('voice-dialog').open }));
+  const after4 = await snap();
+  check('v1.97.0: letting go on Cancel books nothing and closes the stage',
+    overCancel && !c4.open && after4 === before4, JSON.stringify({ overCancel, c4, same: after4 === before4 }));
+
+  // 5) Release elsewhere: review stays open; the tap Save works (Cancel above the input).
+  const before5 = await snap();
+  await holdAndSay('RM 6 kopi');
+  await hp.mouse.move(bx, by - 260, { steps: 5 });
+  await hp.mouse.up();
+  await hp.waitForTimeout(400);
+  const rev5 = await hp.evaluate(() => {
+    const dlg = document.getElementById('voice-dialog');
+    const act = document.querySelector('#voice-dialog .voice-actions').getBoundingClientRect();
+    const inp = document.querySelector('#voice-dialog .voice-input-field').getBoundingClientRect();
+    return { open: dlg.open, review: dlg.classList.contains('is-hold-review'), saveEnabled: !document.getElementById('voice-save').disabled, actionsAboveInput: act.bottom <= inp.top + 1, n: state.dailyExpenses.length, starts: window.__hold.starts };
+  });
+  const booked5 = await snap();
+  await hp.click('#voice-save');
+  await hp.waitForTimeout(300);
+  const tap5 = await hp.evaluate(() => ({ closed: !document.getElementById('voice-dialog').open, last: state.dailyExpenses[state.dailyExpenses.length - 1].amount }));
+  check('v1.97.0: letting go anywhere else stops and leaves review open (nothing booked, Cancel / Save above the input); the tap Save then saves',
+    rev5.open && rev5.review && rev5.saveEnabled && rev5.actionsAboveInput && booked5 === before5 && tap5.closed && tap5.last === 6,
+    JSON.stringify({ rev5, tap5, same: booked5 === before5 }));
+
+  // 6) pointercancel (a call, the app to background): review, never a save — even over Save.
+  await hp.evaluate(() => { const e = state.dailyExpenses.pop(); return e; });
+  const before6 = await snap();
+  await holdAndSay('RM 9 parking');
+  const t6 = await targets();
+  await hp.mouse.move(centre(t6.save).x, centre(t6.save).y, { steps: 5 });
+  await hp.evaluate(() => document.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 1, bubbles: true })));
+  await hp.waitForTimeout(400);
+  const rev6 = await hp.evaluate(() => ({ open: document.getElementById('voice-dialog').open, review: document.getElementById('voice-dialog').classList.contains('is-hold-review') }));
+  await hp.mouse.up();
+  await hp.waitForTimeout(300);
+  const after6 = await snap();
+  check('v1.97.0: pointercancel while over Save gives review, never a save',
+    rev6.open && rev6.review && after6 === before6, JSON.stringify({ rev6, same: after6 === before6 }));
+
+  // 7) A split row never saves by slide: Save stays unarmed, letting go there is review.
+  const before7 = await snap();
+  await holdAndSay('RM 30 lunch split with Ali');
+  const t7 = await targets();
+  const armed7 = await hp.evaluate(() => document.getElementById('voice-hold-save').classList.contains('is-armed'));
+  await hp.mouse.move(centre(t7.save).x, centre(t7.save).y, { steps: 5 });
+  await hp.mouse.up();
+  await hp.waitForTimeout(700);
+  const rev7 = await hp.evaluate(() => ({ open: document.getElementById('voice-dialog').open, review: document.getElementById('voice-dialog').classList.contains('is-hold-review'), share: !!document.querySelector('dialog[open]:not(#voice-dialog)') }));
+  const after7 = await snap();
+  check('v1.97.0: a sentence with a split row never saves by slide (Save unarmed, review open, no request, no share sheet)',
+    !armed7 && rev7.open && rev7.review && !rev7.share && after7 === before7, JSON.stringify({ armed7, rev7, same: after7 === before7 }));
+
+  // 8) The hint shows once per device; tapping the bubble's Talk is unchanged (no slide targets).
+  const hint8 = await hp.evaluate(() => !document.getElementById('voice-hold-hint').hidden);
+  await hp.evaluate(() => { document.querySelectorAll('dialog[open]').forEach((d) => d.close()); openVoiceEntry(''); });
+  await hp.waitForTimeout(100);
+  const tap8 = await hp.evaluate(() => ({ hold: !document.getElementById('voice-hold').hidden, holding: document.getElementById('voice-dialog').classList.contains('is-holding'), review: document.getElementById('voice-dialog').classList.contains('is-hold-review') }));
+  check('v1.97.0: the "Slide to Save · Let go to check" hint shows on the first hold only; a tap-opened stage has no slide targets',
+    holding.hint === 'Slide to Save · Let go to check' && !hint8 && !tap8.hold && !tap8.holding && !tap8.review,
+    JSON.stringify({ hint: holding.hint, hint8, tap8 }));
+
+  // 9) Empty stage: #voice-save disabled and looks different from enabled in light, dark and Pastel.
+  const looks = await hp.evaluate(async () => {
+    const out = {};
+    for (const th of ['light', 'dark', 'pastel']) {
+      applyTheme(th);
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      openVoiceEntry('');
+      await new Promise((r) => setTimeout(r, 450)); // past the button's colour transition
+      const btn = document.getElementById('voice-save');
+      const cs = getComputedStyle(btn);
+      const off = { bg: cs.backgroundColor, color: cs.color, cursor: cs.cursor, shadow: cs.boxShadow, disabled: btn.disabled };
+      const input = document.getElementById('voice-input');
+      input.value = 'RM 5 kuih';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 450));
+      const cs2 = getComputedStyle(btn);
+      const on = { bg: cs2.backgroundColor, color: cs2.color, disabled: btn.disabled };
+      out[th] = { off, on, differs: off.bg !== on.bg && off.color !== on.color && off.cursor === 'default' && off.shadow === 'none' && off.disabled && !on.disabled };
+      document.getElementById('voice-dialog').close();
+    }
+    applyTheme('system');
+    return out;
+  });
+  check('v1.97.0: an empty stage\'s Save is disabled and looks off (colour, cursor, no shadow) in light, dark and Pastel',
+    looks.light.differs && looks.dark.differs && looks.pastel.differs, JSON.stringify(looks));
+
+  // 10) Reduced motion: the hovered target and the mic ring don't scale; they only change colour.
+  await hp.emulateMedia({ reducedMotion: 'reduce' });
+  await holdAndSay('RM 4 air');
+  const t10 = await targets();
+  await hp.evaluate(() => window.__hold.level.forEach((fn) => fn({ level: 0.9 })));
+  await hp.mouse.move(centre(t10.cancel).x, centre(t10.cancel).y, { steps: 4 });
+  await hp.waitForTimeout(80);
+  const rm = await hp.evaluate(() => {
+    const c = document.getElementById('voice-hold-cancel');
+    const ring = document.querySelector('#voice-hold-mic .voice-hold-ring');
+    return { over: c.classList.contains('is-over'), transform: getComputedStyle(c).transform, ring: getComputedStyle(ring).transform, anim: getComputedStyle(c).animationName };
+  });
+  await hp.mouse.move(bx, by - 300, { steps: 3 });
+  await hp.mouse.up();
+  await hp.waitForTimeout(200);
+  await hp.emulateMedia({ reducedMotion: 'no-preference' });
+  check('v1.97.0: reduced motion: no grow or pulse on the slide targets or the held mic, colour only',
+    rm.over && rm.transform === 'none' && rm.ring === 'none' && rm.anim === 'none', JSON.stringify(rm));
+
+  // 11) The bubble's own CSS lets a drag through (no pan → no pointercancel on phones).
+  const ta = await hp.evaluate(() => getComputedStyle(document.getElementById('kira-bubble')).touchAction);
+  check('v1.97.0: the bubble has touch-action none so a slide is not cancelled by panning', ta === 'none', ta);
+  check('v1.97.0: no page errors in the slide suite', hErr.length === 0, JSON.stringify(hErr));
+  await hCtx.close();
+}
+
 // ── v1.96.0: Option A Kira model picker (Fast 1x / Smart 2x / Deep 10x) & voice-entry v2 ──
 {
   const { createRequire } = await import('node:module');

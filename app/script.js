@@ -8406,6 +8406,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.97.0": [
+    "<strong>Hold, slide, done</strong> — Hold the middle bubble and say it: slide to Save to log it straight away (with Undo), slide to Cancel to drop it, or just let go to check the rows first. Anything with a split is always checked before it is sent. Also, an empty Save button now looks off in every theme.",
+  ],
   "1.96.0": [
     "<strong>Choose your Kira model &amp; multi-item cloud voice</strong> — Pick Fast (1×), Smart (2×), or Deep (10×) in Settings or the Kira hub to trade speed and reasoning depth inside the same monthly quota (with automatic fallback to Fast when credits run low). Document scans also move to Gemini 3.5 Flash-Lite ahead of Google's Dec 1 retirement of Gemini 2.5 Flash, and cloud voice now parses multiple entries up to 400 characters.",
   ],
