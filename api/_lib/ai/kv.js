@@ -36,8 +36,28 @@ function memoryStore() {
     async expire(k, s) { const e = live(k); if (e) e.exp = Date.now() + s * 1000; },
     async incr(k) { const e = live(k) || { v: 0, exp: 0 }; e.v = Number(e.v || 0) + 1; m.set(k, e); return e.v; },
     async decr(k) { const e = live(k) || { v: 0, exp: 0 }; e.v = Number(e.v || 0) - 1; m.set(k, e); return e.v; },
+    async incrby(k, by) { const e = live(k) || { v: 0, exp: 0 }; e.v = Number(e.v || 0) + Number(by || 0); m.set(k, e); return e.v; },
+    async decrby(k, by) { const e = live(k) || { v: 0, exp: 0 }; e.v = Number(e.v || 0) - Number(by || 0); m.set(k, e); return e.v; },
     _clear() { m.clear(); },
   };
+}
+
+async function kvIncrBy(kv, k, by = 1) {
+  const step = Math.max(1, Math.floor(Number(by) || 1));
+  if (step === 1) return Number(await kv.incr(k)) || 0;
+  if (typeof kv.incrby === "function") return Number(await kv.incrby(k, step)) || 0;
+  let last = 0;
+  for (let i = 0; i < step; i++) last = Number(await kv.incr(k)) || 0;
+  return last;
+}
+
+async function kvDecrBy(kv, k, by = 1) {
+  const step = Math.max(1, Math.floor(Number(by) || 1));
+  if (step === 1) return Number(await kv.decr(k)) || 0;
+  if (typeof kv.decrby === "function") return Number(await kv.decrby(k, step)) || 0;
+  let last = 0;
+  for (let i = 0; i < step; i++) last = Number(await kv.decr(k)) || 0;
+  return last;
 }
 
 // The in-memory test mode: AI_MEMORY=1 (or RELAY_MEMORY=1) AND no real KV.
@@ -104,6 +124,8 @@ module.exports = {
   resetMemory,
   testMode,
   keys,
+  kvIncrBy,
+  kvDecrBy,
   currentPeriodKey,
   myPeriodKey,
   myNextResetIso,

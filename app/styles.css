@@ -11495,6 +11495,70 @@ html[data-theme="pastel"] {
 }
 .kira-hub-meter-text { margin: 0; font-size: 0.88rem; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
 .kira-hub-meter-sub { margin: 0; font-size: 0.78rem; color: var(--muted); }
+.ai-quality-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+}
+.ai-quality-wrap[hidden] { display: none; }
+.kira-hub-quality { margin-top: 0; }
+.ai-quality-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.ai-quality-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--ink2);
+  letter-spacing: 0.02em;
+}
+.ai-quality-hint {
+  font-size: 0.74rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.ai-quality-pills {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+.ai-quality-pill {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  min-width: 0;
+  min-height: 2.15rem;
+  padding: 0.35rem 0.4rem;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+.ai-quality-pill:hover {
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
+}
+.ai-quality-pill.active {
+  background: color-mix(in srgb, var(--brand) 15%, var(--card));
+  border-color: var(--brand);
+  color: var(--brand-ink);
+}
+.ai-quality-rate {
+  font-size: 0.72rem;
+  font-weight: 700;
+  opacity: 0.78;
+  font-variant-numeric: tabular-nums;
+}
 .kira-hub-upsell-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
 .kira-hub-upsell-copy { flex: 1; min-width: 0; }
 .kira-hub-upsell-title { margin: 0; font-size: 0.92rem; font-weight: 700; color: var(--text); }

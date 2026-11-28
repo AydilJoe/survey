@@ -8406,6 +8406,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.96.0": [
+    "<strong>Choose your Kira model &amp; multi-item cloud voice</strong> — Pick Fast (1×), Smart (2×), or Deep (10×) in Settings or the Kira hub to trade speed and reasoning depth inside the same monthly quota (with automatic fallback to Fast when credits run low). Document scans also move to Gemini 3.5 Flash-Lite ahead of Google's Dec 1 retirement of Gemini 2.5 Flash, and cloud voice now parses multiple entries up to 400 characters.",
+  ],
   "1.95.0": [
     "<strong>To savings tab &amp; faster Talk to Kira</strong> — Money out now includes a dedicated \"To savings\" tab next to Spend, Split, and Pay debt so topping up a savings goal takes one tap (without mixing up \"Save\" with the submit button), and the Kira hub now puts a one-tap Talk mic button right in its top bar alongside the first-use Talk pill.",
   ],

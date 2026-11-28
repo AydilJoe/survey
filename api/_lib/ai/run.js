@@ -10,6 +10,7 @@
 //   at the cap so the app falls back quietly and never blocks logging.
 // - Logs ZERO request bodies, images, or AI outputs.
 
+const { resolveTextQuality, TEXT_QUALITIES } = require("./models");
 const { store, keys, myPeriodKey, myNextResetIso, utcNextResetIso } = require("./kv");
 const {
   extractToken,
@@ -62,8 +63,8 @@ async function resolveRunContext(kv, req, body, now) {
       return {
         tier: "aiplus",
         resetsAt,
-        reserve: (bucket) => reserveUse(kv, claims.subId, ent.periodKey, bucket, limits[bucket]),
-        release: (bucket) => releaseUse(kv, claims.subId, ent.periodKey, bucket),
+        reserve: (bucket, weight) => reserveUse(kv, claims.subId, ent.periodKey, bucket, limits[bucket], weight),
+        release: (bucket, weight) => releaseUse(kv, claims.subId, ent.periodKey, bucket, weight),
         format: (bucket, used) => {
           const usedKey = bucket === "scan" ? "scansUsed" : "textUsed";
           return formatStatus({ ...ent, usage: { ...ent.usage, [usedKey]: Math.max(0, used) } }, now);
@@ -99,8 +100,8 @@ async function resolveRunContext(kv, req, body, now) {
     return {
       tier: "pro_taste",
       resetsAt,
-      reserve: (bucket) => reserveProUse(kv, proSubject, periodKey, bucket),
-      release: (bucket) => releaseProUse(kv, proSubject, periodKey, bucket),
+      reserve: (bucket, weight) => reserveProUse(kv, proSubject, periodKey, bucket, weight),
+      release: (bucket, weight) => releaseProUse(kv, proSubject, periodKey, bucket, weight),
       format: (bucket, used) => {
         const usedKey = bucket === "scan" ? "scansUsed" : "textUsed";
         return formatProTasteStatus({ ...baseUsage, [usedKey]: Math.max(0, used) }, periodKey, now, proSandbox);
@@ -121,8 +122,8 @@ async function resolveRunContext(kv, req, body, now) {
     return {
       tier: "trial",
       resetsAt: "",
-      reserve: (bucket) => reserveTrialUse(kv, tierClaims.subject, bucket),
-      release: (bucket) => releaseTrialUse(kv, tierClaims.subject, bucket),
+      reserve: (bucket, weight) => reserveTrialUse(kv, tierClaims.subject, bucket, weight),
+      release: (bucket, weight) => releaseTrialUse(kv, tierClaims.subject, bucket, weight),
       format: (bucket, used) => {
         const usedKey = bucket === "scan" ? "scansUsed" : "textUsed";
         return formatTrialStatus(rec, { ...baseUsage, [usedKey]: Math.max(0, used) }, now);
@@ -157,7 +158,29 @@ async function handleRun(req, res) {
   if (inputErr) return send(res, 400, { error: inputErr });
 
   const bucket = task.bucket === "scan" ? "scan" : "text";
-  const taken = await ctx.reserve(bucket);
+  // Option A: credit-weighted text quality picker (Fast 1x, Smart 2x, Deep 10x).
+  // Scans always run on "vision" at weight 1.
+  let chosen = bucket === "text" ? resolveTextQuality(body.quality) : null;
+  let weight = chosen ? chosen.weight : 1;
+  let modelKey = chosen ? chosen.modelKey : task.model;
+  let thinkingLevel = chosen ? chosen.thinkingLevel : (modelKey === "vision" ? "minimal" : "");
+  let downgraded = false;
+
+  let taken = await ctx.reserve(bucket, weight);
+  // Graceful downgrade: if a higher-weight model (Smart 2x / Deep 10x) doesn't
+  // fit in remaining units, fall back to Fast (1x) rather than blocking logging.
+  if (!taken.ok && bucket === "text" && weight > 1 && taken.used < (taken.limit || 0)) {
+    const fast = TEXT_QUALITIES.fast;
+    const retry = await ctx.reserve(bucket, fast.weight);
+    if (retry.ok) {
+      taken = retry;
+      chosen = fast;
+      weight = fast.weight;
+      modelKey = fast.modelKey;
+      thinkingLevel = fast.thinkingLevel;
+      downgraded = true;
+    }
+  }
   if (!taken.ok) {
     return send(res, 429, {
       error: "quota",
@@ -171,31 +194,35 @@ async function handleRun(req, res) {
   let rawOut = null;
   try {
     rawOut = await callGemini({
-      modelKey: task.model,
+      modelKey,
       prompt: task.prompt(body.input),
       imageBase64: body.input.image || "",
       imageMime: body.input.imageMime || "image/jpeg",
       schema: task.schema,
       timeoutMs: task.timeoutMs || 15000,
+      thinkingLevel,
     });
   } catch (_) {
     // Timeout or upstream failure: return null result and consume NO quota.
-    await ctx.release(bucket);
-    return send(res, 200, { ok: false, result: null, reason: "upstream", status: ctx.format(bucket, taken.used - 1) });
+    await ctx.release(bucket, weight);
+    return send(res, 200, { ok: false, result: null, reason: "upstream", status: ctx.format(bucket, taken.used - weight) });
   }
 
   let checked = null;
   try { checked = task.check(body.input, rawOut); } catch (_) { checked = null; }
   if (!checked) {
     // Failed schema/guard check: consume NO quota.
-    await ctx.release(bucket);
-    return send(res, 200, { ok: false, result: null, reason: "check", status: ctx.format(bucket, taken.used - 1) });
+    await ctx.release(bucket, weight);
+    return send(res, 200, { ok: false, result: null, reason: "check", status: ctx.format(bucket, taken.used - weight) });
   }
 
   return send(res, 200, {
     ok: true,
     task: task.name,
     result: checked,
+    quality: chosen ? chosen.key : "vision",
+    weight,
+    ...(downgraded ? { downgraded: true } : {}),
     status: ctx.format(bucket, taken.used),
   });
 }

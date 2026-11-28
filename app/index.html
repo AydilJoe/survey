@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=a7ffd4b1" />
+    <link rel="stylesheet" href="styles.css?v=72871535" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -1681,6 +1681,26 @@
               </label>
               <button type="button" class="primary" id="ai-plus-open-btn">Manage AI+</button>
             </div>
+            <div class="ai-quality-wrap" id="ai-quality-wrap" hidden>
+              <div class="ai-quality-head">
+                <span class="ai-quality-label">Kira model</span>
+                <span class="ai-quality-hint" id="ai-quality-hint"></span>
+              </div>
+              <div class="ai-quality-pills" id="ai-quality-picker" role="radiogroup" aria-label="Kira model">
+                <button type="button" class="ai-quality-pill active" data-ai-quality="fast" role="radio" aria-checked="true">
+                  <span class="ai-quality-name">Fast</span>
+                  <span class="ai-quality-rate">1×</span>
+                </button>
+                <button type="button" class="ai-quality-pill" data-ai-quality="smart" role="radio" aria-checked="false">
+                  <span class="ai-quality-name">Smart</span>
+                  <span class="ai-quality-rate">2×</span>
+                </button>
+                <button type="button" class="ai-quality-pill" data-ai-quality="deep" role="radio" aria-checked="false">
+                  <span class="ai-quality-name">Deep</span>
+                  <span class="ai-quality-rate">10×</span>
+                </button>
+              </div>
+            </div>
             <details class="form-more ai-pair-details">
               <summary>Pair another device</summary>
               <div class="ai-pair-body">
@@ -2328,6 +2348,27 @@
             <span class="kira-hub-meter-bar" id="kira-hub-meter-bar"></span>
           </div>
           <p class="kira-hub-meter-sub" id="kira-hub-meter-sub" hidden></p>
+        </div>
+
+        <div class="ai-quality-wrap kira-hub-quality" id="kira-hub-quality" hidden>
+          <div class="ai-quality-head">
+            <span class="ai-quality-label">Kira model</span>
+            <span class="ai-quality-hint" id="kira-hub-quality-hint"></span>
+          </div>
+          <div class="ai-quality-pills" id="kira-hub-quality-picker" role="radiogroup" aria-label="Kira model">
+            <button type="button" class="ai-quality-pill active" data-ai-quality="fast" role="radio" aria-checked="true">
+              <span class="ai-quality-name">Fast</span>
+              <span class="ai-quality-rate">1×</span>
+            </button>
+            <button type="button" class="ai-quality-pill" data-ai-quality="smart" role="radio" aria-checked="false">
+              <span class="ai-quality-name">Smart</span>
+              <span class="ai-quality-rate">2×</span>
+            </button>
+            <button type="button" class="ai-quality-pill" data-ai-quality="deep" role="radio" aria-checked="false">
+              <span class="ai-quality-name">Deep</span>
+              <span class="ai-quality-rate">10×</span>
+            </button>
+          </div>
         </div>
 
         <div class="kira-hub-card" id="kira-hub-upsell" hidden>
@@ -3932,7 +3973,7 @@
 
     <!-- Languages first: i18n-boot.js loads only the active pack (0 KB for English)
          synchronously before i18n.js walks the static markup. -->
-    <script src="i18n-langs.js?v=3bfdf186"></script>
+    <script src="i18n-langs.js?v=ab948ec4"></script>
     <script src="i18n-boot.js?v=e8f35f1d"></script>
     <script src="i18n.js?v=e94f1821"></script>
     <script src="drive-config.js?v=9aaf242d"></script>
@@ -3968,10 +4009,10 @@
     <script src="cloud.js?v=fcd02ad8"></script>
     <script src="capture.js?v=3af549e5"></script>
     <script src="ai-redact.js?v=e6257012"></script>
-    <script src="ai-cloud.js?v=b61f627f"></script>
+    <script src="ai-cloud.js?v=d6300db8"></script>
     <script src="pro.js?v=c4217d17"></script>
     <script src="ocr.js?v=d135377e"></script>
-    <script src="kira-bubble.js?v=11cc90e7"></script>
-    <script src="script.js?v=d93029e0"></script>
+    <script src="kira-bubble.js?v=fa15cdad"></script>
+    <script src="script.js?v=ec141fc8"></script>
   </body>
 </html>
