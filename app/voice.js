@@ -1879,6 +1879,10 @@
     const dlg = document.getElementById("voice-dialog");
     const input = document.getElementById("voice-input");
     if (!dlg || !input) return;
+    if (!dlg.open) {
+      voiceStopListening({ cancel: true });
+      voiceWaveStop();
+    }
     voiceClearFlight();
     voiceStatus("");
     clearVoiceThread();
