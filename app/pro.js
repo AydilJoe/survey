@@ -293,6 +293,9 @@ function startProTrial() {
   save();
   closePaywall();
   renderAll();
+  if (typeof isNative === "function" && isNative() && typeof aiActivateAttestedTrial === "function") {
+    aiActivateAttestedTrial().catch(() => {});
+  }
   toast(tr("Pro trial started. It ends in {n} days. Nothing is charged, and nothing you add is deleted afterwards.", { n: TRIAL_DAYS }));
   return true;
 }
@@ -1122,6 +1125,9 @@ function onStoreApproved(tx) {
   const wasPro = !!state.pro;
   if (!wasPro) { state.pro = true; save(); renderAll(); }
   iapFinish(tx);
+  if (typeof aiVerifyProForTaste === "function" && !(state.aiSub && state.aiSub.tier === "pro_taste" && state.aiSub.tierToken)) {
+    aiVerifyProForTaste({ receipt: tx }).catch(() => {});
+  }
   if (fresh && iapRecordOnce(iapTxId(tx))) {
     // Fire-and-forget attribution record so Aydil can pay the referrer
     // manually later. Failure is silent — the purchase itself has already
@@ -1852,6 +1858,9 @@ async function activateLicenseToken(token) {
     state.license = { token, sub: payload.sub, email: payload.email, ref: payload.ref, iat: payload.iat, activatedAt: Date.now() };
     save();
     renderAll();
+    if (typeof aiVerifyProForTaste === "function") {
+      aiVerifyProForTaste({ proLicense: token }).catch(() => {});
+    }
   }
   return payload;
 }

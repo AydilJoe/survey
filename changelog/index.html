@@ -153,6 +153,16 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-93-0">
+    <span class="release-date">November 2026 &middot; v1.93.0</span>
+    <h2 class="release-title">Kira AI+ server tiers: Pro taste &amp; 14-day attested trial</h2>
+    <ul>
+      <li><span class="tag feat">feat</span><strong>Lifetime Pro monthly taste:</strong> verified Lifetime Pro licences (ECDSA P-256) and native StoreKit 2 / Play Billing Pro purchases now receive 20 cloud text actions and 3 cloud scans per month, resetting on the 1st of each month (Malaysia time, UTC+8) — and AI+ subscribers always keep full AI+ quotas.</li>
+      <li><span class="tag feat">feat</span><strong>14-day hardware-attested phone trial:</strong> native iOS (App Attest) and Android (Play Integrity) 14-day trials unlock up to 100 cloud actions and 10 scans once per device (400-day KV grant so reinstalls never restart the clock); web trials stay on-device with a clear note in the Kira hub.</li>
+      <li><span class="tag feat">feat</span><strong>Unified status &amp; graceful fallback:</strong> <code>/api/ai?op=status</code> now reports unified tier, remaining text/scan quotas, and reset date across Free, Pro taste, Trial, and AI+; reaching a cap returns <code>429</code> with <code>resetsAt</code> and falls back quietly to on-device AI without blocking logging.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-92-1">
     <span class="release-date">November 2026 &middot; v1.92.1</span>
     <h2 class="release-title">Talk to Kira fixes</h2>

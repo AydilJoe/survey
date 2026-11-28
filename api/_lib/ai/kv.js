@@ -66,13 +66,37 @@ const keys = {
   evt: (subId) => `ai_evt:${subId}`,
   dev: (subId) => `ai_dev:${subId}`,
   use: (subId, periodKey, bucket) => `ai_use:${subId}:${periodKey}:${bucket}`,
+  proUse: (licenceId, periodKey, bucket) => `ai_pro:${licenceId}:${periodKey}:${bucket}`,
+  trial: (deviceHash) => `ai_trial:${deviceHash}`,
+  trialUse: (deviceHash, bucket) => `ai_trial_use:${deviceHash}:${bucket}`,
+  attestNonce: (nonce) => `ai_attest_nonce:${nonce}`,
   pair: (code) => `ai_pair:${code}`,
   rl: (bucket, id, win) => `ai_rl:${bucket}:${id}:${win}`,
 };
 
+const MY_OFFSET_MS = 8 * 60 * 60 * 1000; // Malaysia is permanently UTC+8 (no DST)
+
 function currentPeriodKey(nowMs = Date.now()) {
   const d = new Date(nowMs);
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function myPeriodKey(nowMs = Date.now()) {
+  const d = new Date(nowMs + MY_OFFSET_MS);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function myNextResetIso(nowMs = Date.now()) {
+  const d = new Date(nowMs + MY_OFFSET_MS);
+  let y = d.getUTCFullYear();
+  let m = d.getUTCMonth() + 2; // 1-based next month
+  if (m > 12) { m = 1; y += 1; }
+  return `${y}-${String(m).padStart(2, "0")}-01T00:00:00+08:00`;
+}
+
+function utcNextResetIso(nowMs = Date.now()) {
+  const d = new Date(nowMs);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1, 0, 0, 0, 0)).toISOString();
 }
 
 module.exports = {
@@ -81,6 +105,9 @@ module.exports = {
   testMode,
   keys,
   currentPeriodKey,
+  myPeriodKey,
+  myNextResetIso,
+  utcNextResetIso,
   HAS_KV,
   SUB_TTL_S,
 };

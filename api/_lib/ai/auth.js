@@ -43,11 +43,64 @@ function verifyDeviceToken(token) {
   }
 }
 
+function signTierToken({ kind, subject, sandbox = false, expiresAt = 0 }) {
+  const secret = tokenSecret();
+  if (!secret) throw new Error("AI_TOKEN_SECRET not configured");
+  if (kind !== "pro_taste" && kind !== "trial") throw new Error("invalid-tier-kind");
+  const payload = b64u(JSON.stringify({
+    kind,
+    subject: String(subject || ""),
+    ...(sandbox ? { sandbox: true } : {}),
+    ...(expiresAt ? { expiresAt: Number(expiresAt) } : {}),
+    iat: Math.floor(Date.now() / 1000),
+  }));
+  const sig = crypto.createHmac("sha256", secret).update(`tier:${payload}`).digest("base64url");
+  return `t.${payload}.${sig}`;
+}
+
+function verifyTierToken(token) {
+  const secret = tokenSecret();
+  if (!secret || typeof token !== "string" || !token.startsWith("t.")) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const [, payload, sig] = parts;
+  if (!payload || !sig) return null;
+  const expected = crypto.createHmac("sha256", secret).update(`tier:${payload}`).digest("base64url");
+  const a = Buffer.from(sig, "utf8");
+  const b = Buffer.from(expected, "utf8");
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    if (!parsed || (parsed.kind !== "pro_taste" && parsed.kind !== "trial")) return null;
+    if (typeof parsed.subject !== "string" || !parsed.subject) return null;
+    return parsed;
+  } catch (_) {
+    return null;
+  }
+}
+
 function extractToken(req) {
   const auth = String((req.headers && req.headers.authorization) || "");
   if (auth.startsWith("Bearer ")) return auth.slice(7).trim();
   const hdr = req.headers && req.headers["x-ai-token"];
   return typeof hdr === "string" ? hdr.trim() : "";
+}
+
+function extractTierToken(req) {
+  const hdr = req.headers && req.headers["x-tier-token"];
+  if (typeof hdr === "string" && hdr.trim().startsWith("t.")) return hdr.trim();
+  const bearer = extractToken(req);
+  if (bearer.startsWith("t.")) return bearer;
+  return "";
+}
+
+function extractProLicense(req, body) {
+  const hdr = req.headers && req.headers["x-pro-license"];
+  if (typeof hdr === "string" && hdr.trim()) return hdr.trim();
+  const bearer = extractToken(req);
+  if (bearer.startsWith("pro:")) return bearer.slice(4).trim();
+  if (body && typeof body.proLicense === "string" && body.proLicense.trim()) return body.proLicense.trim();
+  return "";
 }
 
 function hashId(value) {
@@ -85,7 +138,12 @@ function readBody(req) {
 module.exports = {
   signDeviceToken,
   verifyDeviceToken,
+  signTierToken,
+  verifyTierToken,
   extractToken,
+  extractTierToken,
+  extractProLicense,
+  hashId,
   clientIpHash,
   rateLimit,
   send,

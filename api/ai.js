@@ -2,13 +2,15 @@
 // addressed as /api/ai?op=<name>.
 //
 // Operations:
-//   POST /api/ai?op=verify-sub   verify StoreKit / Play receipt -> signed device token
-//   POST /api/ai?op=pair-start   create 10-min single-use 6-digit pair code
-//   POST /api/ai?op=pair-claim   claim pair code (max 3 devices; 409 or replaceOldest)
-//   POST /api/ai?op=run          run a registered JSON-only task against Gemini
-//   POST /api/ai?op=webhook      App Store Server Notifications v2 (signed JWS) /
-//                                Play RTDN via Pub/Sub (OIDC; state re-fetched from Google)
-//   GET  /api/ai?op=status       current plan, expiry, meters, and paired device count
+//   POST /api/ai?op=verify-sub       verify StoreKit / Play AI+ receipt -> signed device token
+//   POST /api/ai?op=verify-pro       verify Pro licence / native Pro receipt -> Pro taste token
+//   POST /api/ai?op=trial-challenge  issue single-use 5-min nonce for device attestation
+//   POST /api/ai?op=verify-trial     verify iOS App Attest / Android Play Integrity -> 14-day trial token
+//   POST /api/ai?op=pair-start       create 10-min single-use 6-digit pair code
+//   POST /api/ai?op=pair-claim       claim pair code (max 3 devices; 409 or replaceOldest)
+//   POST /api/ai?op=run              run a registered JSON-only task against Gemini
+//   POST /api/ai?op=webhook          App Store Server Notifications v2 / Play RTDN
+//   GET  /api/ai?op=status           unified tier (free|pro_taste|trial|aiplus), quotas, resetsAt
 //
 // One function on purpose (Vercel Hobby 12-function cap; no dynamic [param].js
 // routes because trailingSlash: true breaks them). All logic lives under
@@ -21,9 +23,13 @@ const { handlePairStart, handlePairClaim } = require("./_lib/ai/pair");
 const { handleRun } = require("./_lib/ai/run");
 const { handleWebhook } = require("./_lib/ai/webhook");
 const { handleStatus } = require("./_lib/ai/status");
+const { handleVerifyPro, handleTrialChallenge, handleVerifyTrial } = require("./_lib/ai/tiers");
 
 const ROUTES = {
   "verify-sub": handleVerifySub,
+  "verify-pro": handleVerifyPro,
+  "trial-challenge": handleTrialChallenge,
+  "verify-trial": handleVerifyTrial,
   "pair-start": handlePairStart,
   "pair-claim": handlePairClaim,
   run: handleRun,

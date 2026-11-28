@@ -296,9 +296,11 @@ function kiraQuota() {
   const limit = Number(s.text && typeof s.text.limit === "number" ? s.text.limit : s.textLimit) || 0;
   if (!limit) return null;
   const now = new Date();
-  const curPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
-  if (s.periodKey && s.periodKey !== curPeriod) return null;
-  if (!s.periodKey && !s.resetsAt) return null;
+  const curPeriodUtc = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+  const myNow = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const curPeriodMy = `${myNow.getUTCFullYear()}-${String(myNow.getUTCMonth() + 1).padStart(2, "0")}`;
+  if (s.periodKey && s.periodKey !== curPeriodUtc && s.periodKey !== curPeriodMy) return null;
+  if (!s.periodKey && !s.resetsAt && !s.expiresAt) return null;
   const used = Math.max(0, Number(s.text && typeof s.text.used === "number" ? s.text.used : s.textUsed) || 0);
   const scansLimit = Number(s.scan && typeof s.scan.limit === "number" ? s.scan.limit : s.scansLimit) || 0;
   const scansUsed = Math.max(0, Number(s.scan && typeof s.scan.used === "number" ? s.scan.used : s.scansUsed) || 0);
@@ -489,10 +491,17 @@ function syncKiraHub() {
   const meterBar = bubbleEl("kira-hub-meter-bar");
   const meterSub = bubbleEl("kira-hub-meter-sub");
   const q = isPaid ? kiraQuota() : null;
+  const webTrialNote = tier === "trial" && !q && !(typeof isNative === "function" && isNative());
   if (meter) {
-    meter.hidden = !q;
+    meter.hidden = !q && !webTrialNote;
+    const track = meter.querySelector(".kira-hub-meter-track");
+    if (track) track.hidden = !q;
     if (q && meterText) {
       meterText.textContent = tr("Kira this month: {n} of {m} left", { n: q.left, m: q.limit });
+      meterText.hidden = false;
+    } else if (webTrialNote && meterText) {
+      meterText.textContent = tr("Web trials use on-device AI only — install the phone app for cloud Kira.");
+      meterText.hidden = false;
     }
     if (q && meterBar) {
       const pct = Math.max(0, Math.min(100, Math.round((q.left / Math.max(1, q.limit)) * 100)));
@@ -549,6 +558,13 @@ function openKiraHub() {
   if (menu && menu.open) menu.close();
   syncKiraHub();
   if (!dlg.open && typeof dlg.showModal === "function") dlg.showModal();
+  // Silently refresh live server quota if stale (> 5 min) so the meter reflects truth.
+  if (typeof aiFetchStatus === "function" && typeof state !== "undefined" && state) {
+    const syncedAt = Number(state.aiSub && state.aiSub.syncedAt) || 0;
+    if (Date.now() - syncedAt > 300000) {
+      aiFetchStatus().then((st) => { if (st && dlg.open) syncKiraHub(); }).catch(() => {});
+    }
+  }
 }
 
 function closeKiraHub() {

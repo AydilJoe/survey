@@ -35,12 +35,11 @@ Shared files (`app/script.js`, `app/styles.css`, `app/index.html`, `scripts/i18n
 
 | What | Owner | State |
 |---|---|---|
-| 2.0 stage A (v1.84.0) + Free Debt Strategy Library (v1.85.0) + Native Haptics (v1.86.0) + Statement Reconciliation (v1.87.0) + Stage B Voice & Kira Assistant (v1.88.0) + Country Tax Packs (v1.90.0) + Floating Kira Animations (v1.91.0) | Antigravity | shipped to TestFlight & Play Beta |
-| First-time statement bank, card & wallet auto-matching (v1.92.0) | Antigravity | implemented on `feat/statement-wallet-automatch` |
-| Pro taste (20 actions + 3 scans a month) and attested trial quota on the AI+ server | Antigravity | next up — spec in `kira-tiers.md` |
+| 2.0 stage A (v1.84.0) + Free Debt Strategy Library (v1.85.0) + Native Haptics (v1.86.0) + Statement Reconciliation (v1.87.0) + Stage B Voice & Kira Assistant (v1.88.0) + Country Tax Packs (v1.90.0) + Floating Kira Animations (v1.91.0) + Statement Wallet Auto-Match (v1.92.0) | Antigravity | shipped to TestFlight & Play Beta |
+| AI+ Server Tiers: Pro taste (20 text + 3 scans/mo MY time), 14-day attested trial (App Attest / Play Integrity), unified `op=status` & `429 resetsAt` (v1.93.0) | Antigravity | shipping in PR #491 (`docs/plans/kira-tiers.md`) |
 | Voice: several spends / split / income in one sentence (v1.89.0), income words + note fix (v1.92.1) | Claude | shipped (PRs #488, #492) |
-| Voice understands meaning, not word lists (v1.93.0): learns from your own entries, on-device AI labels unclear items (`aiReadVoice`, Swift + Java, never the amount), In / Out toggle + category chip per row | Claude | building on `claude/voice-smart` |
-| AI+ `voice-entry` returns several items (+ sentence 400 chars) and a model check for `voice-entry` / `kira-ask` | Antigravity | spec: `voice-items-ai-plus.md`. Touches `app/voice.js` `parseVoiceSmart` only after 1.93.0 merges |
+| Voice understands meaning, not word lists (next free minor): learns from your own entries, on-device AI labels unclear items (`aiReadVoice`, Swift + Java, never the amount), In / Out toggle + category chip per row | Claude | building on `claude/voice-smart` |
+| AI+ `voice-entry` returns several items (+ sentence 400 chars) and a model check for `voice-entry` / `kira-ask` | Antigravity | spec: `voice-items-ai-plus.md`. Touches `app/voice.js` `parseVoiceSmart` only after `claude/voice-smart` merges |
 | Stage A follow-ups: a **"To savings"** tab in Money out (one tap to put money in a goal; not "Save", which is the submit button) and an easier way into **Talk** (a mic in the Kira hub's top row or a first-use "Talk" label; hold-only is hard to find) | Antigravity | owner agreed 28 Nov |
 | Boost Bank alert wording (user email, 26 Nov) | Claude | asked the user for a screenshot; add the pattern when it arrives |
 | Real-device test of "Talk to Kira", Siri-style voice waves, iOS Taptic Engine haptics, and StoreKit 2 sandbox | Owner | |
