@@ -275,6 +275,7 @@
     // 1.89.0: "log my" heard as "lock my"; "two / four ringgit" as "to / for ringgit".
     [/\block\s+my\s+(spending|spend|expenses?|lunch|dinner|breakfast|food|makan)\b/gi, "log my $1"],
     [/^lock\s+(?=rm\b|\d)/i, "log "],
+    [/\bnama\s+lemak\b/gi, "nasi lemak"],
     [/\b(?:to|too)\s+(?=ringgit\b)/gi, "two "],
     [/\bfor\s+(?=ringgit\b)/gi, "four "],
   ];
@@ -374,7 +375,9 @@
       work = work.replace(split.matched, " ");
     }
     if (amountMatch) {
-      work = work.replace(amountMatch, " ");
+      // Case-insensitive: the spoken match is lower-case, the heard text may say "Two ringgit".
+      const at = work.toLowerCase().indexOf(String(amountMatch).toLowerCase());
+      work = at >= 0 ? work.slice(0, at) + " " + work.slice(at + amountMatch.length) : work.replace(amountMatch, " ");
     }
 
     const wHit = voiceMatchWallet(work, wallets);
@@ -383,7 +386,7 @@
     }
 
     // Detect money-write intent: income vs debt payment vs spend (all still confirm before saving).
-    const isIncome = /\b(received|receive|earned|earn|salary|bonus|freelance|dividend|refund|gaji|dapat|terima|pendapatan|bonus|found|jumpa|terjumpa|kutip|pungut)\b|工资|薪水|收入|收到|赚了|捡到/i.test(raw)
+    const isIncome = /\b(received|receive|earned|earn|salary|bonus|income|freelance|freelancing|freelancer|commission|komisen|allowance|elaun|side\s+income|dividend|refund|gaji|dapat|terima|pendapatan|upah|found|jumpa|terjumpa|kutip|pungut)\b|工资|薪水|收入|收到|赚了|捡到/i.test(raw)
       && !/\b(split|bahagi|kongsi)\b/i.test(raw);
     const isDebtPay = !isIncome && /\b(pay\s+debt|paid\s+debt|debt\s+payment|loan\s+payment|bayar\s+hutang|bayar\s+pinjaman|bayar\s+kereta|bayar\s+rumah)\b|[还贷还债还卡]/i.test(raw);
     let debtId = "";
