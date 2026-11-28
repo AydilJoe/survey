@@ -8391,6 +8391,9 @@ const RELEASE_NOTES = {
   "1.93.0": [
     "<strong>Kira Pro taste and 14-day attested trial</strong> — Lifetime Pro owners now get a monthly taste of cloud Kira (20 text actions and 3 scans, resetting on the 1st of each month Malaysia time), and phone 14-day trials verify on-device for 100 actions and 10 scans with live meters in the Kira hub. Hitting a limit always falls back quietly to on-device AI.",
   ],
+  "1.92.1": [
+    "<strong>Talk to Kira fixes</strong> — \"100 ringgit freelancing income\" is now saved as income, not a spend, and a spoken amount like \"Two ringgit\" no longer stays in the note.",
+  ],
   "1.92.0": [
     "<strong>Smarter statement wallet matching</strong> — First-time bank, card, and e-wallet statement imports now detect your bank or e-wallet from the statement header and automatically pre-select the matching wallet (keeping credit cards and bank accounts separate), with 1-tap override before importing.",
   ],

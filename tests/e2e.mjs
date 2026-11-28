@@ -20051,6 +20051,12 @@ check('the brand catalogue makes no network calls at all',
     && JSON.stringify(mixed.spends) === JSON.stringify(['12|Nasi lemak'])
     && JSON.stringify(mixed.splits) === JSON.stringify(['Ali6']),
     JSON.stringify(mixed));
+  const v1921 = await mp.evaluate(() => {
+    const e = parseVoiceEntry('Two ringgit nasi lemak spending and then hundred ringgit freelancing income');
+    return (e.items || []).map((i) => `${i.entryKind}:${i.amount}:${i.note}`);
+  });
+  check('v1.92.1: "Two ringgit …" leaves no number word in the note; "freelancing income" is income',
+    JSON.stringify(v1921) === JSON.stringify(['expense:2:Nasi lemak', 'income:100:Freelancing income']), JSON.stringify(v1921));
   check('v1.89.0: no page errors in multi-spend suite', mErr.length === 0, JSON.stringify(mErr));
   await mCtx.close();
 }

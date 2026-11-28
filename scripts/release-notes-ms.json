@@ -2,6 +2,9 @@
   "1.93.0": [
     "<strong>Kuota bulanan Kira untuk Pro dan percubaan 14 hari</strong> — Pemilik Pro kini mendapat 20 tindakan teks dan 3 imbasan Kira awan setiap bulan (tetap semula 1 haribulan waktu Malaysia), manakala percubaan telefon 14 hari mendapat 100 tindakan dan 10 imbasan dengan meter langsung di hab Kira."
   ],
+  "1.92.1": [
+    "<strong>Pembaikan Bercakap dengan Kira</strong> — \"100 ringgit freelancing income\" kini disimpan sebagai pendapatan, bukan perbelanjaan, dan jumlah yang disebut seperti \"Two ringgit\" tidak lagi tertinggal dalam nota."
+  ],
   "1.92.0": [
     "<strong>Padanan dompet penyata lebih pintar</strong> — Import penyata bank, kad, dan e-dompet kali pertama kini mengesan bank atau e-dompet daripada kepala penyata dan memilih dompet sepadan secara automatik (mengasingkan kad kredit daripada akaun bank), dengan pilihan tukar 1 ketikan sebelum import."
   ],
