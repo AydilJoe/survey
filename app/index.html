@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=72871535" />
+    <link rel="stylesheet" href="styles.css?v=6f9ad5cc" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -2525,6 +2525,23 @@
           </div>
         </div>
       </form>
+      <!-- Holding the bubble: slide to Save or Cancel, let go to check (voice.js voiceHoldBegin). A shortcut only, so aria-hidden: the tap buttons above are the way in. -->
+      <div class="voice-hold" id="voice-hold" hidden>
+        <p class="bubble-hold-hint voice-hold-hint" id="voice-hold-hint" aria-hidden="true" hidden>Slide to Save · Let go to check</p>
+        <span class="voice-hold-target voice-hold-cancel" id="voice-hold-cancel" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          <span class="voice-hold-label">Cancel</span>
+        </span>
+        <span class="voice-hold-target voice-hold-save" id="voice-hold-save" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+          <span class="voice-hold-label">Save</span>
+        </span>
+        <span class="voice-hold-mic" id="voice-hold-mic" aria-hidden="true">
+          <span class="voice-hold-ring"></span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>
+        </span>
+      </div>
+      <p class="sr-only" id="voice-hold-live" aria-live="polite"></p>
     </dialog>
 
     <!-- After a restore from iCloud or Google Drive: the data is back. -->
@@ -3973,7 +3990,7 @@
 
     <!-- Languages first: i18n-boot.js loads only the active pack (0 KB for English)
          synchronously before i18n.js walks the static markup. -->
-    <script src="i18n-langs.js?v=ab948ec4"></script>
+    <script src="i18n-langs.js?v=5b6cbc12"></script>
     <script src="i18n-boot.js?v=e8f35f1d"></script>
     <script src="i18n.js?v=e94f1821"></script>
     <script src="drive-config.js?v=9aaf242d"></script>
@@ -4005,14 +4022,14 @@
     <script src="kira-seasons.js?v=84d7b80b"></script>
     <script src="kira.js?v=0a738a14"></script>
     <script src="streak.js?v=ce95b7ab"></script>
-    <script src="voice.js?v=064ebd33"></script>
+    <script src="voice.js?v=f8242aec"></script>
     <script src="cloud.js?v=fcd02ad8"></script>
     <script src="capture.js?v=3af549e5"></script>
     <script src="ai-redact.js?v=e6257012"></script>
     <script src="ai-cloud.js?v=d6300db8"></script>
     <script src="pro.js?v=c4217d17"></script>
     <script src="ocr.js?v=d135377e"></script>
-    <script src="kira-bubble.js?v=fa15cdad"></script>
-    <script src="script.js?v=ec141fc8"></script>
+    <script src="kira-bubble.js?v=48ef936e"></script>
+    <script src="script.js?v=22313a11"></script>
   </body>
 </html>
