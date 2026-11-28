@@ -911,10 +911,14 @@
   }
 
   // A row the person already changed keeps their choice against late answers.
+  function voiceRowTouched(it) {
+    return !!(it && (it.touched || it.userKind || it.userCat || it.ai));
+  }
+
   function voiceTouched(p) {
     if (!p) return false;
     const items = p.items && p.items.length > 1 ? p.items : [p];
-    return items.some((it) => it && (it.userKind || it.userCat || it.ai));
+    return items.some(voiceRowTouched);
   }
 
   // What the sheet previews and saves: one entry, or `items` when the
@@ -955,66 +959,151 @@
     return [...names];
   }
 
+  function voiceCloudKind(rawKind, fallback) {
+    const k = typeof rawKind === "string" ? rawKind.trim().toLowerCase() : "";
+    if (k === "income") return "income";
+    if (k === "debt") return "debt";
+    if (k === "spend" || k === "expense") return "expense";
+    return fallback || "expense";
+  }
+
+  function voiceBuildCloudSplit(rawSplit, amt, fallbackSplit) {
+    if (!rawSplit || typeof rawSplit !== "object" || !Array.isArray(rawSplit.people) || !rawSplit.people.length) {
+      return fallbackSplit || null;
+    }
+    const rawPeople = rawSplit.people.map((p) => (typeof p === "string" ? p : (p && p.name) || "")).filter(Boolean);
+    const people = voiceMatchContacts(rawPeople, voiceKnownContacts());
+    if (!people.length) return fallbackSplit || null;
+    // Local math verification: NEVER trust AI arithmetic.
+    const mode = rawSplit.mode === "exact" ? "exact" : (rawSplit.mode === "fraction" ? "fraction" : "equal");
+    if (mode === "exact") {
+      const rows = people.map((name, idx) => {
+        const src = rawSplit.people[idx];
+        const sh = src && typeof src === "object" && Number(src.share) > 0
+          ? Math.min(amt, voiceRound2(Number(src.share)))
+          : (Number(rawSplit.amount) > 0 ? Math.min(amt, voiceRound2(Number(rawSplit.amount))) : voiceRound2(amt / (people.length + 1)));
+        return { name, amount: sh };
+      });
+      return { mode: "exact", people: rows, matched: "" };
+    }
+    let share = 0;
+    if (mode === "fraction" && Number(rawSplit.fraction) > 0 && Number(rawSplit.fraction) < 1) {
+      share = voiceRound2((amt * Number(rawSplit.fraction)) / people.length);
+    } else {
+      share = voiceRound2(amt / (people.length + 1));
+    }
+    return {
+      mode,
+      people: people.map((name) => ({ name, amount: share })),
+      matched: "",
+    };
+  }
+
+  function voiceApplyCloudToItem(localItem, cloudItem) {
+    if (!cloudItem || typeof cloudItem !== "object") return localItem;
+    if (localItem && (localItem.touched || localItem.userKind || localItem.userCat)) return localItem;
+    // Never overwrite a local phone-parsed amount; only accept cloud amount when phone had none.
+    const amt = localItem && localItem.amount > 0
+      ? localItem.amount
+      : (Number(cloudItem.amount) > 0 ? voiceRound2(cloudItem.amount) : 0);
+    if (!(amt > 0)) return localItem;
+
+    const entryKind = voiceCloudKind(cloudItem.kind, localItem ? localItem.entryKind : "expense");
+    const rawCat = typeof cloudItem.category === "string" && cloudItem.category.trim() ? cloudItem.category.trim() : "";
+    const cat = entryKind === "income"
+      ? "Income"
+      : (rawCat || (localItem && localItem.category) || voiceInferCategory(cloudItem.note || (localItem && localItem.note) || ""));
+    const note = typeof cloudItem.note === "string" && cloudItem.note.trim()
+      ? cloudItem.note.trim().slice(0, 80)
+      : ((localItem && localItem.note) || "");
+    const wName = cloudItem.wallet || cloudItem.walletHint || "";
+    const wHit = wName ? voiceMatchWallet("using " + wName, state && state.wallets) : null;
+    const split = entryKind === "expense"
+      ? voiceBuildCloudSplit(cloudItem.split, amt, localItem && localItem.split)
+      : null;
+
+    return {
+      ...(localItem || {}),
+      raw: (localItem && localItem.raw) || "",
+      entryKind,
+      amount: amt,
+      category: cat,
+      note,
+      walletId: wHit ? wHit.wallet.id : ((localItem && localItem.walletId) || ""),
+      walletName: wHit ? wHit.wallet.name : ((localItem && localItem.walletName) || ""),
+      debtId: entryKind === "debt" ? ((localItem && localItem.debtId) || "") : "",
+      debtName: entryKind === "debt" ? ((localItem && localItem.debtName) || "") : "",
+      split,
+      source: "cloud-ai",
+    };
+  }
+
   /**
-   * Optional Cloud AI+ upgrade (Duitful AI+ / Gemini 2.5 Flash-Lite).
-   * Always verifies split math locally; falls back cleanly to parseVoiceSentence.
+   * Optional Cloud AI+ upgrade (voice-entry v2: multi-item, 400 chars).
+   * - Sends the full sentence even when the phone found several items.
+   * - Cloud may relabel kind, category, note, wallet, and split (math stays local).
+   * - Never overrides phone-parsed amounts; if item counts differ, keeps the
+   *   phone's items and only applies cloud labels to items whose amounts match.
+   * - Never overwrites rows the user already edited (touched / userKind / userCat).
    */
   async function parseVoiceSmart(rawText) {
     const local = parseVoiceEntry(rawText);
     if (!rawText || typeof window.aiCloudRun !== "function") return local;
-    // Several spends: the cloud task reads one entry, so the local split stands.
-    if (local.items) return local;
-    if (local.entryKind === "income" || local.entryKind === "debt") return local;
     try {
       const wallets = (state && Array.isArray(state.wallets) ? state.wallets : []).map((w) => w.name).filter(Boolean);
       const categories = typeof scanAllCategories === "function" ? scanAllCategories() : [];
       const res = await window.aiCloudRun("voice-entry", {
-        sentence: String(rawText).slice(0, 200),
+        sentence: String(rawText).slice(0, 400),
         categories: categories.slice(0, 60),
         wallets: wallets.slice(0, 40),
         people: voiceKnownContacts().slice(0, 30),
       });
       if (!res || typeof res !== "object") return local;
-      const amt = Number(res.amount) > 0 ? voiceRound2(res.amount) : local.amount;
-      if (!(amt > 0)) return local;
-      const cat = typeof res.category === "string" && res.category.trim() ? res.category.trim() : local.category;
-      const note = typeof res.note === "string" && res.note.trim() ? res.note.trim().slice(0, 80) : local.note;
-      const wName = res.wallet || res.walletHint || "";
-      const wHit = wName ? voiceMatchWallet("using " + wName, state && state.wallets) : null;
-      let split = local.split;
-      if (res.split && Array.isArray(res.split.people) && res.split.people.length) {
-        const rawPeople = res.split.people.map((p) => (typeof p === "string" ? p : (p && p.name) || "")).filter(Boolean);
-        const people = voiceMatchContacts(rawPeople, voiceKnownContacts());
-        if (people.length) {
-          // Local math verification: NEVER trust AI arithmetic.
-          let share = 0;
-          if (res.split.mode === "fraction" && Number(res.split.fraction) > 0 && Number(res.split.fraction) < 1) {
-            share = voiceRound2((amt * Number(res.split.fraction)) / people.length);
-          } else if (res.split.mode === "exact" && Number(res.split.amount) > 0) {
-            share = Math.min(amt, voiceRound2(Number(res.split.amount)));
-          } else {
-            share = voiceRound2(amt / (people.length + 1));
-          }
-          split = {
-            mode: res.split.mode || "equal",
-            people: people.map((name) => ({ name, amount: share })),
-            matched: "",
-          };
-        }
+
+      const cloudItems = Array.isArray(res.items) && res.items.length
+        ? res.items.slice(0, 10)
+        : ((res.amount !== undefined || res.category || res.note || res.split || res.wallet || res.kind) ? [res] : []);
+      if (!cloudItems.length) return local;
+
+      const localItems = local.items && local.items.length
+        ? local.items
+        : (local.amount > 0 ? [local] : []);
+
+      // Phone found 0 amounts (e.g. spoken words missed by rules): use validated cloud items.
+      if (!localItems.length) {
+        const built = cloudItems
+          .map((ci) => voiceApplyCloudToItem({ raw: rawText, entryKind: "expense", amount: 0, category: "Others", note: "", walletId: "", walletName: "", debtId: "", debtName: "", split: null }, ci))
+          .filter((it) => it && it.amount > 0);
+        if (!built.length) return local;
+        if (built.length === 1) return { ...built[0], raw: rawText, source: "cloud-ai" };
+        return { ...voiceCombine(rawText, built), source: "cloud-ai" };
       }
-      return {
-        raw: rawText,
-        entryKind: local.entryKind || "expense",
-        amount: amt,
-        category: cat,
-        note,
-        walletId: wHit ? wHit.wallet.id : local.walletId,
-        walletName: wHit ? wHit.wallet.name : local.walletName,
-        debtId: local.debtId || "",
-        debtName: local.debtName || "",
-        split,
-        source: "cloud-ai",
-      };
+
+      // Phone found 1+ items: keep exact phone item count & amounts; pair each item
+      // with a cloud item whose amount agrees (within 0.005).
+      const used = new Set();
+      let anyChanged = false;
+      const sameCount = cloudItems.length === localItems.length;
+      const merged = localItems.map((li, idx) => {
+        if (li.touched || li.userKind || li.userCat) return li;
+        let pickIdx = -1;
+        if (sameCount && !used.has(idx)) {
+          const ci = cloudItems[idx];
+          const cAmt = ci && ci.amount !== undefined && ci.amount !== null ? Number(ci.amount) : NaN;
+          if (!Number.isFinite(cAmt) || Math.abs(cAmt - li.amount) < 0.005) pickIdx = idx;
+        }
+        if (pickIdx < 0) {
+          pickIdx = cloudItems.findIndex((ci, j) => !used.has(j) && ci && Number.isFinite(Number(ci.amount)) && Math.abs(Number(ci.amount) - li.amount) < 0.005);
+        }
+        if (pickIdx < 0) return li;
+        used.add(pickIdx);
+        anyChanged = true;
+        return voiceApplyCloudToItem(li, cloudItems[pickIdx]);
+      });
+
+      if (!anyChanged) return local;
+      if (merged.length === 1) return { ...merged[0], raw: rawText, source: "cloud-ai" };
+      return { ...voiceCombine(rawText, merged), source: "cloud-ai" };
     } catch {
       return local;
     }
@@ -1807,7 +1896,13 @@
   function voiceSmartThenAi(raw) {
     const input = document.getElementById("voice-input");
     return parseVoiceSmart(raw).then((smart) => {
-      if (input && input.value.trim() === smart.raw.trim() && !voiceTouched(voiceCurrent)) renderVoicePreview(smart);
+      if (!input || input.value.trim() !== smart.raw.trim()) return voiceAiLabel();
+      if (!voiceTouched(voiceCurrent)) {
+        renderVoicePreview(smart);
+      } else if (voiceCurrent && voiceCurrent.items && smart.items && voiceCurrent.items.length === smart.items.length) {
+        const merged = voiceCurrent.items.map((cur, i) => (voiceRowTouched(cur) ? cur : smart.items[i]));
+        renderVoicePreview({ ...voiceCombine(smart.raw, merged), source: smart.source });
+      }
       return voiceAiLabel();
     }).catch(() => 0);
   }
@@ -2114,6 +2209,7 @@
       sel.addEventListener("change", () => {
         it.category = sel.value;
         it.userCat = true;
+        it.touched = true;
         it.ai = false;
         onChange();
       });
@@ -2135,6 +2231,7 @@
       it.category = it.spendCat || voiceLearnedCategory(it.note) || voiceInferCategory(it.note);
     }
     it.userKind = true;
+    it.touched = true;
     it.ai = false;
   }
 

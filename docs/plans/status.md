@@ -35,10 +35,9 @@ Shared files (`app/script.js`, `app/styles.css`, `app/index.html`, `scripts/i18n
 
 | What | Owner | State |
 |---|---|---|
-| 2.0 stage A (v1.84.0) + Free Debt Strategy Library (v1.85.0) + Native Haptics (v1.86.0) + Statement Reconciliation (v1.87.0) + Stage B Voice & Kira Assistant (v1.88.0) + Country Tax Packs (v1.90.0) + Floating Kira Animations (v1.91.0) + Statement Wallet Auto-Match (v1.92.0) + AI+ Server Tiers (v1.93.0) + Stage A Follow-ups (v1.95.0) | Antigravity | shipped to TestFlight & Play Beta |
-| AI+ Option A credit-weighted model picker (Fast 1× / Smart 2× / Deep 10×), Dec 1 `vision` migration (`gemini-3.5-flash-lite`), and server `voice-entry` v2 (multi-item + 400 chars) (v1.96.0) | Antigravity | implemented on `feat/ai-model-picker-voice-v2` |
+| 2.0 stage A (v1.84.0) + Free Debt Strategy Library (v1.85.0) + Native Haptics (v1.86.0) + Statement Reconciliation (v1.87.0) + Stage B Voice & Kira Assistant (v1.88.0) + Country Tax Packs (v1.90.0) + Floating Kira Animations (v1.91.0) + Statement Wallet Auto-Match (v1.92.0) + AI+ Server Tiers (v1.93.0) + Stage A Follow-ups (v1.95.0) + Option A Model Picker & `voice-entry` v2 Server (v1.96.0) | Antigravity | shipped to TestFlight & Play Beta |
+| Phone-side multi-item AI+ `parseVoiceSmart` merge (`app/voice.js`, 400 chars, amount-agreement guard, `it.touched` protection) (v1.97.0) | Antigravity | implemented on `feat/voice-items-ai-plus-client` (`docs/plans/voice-items-ai-plus.md`) |
 | Voice: several spends / split / income (v1.89.0), income words + note fix (v1.92.1), smart voice learning + on-device AI labels + row toggles (v1.94.0) | Claude | shipped (PRs #488, #492, #494) |
-| Phone-side multi-item AI+ `parseVoiceSmart` merge (`app/voice.js`, `it.touched` guard, 400 chars) | Antigravity | next up (PR C) — spec: `voice-items-ai-plus.md` |
 | Voice hold gesture: the bubble stays the mic under the thumb, slide to Save (with Undo) or Cancel, let go to check; fix the empty-stage Save looking active | Antigravity | spec: `voice-hold-gesture.md` |
 | Boost Bank alert wording (user email, 26 Nov) | Claude | asked the user for a screenshot; add the pattern when it arrives |
 | Real-device test of "Talk to Kira", Siri-style voice waves, iOS Taptic Engine haptics, and StoreKit 2 sandbox | Owner | |

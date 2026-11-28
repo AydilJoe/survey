@@ -20985,6 +20985,129 @@ check('the brand catalogue makes no network calls at all',
   await qCtx.close();
 }
 
+// ── v1.97.0: Multi-item AI+ voice merge (parseVoiceSmart, docs/plans/voice-items-ai-plus.md) ──
+{
+  const vCtx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  const vp = await vCtx.newPage();
+  const vErr = [];
+  vp.on('pageerror', (e) => vErr.push(e.message));
+  await vp.goto(`${BASE}/app/index.html`);
+  await vp.waitForTimeout(500);
+  await vp.click('#btn-start-open');
+  await vp.waitForTimeout(1200);
+
+  const vRes = await vp.evaluate(async () => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    state.split = state.split || { people: [], out: [] };
+    state.split.people = ['Ali'];
+    save(); renderAll();
+
+    const origRun = window.aiCloudRun;
+    const out = {};
+
+    // 1) Owner sentence 1: "Two ringgit nasi lemak spending and then 100 ringgit freelancing income" -> spend 2 + income 100
+    window.aiCloudRun = async (task, input) => {
+      out.s1Len = input.sentence.length;
+      return {
+        items: [
+          { kind: 'spend', amount: 2, category: 'Food', note: 'nasi lemak' },
+          { kind: 'income', amount: 100, note: 'freelancing income' },
+        ],
+      };
+    };
+    const p1 = await parseVoiceSmart('Two ringgit nasi lemak spending and then 100 ringgit freelancing income');
+    out.s1 = p1.items && p1.items.map((it) => ({ kind: it.entryKind, amount: it.amount, cat: it.category, note: it.note }));
+
+    // 2) Owner sentence 2: "12 ringgit nasi lemak split half with Ali, then found 50 ringgit on the floor" -> spend 12 with Ali 6 + income 50
+    window.aiCloudRun = async () => ({
+      items: [
+        { kind: 'spend', amount: 12, category: 'Food', note: 'nasi lemak', split: { mode: 'equal', people: [{ name: 'Ali' }] } },
+        { kind: 'income', amount: 50, note: 'found on the floor' },
+      ],
+    });
+    const p2 = await parseVoiceSmart('12 ringgit nasi lemak split half with Ali, then found 50 ringgit on the floor');
+    out.s2 = p2.items && p2.items.map((it) => ({
+      kind: it.entryKind,
+      amount: it.amount,
+      cat: it.category,
+      splitAli: it.split && it.split.people && it.split.people[0] ? `${it.split.people[0].name}:${it.split.people[0].amount}` : '',
+    }));
+
+    // 3) 400-char dictation is sent without truncating at 200
+    let sentLong = '';
+    window.aiCloudRun = async (_t, input) => { sentLong = input.sentence; return null; };
+    const longSentence = 'RM 12 nasi lemak and ' + 'x '.repeat(140) + 'RM 50 bonus';
+    await parseVoiceSmart(longSentence);
+    out.sentLongLen = sentLong.length;
+
+    // 4) Cloud vs phone item-count mismatch: phone's 2 items stay; cloud only labels amount-matching item
+    window.aiCloudRun = async () => ({
+      items: [
+        { kind: 'spend', amount: 12, category: 'Food', note: 'nasi lemak' },
+        { kind: 'spend', amount: 99, category: 'Transport', note: 'grab' },
+        { kind: 'income', amount: 50, note: 'found floor' },
+      ],
+    });
+    const pMis = await parseVoiceSmart('RM 12 lunch and RM 50 found on floor');
+    out.misCount = pMis.items ? pMis.items.length : 0;
+    out.misAmts = pMis.items ? pMis.items.map((x) => x.amount) : [];
+    out.misKinds = pMis.items ? pMis.items.map((x) => x.entryKind) : [];
+
+    // 5) Edited row is never overwritten when a late cloud reply lands; untouched sibling row still gets cloud label
+    let releaseCloud;
+    window.aiCloudRun = () => new Promise((r) => {
+      releaseCloud = () => r({
+        items: [
+          { kind: 'spend', amount: 15, category: 'Transport', note: 'misteri' },
+          { kind: 'income', amount: 80, note: 'bonus' },
+        ],
+      });
+    });
+    openVoiceEntry('RM 15 misteri and RM 80 bonus');
+    await new Promise((r) => setTimeout(r, 40));
+    const catSel = document.querySelector('#voice-preview .voice-item[data-voice-idx="0"] select');
+    if (catSel) {
+      catSel.value = 'Bills';
+      catSel.dispatchEvent(new Event('change'));
+    }
+    if (releaseCloud) releaseCloud();
+    await new Promise((r) => setTimeout(r, 80));
+    const row0Cat = document.querySelector('#voice-preview .voice-item[data-voice-idx="0"] select')?.value || '';
+    const row1Income = document.querySelector('#voice-preview .voice-item[data-voice-idx="1"]')?.classList.contains('is-income') || false;
+    out.row0Kept = row0Cat === 'Bills';
+    out.row1Upgraded = row1Income;
+    document.getElementById('voice-dialog').close();
+
+    // 6) At quota cap / offline (aiCloudRun returns null): local multi-item parse saves as before
+    window.aiCloudRun = async () => null;
+    const beforeExp = (state.dailyExpenses || []).length;
+    const beforeInc = (state.income || []).length;
+    openVoiceEntry('RM 14 nasi lemak and RM 45 freelance income');
+    await new Promise((r) => setTimeout(r, 60));
+    document.getElementById('voice-save').click();
+    await new Promise((r) => setTimeout(r, 60));
+    out.offlineSavedExp = (state.dailyExpenses || []).length - beforeExp;
+    out.offlineSavedInc = (state.income || []).length - beforeInc;
+
+    window.aiCloudRun = origRun;
+    return out;
+  });
+
+  check('v1.97.0: owner sentences parse multi-item via cloud AI+ (spend 2 + income 100; spend 12 split Ali:6 + income 50) and send >200 chars (up to 400)',
+    vRes.s1?.length === 2 && vRes.s1[0].kind === 'expense' && vRes.s1[0].amount === 2 && vRes.s1[1].kind === 'income' && vRes.s1[1].amount === 100
+    && vRes.s2?.length === 2 && vRes.s2[0].kind === 'expense' && vRes.s2[0].amount === 12 && vRes.s2[0].splitAli === 'Ali:6'
+    && vRes.s2[1].kind === 'income' && vRes.s2[1].amount === 50
+    && vRes.sentLongLen > 250 && vRes.sentLongLen <= 400,
+    JSON.stringify(vRes));
+  check('v1.97.0: cloud vs phone item-count mismatch keeps phone items/amounts; edited row is never overwritten; offline/cap fallback saves cleanly',
+    vRes.misCount === 2 && vRes.misAmts.join() === '12,50' && vRes.misKinds.join() === 'expense,income'
+    && vRes.row0Kept && vRes.row1Upgraded
+    && vRes.offlineSavedExp === 1 && vRes.offlineSavedInc === 1,
+    JSON.stringify(vRes));
+  check('v1.97.0: no page errors in multi-item AI+ voice merge suite', vErr.length === 0, JSON.stringify(vErr));
+  await vCtx.close();
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();
