@@ -124,7 +124,7 @@ Scan a receipt
 The total, date and shop are read on your phone, then checked against the receipt's own numbers. Nothing is uploaded. Split it by item if you ate different things.
 
 On-device AI, private by design
-On supported phones (Gemini Nano through Google's on-device AI), Duitful asks the phone's own model about a receipt that is hard to read, or a bank alert in a new format, and spots money moved between your own accounts. It never invents an amount: the figure must be printed on the receipt or alert. It runs on your phone, nothing is uploaded, and you can switch it off in Settings. On other phones everything works the same, with Duitful's own rules.
+On supported phones (Gemini Nano through Google's on-device AI), Duitful asks the phone's own model about a receipt that is hard to read, a bank alert in a new format, or a voice entry Kira isn't sure of, and spots money moved between your own accounts. It never invents an amount: the figure must be printed on the receipt or alert. It runs on your phone, nothing is uploaded, and you can switch it off in Settings. On other phones everything works the same, with Duitful's own rules.
 
 Islamic finance and zakat
 • Murabahah, tawarruq, BBA and AITAB facilities as a real debt type, with ibra' on early settlement worked out properly instead of a conventional rate pretending to fit

@@ -82,6 +82,9 @@ const emptyState = () => ({
   ownAccounts: [],
   // On-device AI (receipts and bank alerts). On by default; off = rules only.
   aiEnabled: true,
+  // Talk to Kira: rows the person fixed (In / Out, category), keyed by the
+  // normalised note → {kind, category, at}; ≤ 200, oldest dropped (voice.js).
+  voiceLearn: {},
   // Settings → Bank alerts → Check auto-capture: what each drained alert
   // became. App, time and outcome only — never text or amounts.
   captureDiag: { lastDrainAt: 0, items: [] },
@@ -401,6 +404,7 @@ function coerceState(parsed) {
       pendingTxns: Array.isArray(parsed.pendingTxns) ? parsed.pendingTxns : [],
       ownAccounts: coerceOwnAccounts(parsed.ownAccounts),
       aiEnabled: parsed.aiEnabled !== false,
+      voiceLearn: coerceVoiceLearn(parsed.voiceLearn),
       captureDiag: coerceCaptureDiag(parsed.captureDiag),
       aiIntroSeen: !!parsed.aiIntroSeen,
       aiIntroShownOn: typeof parsed.aiIntroShownOn === "string" ? parsed.aiIntroShownOn : "",
@@ -4425,6 +4429,20 @@ function renderPending() {
    Android: Gemini Nano via ML Kit GenAI on supported phones. iPhone (iOS 26):
    Apple's on-device model, for receipts. Both through DuitfulKit.aiStatus().
    state.aiEnabled off means rules only, for receipts and bank alerts alike. */
+// state.voiceLearn: {normalisedNote: {kind: "income"|"expense", category, at}}, ≤ 200 newest.
+function coerceVoiceLearn(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const rows = Object.entries(raw)
+    .filter(([k, v]) => typeof k === "string" && k.trim() && k.length <= 60 && v && typeof v === "object" && (v.kind === "income" || v.kind === "expense"))
+    .map(([k, v]) => [k, {
+      kind: v.kind,
+      category: v.kind === "income" ? "Income" : (typeof v.category === "string" && v.category.trim() ? v.category.trim().slice(0, 40) : "Others"),
+      at: Number.isFinite(Number(v.at)) ? Number(v.at) : 0,
+    }])
+    .sort((a, b) => b[1].at - a[1].at)
+    .slice(0, 200);
+  return Object.fromEntries(rows);
+}
 function aiAllowed() { return !state || state.aiEnabled !== false; }
 let aiStatusCache = null;          // { state: "on" | "getting-ready" | "none" }
 async function refreshAiStatus() {
@@ -4760,7 +4778,7 @@ function aiStatusText() {
     : "On · runs on this phone");
 }
 // What runs where, from the kits themselves: iPhone's DuitfulKit has
-// aiReadReceipt and aiWriteRecap but no aiReadAlert, so bank alerts (no
+// aiReadReceipt, aiReadVoice and aiWriteRecap but no aiReadAlert, so bank alerts (no
 // capture on iOS) and statement suggestions (statementAiSuggest asks
 // aiReadAlert) are Android only.
 function aiInfoPlatform() { return nativePlatform() === "ios" ? "ios" : "android"; }
@@ -8388,6 +8406,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.94.0": [
+    "<strong>Kira learns your words</strong> — Talk to Kira now goes by what you've logged before: say \"100 ringgit tutoring\" and it's income if that's how you saved it last time. Each row has an In / Out switch and a category chip to fix it in one tap, and Kira remembers the fix. On supported phones, the phone's own AI helps with rows Kira isn't sure of (never the amount).",
+  ],
   "1.93.0": [
     "<strong>Kira Pro taste and 14-day attested trial</strong> — Lifetime Pro owners now get a monthly taste of cloud Kira (20 text actions and 3 scans, resetting on the 1st of each month Malaysia time), and phone 14-day trials verify on-device for 100 actions and 10 scans with live meters in the Kira hub. Hitting a limit always falls back quietly to on-device AI.",
   ],

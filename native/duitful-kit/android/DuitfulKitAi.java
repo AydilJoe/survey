@@ -60,6 +60,18 @@ final class DuitfulKitAi {
             + "counterparty is the shop or person exactly as written, or \"\". category is one of: ";
     private static final int MAX_ALERT_CHARS = 600;
 
+    // One Talk to Kira item the voice rules weren't sure of (1.93.0). The
+    // model labels the words only; the app keeps its own amount and drops a
+    // category not in its list or a note that isn't the item's own words.
+    private static final String VOICE_INSTRUCTIONS =
+        "You label one short money note a person said to a Malaysian personal finance app. "
+            + "Reply with one JSON object and nothing else: "
+            + "{\"direction\": \"spend\" or \"income\" or \"\", \"category\": string, \"note\": string}. "
+            + "spend: the person paid for something. income: money came to the person (pay, freelance work, a gift, a refund, money found). "
+            + "Use \"\" if unsure. note is two to four words copied from the text naming what it was, without the amount. "
+            + "Never write a number. category is one of: ";
+    private static final int MAX_VOICE_CHARS = 200;
+
     // The monthly recap: the app computes every figure and sends them as
     // lines; the model only rewords. The app throws the answer away if it
     // carries a number the facts don't (recapTextOk in recap.js).
@@ -144,6 +156,14 @@ final class DuitfulKitAi {
         String cats = categories == null ? "" : categories;
         if (cats.length() > 300) cats = cats.substring(0, 300);
         generate(ctx, ALERT_INSTRUCTIONS + cats + ", or \"\".\n\nNotification:\n" + body, 96, call);
+    }
+
+    /** Labels one voice item: direction, category, note. Never an amount. */
+    static void readVoice(Context ctx, String text, String categories, PluginCall call) {
+        String body = text.length() > MAX_VOICE_CHARS ? text.substring(0, MAX_VOICE_CHARS) : text;
+        String cats = categories == null ? "" : categories;
+        if (cats.length() > 500) cats = cats.substring(0, 500);
+        generate(ctx, VOICE_INSTRUCTIONS + cats + ", or \"\".\n\nText:\n" + body, 64, call);
     }
 
     /** The monthly recap reworded from the app's own fact lines. */
