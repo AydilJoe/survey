@@ -8,7 +8,7 @@ const { MODELS } = require("./models");
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-async function callGemini({ modelKey, prompt, imageBase64, imageMime, schema, timeoutMs = 15000 }) {
+async function callGemini({ modelKey, prompt, imageBase64, imageMime, schema, timeoutMs = 15000, thinkingLevel = "" }) {
   const modelId = MODELS[modelKey];
   if (!modelId) throw new Error(`Unknown model key: ${modelKey}`);
 
@@ -21,6 +21,7 @@ async function callGemini({ modelKey, prompt, imageBase64, imageMime, schema, ti
       hasImage: !!imageBase64,
       schema,
       timeoutMs,
+      thinkingLevel: thinkingLevel || "",
     });
   }
 
@@ -37,13 +38,19 @@ async function callGemini({ modelKey, prompt, imageBase64, imageMime, schema, ti
     });
   }
 
+  // Gemini 3.x / 4.x deprecated sampling parameters (temperature/topP/topK);
+  // keep temperature: 0 only on Gemini 2.5 models.
+  const isGemini2 = /^gemini-2\./i.test(modelId);
+  const generationConfig = {
+    responseMimeType: "application/json",
+    ...(isGemini2 ? { temperature: 0 } : {}),
+    ...(schema ? { responseSchema: schema } : {}),
+    ...(!isGemini2 && thinkingLevel ? { thinkingConfig: { thinkingLevel } } : {}),
+  };
+
   const body = {
     contents: [{ role: "user", parts }],
-    generationConfig: {
-      temperature: 0,
-      responseMimeType: "application/json",
-      ...(schema ? { responseSchema: schema } : {}),
-    },
+    generationConfig,
   };
 
   const controller = new AbortController();

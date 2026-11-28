@@ -139,7 +139,71 @@ function aiCloudCheck(task, input, output) {
   }
   if (task === "voice-entry") {
     const sentence = String((input && input.sentence) || "");
+    const allowedKinds = new Set(["spend", "income", "debt"]);
+    const noteInSentence = (rawNote) => {
+      if (typeof rawNote !== "string") return null;
+      const clean = rawNote.replace(/\s+/g, " ").trim().slice(0, 120);
+      if (!clean) return null;
+      const hayRaw = sentence.toLowerCase();
+      const hayLatin = hayRaw.replace(/[^a-z0-9]/g, "");
+      if (!hayRaw.trim()) return null;
+      const cjk = clean.match(/[\u4e00-\u9fff]/g) || [];
+      if (cjk.length && !cjk.every((ch) => hayRaw.includes(ch))) return null;
+      const words = clean.toLowerCase().split(/\s+/).map((w) => w.replace(/[^a-z0-9]/g, "")).filter((w) => w.length >= 2);
+      if (words.length && !words.every((w) => hayLatin.includes(w))) return null;
+      return (cjk.length || words.length) ? clean : null;
+    };
+    const checkSplit = (rawSplit) => {
+      if (!rawSplit || typeof rawSplit !== "object" || !Array.isArray(rawSplit.people)) return null;
+      const mode = rawSplit.mode === "exact" ? "exact" : "equal";
+      const people = [];
+      for (const p of rawSplit.people.slice(0, 10)) {
+        if (!p || typeof p !== "object") continue;
+        const name = aiInList(p.name, (input && input.people) || [])
+          || (typeof p.name === "string" && p.name.trim() && sentence.toLowerCase().includes(p.name.trim().toLowerCase()) ? p.name.trim().slice(0, 40) : null);
+        if (!name) continue;
+        const row = { name };
+        if (p.share !== undefined && p.share !== null) {
+          const sh = aiFiniteAmt(p.share);
+          if (sh !== null && (!/\d/.test(sentence) || aiAmountInText(sh, sentence))) row.share = sh;
+        }
+        people.push(row);
+      }
+      return people.length ? { mode, people } : null;
+    };
+    const checkItem = (raw) => {
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+      const kind = typeof raw.kind === "string" ? raw.kind.trim().toLowerCase() : "";
+      if (!allowedKinds.has(kind)) return null;
+      const a = raw.amount !== undefined && raw.amount !== null ? aiFiniteAmt(raw.amount) : null;
+      if (a === null) return null;
+      if (/\d/.test(sentence) && !aiAmountInText(a, sentence)) return null;
+      const item = { kind, amount: a };
+      const cat = aiInList(raw.category, (input && input.categories) || []);
+      if (cat) item.category = cat;
+      const w = aiInList(raw.wallet, (input && input.wallets) || []);
+      if (w) item.wallet = w;
+      const note = noteInSentence(raw.note);
+      if (note) item.note = note;
+      const sp = checkSplit(raw.split);
+      if (sp) item.split = sp;
+      return item;
+    };
+    if (Array.isArray(output.items)) {
+      const items = [];
+      for (const raw of output.items.slice(0, 10)) {
+        const clean = checkItem(raw);
+        if (clean) items.push(clean);
+      }
+      if (!items.length) return null;
+      return items.length === 1 ? { ...items[0], items } : { items };
+    }
     const out = {};
+    if (output.kind !== undefined && output.kind !== null) {
+      const k = typeof output.kind === "string" ? output.kind.trim().toLowerCase() : "";
+      if (!allowedKinds.has(k)) return null;
+      out.kind = k;
+    }
     if (output.amount !== undefined && output.amount !== null) {
       const a = aiFiniteAmt(output.amount);
       if (a !== null && (!/\d/.test(sentence) || aiAmountInText(a, sentence))) out.amount = a;
@@ -148,9 +212,15 @@ function aiCloudCheck(task, input, output) {
     if (cat) out.category = cat;
     const w = aiInList(output.wallet, (input && input.wallets) || []);
     if (w) out.wallet = w;
-    if (typeof output.note === "string" && output.note.trim()) out.note = output.note.trim().slice(0, 120);
-    if (output.split && Array.isArray(output.split.people) && output.split.people.length) out.split = output.split;
-    return Object.keys(out).length ? out : null;
+    const note = noteInSentence(output.note);
+    if (note) out.note = note;
+    const sp = checkSplit(output.split);
+    if (sp) out.split = sp;
+    if (!Object.keys(out).length) return null;
+    if (out.amount !== undefined) {
+      out.items = [{ kind: out.kind || "spend", amount: out.amount, ...(out.category ? { category: out.category } : {}), ...(out.wallet ? { wallet: out.wallet } : {}), ...(out.note ? { note: out.note } : {}), ...(out.split ? { split: out.split } : {}) }];
+    }
+    return out;
   }
   if (task === "receipt-read") {
     const text = String((input && input.ocrText) || "");
@@ -289,6 +359,73 @@ function aiConfirmFirstSend(task, redacted) {
   });
 }
 
+/* ---------- Option A: User-selectable model quality (Fast 1x / Smart 2x / Deep 10x) ---------- */
+const AI_QUALITY_WEIGHTS = Object.freeze({ fast: 1, smart: 2, deep: 10 });
+
+function aiCloudQuality() {
+  const raw = typeof state !== "undefined" && state && typeof state.aiQuality === "string"
+    ? state.aiQuality.trim().toLowerCase()
+    : "";
+  return AI_QUALITY_WEIGHTS[raw] ? raw : "fast";
+}
+
+function setAiCloudQuality(next) {
+  const q = typeof next === "string" ? next.trim().toLowerCase() : "";
+  const valid = AI_QUALITY_WEIGHTS[q] ? q : "fast";
+  if (typeof state !== "undefined" && state) {
+    state.aiQuality = valid;
+    if (typeof save === "function") save();
+  }
+  syncAiQualityPickers();
+  if (typeof syncKiraHub === "function") syncKiraHub();
+  return valid;
+}
+
+function aiQualityHintText(quality, leftUnits, limitUnits) {
+  const t = typeof tr === "function" ? tr : (s) => s;
+  const w = AI_QUALITY_WEIGHTS[quality] || 1;
+  if (Number(limitUnits) > 0) {
+    const leftCalls = Math.floor(Math.max(0, Number(leftUnits) || 0) / w);
+    return t("~{n} calls left ({w}× rate)", { n: leftCalls, w });
+  }
+  return w === 1
+    ? t("1× rate · most calls")
+    : w === 2
+      ? t("2× rate · smarter replies")
+      : t("10× rate · deepest reasoning");
+}
+
+function syncAiQualityPickers() {
+  if (typeof document === "undefined") return;
+  const q = aiCloudQuality();
+  const sub = (typeof state !== "undefined" && state && state.aiSub) || null;
+  const active = aiSubIsActive(sub);
+  const canUse = active || aiCloudHasEntitlement();
+  const limit = Number(sub && sub.textLimit) || (active ? 1000 : 0);
+  const used = Number(sub && sub.textUsed) || 0;
+  const left = Math.max(0, limit - used);
+  const hint = aiQualityHintText(q, left, limit);
+
+  const pairs = [
+    ["ai-quality-wrap", "ai-quality-picker", "ai-quality-hint", canUse],
+    ["kira-hub-quality", "kira-hub-quality-picker", "kira-hub-quality-hint", canUse && !(typeof isNative === "function" && !isNative() && !active && (!sub || !Number(sub.textLimit)))],
+  ];
+  for (const [wrapId, pickerId, hintId, show] of pairs) {
+    const wrap = document.getElementById(wrapId);
+    if (wrap) wrap.hidden = !show;
+    const hintEl = document.getElementById(hintId);
+    if (hintEl) hintEl.textContent = hint;
+    const picker = document.getElementById(pickerId);
+    if (picker) {
+      picker.querySelectorAll("[data-ai-quality]").forEach((btn) => {
+        const on = btn.dataset.aiQuality === q;
+        btn.classList.toggle("active", on);
+        btn.setAttribute("aria-checked", on ? "true" : "false");
+      });
+    }
+  }
+}
+
 /* ---------- Core task runner ---------- */
 const AI_CLOUD_TIMEOUT_MS = 36000;
 async function aiCloudRun(task, input, opts) {
@@ -315,7 +452,7 @@ async function aiCloudRun(task, input, opts) {
           "Content-Type": "application/json",
           ...aiCloudAuthHeaders(),
         },
-        body: JSON.stringify({ task, input: redacted }),
+        body: JSON.stringify({ task, input: redacted, quality: aiCloudQuality() }),
       });
       data = await r.json().catch(() => null);
     } finally {
@@ -598,10 +735,22 @@ function renderAiCloudSettings() {
 
   const startBtn = document.getElementById("ai-pair-start-btn");
   if (startBtn) startBtn.hidden = !active;
+  syncAiQualityPickers();
 }
 
 function wireAiCloudSettings() {
   if (typeof document === "undefined") return;
+  for (const id of ["ai-quality-picker", "kira-hub-quality-picker"]) {
+    const picker = document.getElementById(id);
+    if (picker && !picker.dataset.wired) {
+      picker.dataset.wired = "1";
+      picker.addEventListener("click", (e) => {
+        const btn = e.target instanceof Element ? e.target.closest("[data-ai-quality]") : null;
+        if (!btn) return;
+        setAiCloudQuality(btn.dataset.aiQuality);
+      });
+    }
+  }
   const toggle = document.getElementById("ai-cloud-toggle");
   if (toggle && !toggle.dataset.wired) {
     toggle.dataset.wired = "1";
@@ -1133,6 +1282,9 @@ if (typeof window !== "undefined") {
   window.aiSubIsActive = aiSubIsActive;
   window.aiCloudHasEntitlement = aiCloudHasEntitlement;
   window.aiCloudAllowed = aiCloudAllowed;
+  window.aiCloudQuality = aiCloudQuality;
+  window.setAiCloudQuality = setAiCloudQuality;
+  window.syncAiQualityPickers = syncAiQualityPickers;
   window.aiCloudCheck = aiCloudCheck;
   window.aiCloudRun = aiCloudRun;
   window.aiPairStart = aiPairStart;

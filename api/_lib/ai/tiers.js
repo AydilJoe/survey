@@ -16,7 +16,7 @@ const {
   ATTEST_NONCE_TTL_S,
   MAX_DEVICES,
 } = require("./models");
-const { store, keys, myPeriodKey, myNextResetIso, testMode } = require("./kv");
+const { store, keys, kvIncrBy, kvDecrBy, myPeriodKey, myNextResetIso, testMode } = require("./kv");
 const { signTierToken, clientIpHash, rateLimit, send, readBody } = require("./auth");
 const { verifyAppleJws, JwsError } = require("./apple-jws");
 const { USE_TTL_S, VERIFIED } = require("./entitlement");
@@ -278,22 +278,24 @@ async function readProUsage(kv, subject, periodKey) {
   return { scansUsed: Math.max(0, Number(scan) || 0), textUsed: Math.max(0, Number(text) || 0) };
 }
 
-async function reserveProUse(kv, subject, periodKey, bucket) {
+async function reserveProUse(kv, subject, periodKey, bucket, weight = 1) {
+  const step = Math.max(1, Math.floor(Number(weight) || 1));
   const limit = PRO_TASTE_QUOTA_LIMITS[bucket];
   const k = keys.proUse(subject, periodKey, bucket);
-  const n = Number(await kv.incr(k)) || 0;
-  if (n === 1) await kv.expire(k, USE_TTL_S);
+  const n = await kvIncrBy(kv, k, step);
+  if (n === step) await kv.expire(k, USE_TTL_S);
   if (n > limit) {
-    await kv.decr(k);
-    return { ok: false, used: n - 1 };
+    await kvDecrBy(kv, k, step);
+    return { ok: false, used: n - step, limit };
   }
-  return { ok: true, used: n };
+  return { ok: true, used: n, limit };
 }
 
-async function releaseProUse(kv, subject, periodKey, bucket) {
+async function releaseProUse(kv, subject, periodKey, bucket, weight = 1) {
+  const step = Math.max(1, Math.floor(Number(weight) || 1));
   const k = keys.proUse(subject, periodKey, bucket);
-  const n = Number(await kv.decr(k)) || 0;
-  if (n < 0) await kv.incr(k);
+  const n = await kvDecrBy(kv, k, step);
+  if (n < 0) await kvIncrBy(kv, k, -n);
 }
 
 async function readTrialUsage(kv, deviceHash) {
@@ -304,22 +306,24 @@ async function readTrialUsage(kv, deviceHash) {
   return { scansUsed: Math.max(0, Number(scan) || 0), textUsed: Math.max(0, Number(text) || 0) };
 }
 
-async function reserveTrialUse(kv, deviceHash, bucket) {
+async function reserveTrialUse(kv, deviceHash, bucket, weight = 1) {
+  const step = Math.max(1, Math.floor(Number(weight) || 1));
   const limit = TRIAL_QUOTA_LIMITS[bucket];
   const k = keys.trialUse(deviceHash, bucket);
-  const n = Number(await kv.incr(k)) || 0;
-  if (n === 1) await kv.expire(k, TRIAL_TTL_S);
+  const n = await kvIncrBy(kv, k, step);
+  if (n === step) await kv.expire(k, TRIAL_TTL_S);
   if (n > limit) {
-    await kv.decr(k);
-    return { ok: false, used: n - 1 };
+    await kvDecrBy(kv, k, step);
+    return { ok: false, used: n - step, limit };
   }
-  return { ok: true, used: n };
+  return { ok: true, used: n, limit };
 }
 
-async function releaseTrialUse(kv, deviceHash, bucket) {
+async function releaseTrialUse(kv, deviceHash, bucket, weight = 1) {
+  const step = Math.max(1, Math.floor(Number(weight) || 1));
   const k = keys.trialUse(deviceHash, bucket);
-  const n = Number(await kv.decr(k)) || 0;
-  if (n < 0) await kv.incr(k);
+  const n = await kvDecrBy(kv, k, step);
+  if (n < 0) await kvIncrBy(kv, k, -n);
 }
 
 /* ---------- 4) HTTP Handlers: verify-pro, trial-challenge, verify-trial ---------- */

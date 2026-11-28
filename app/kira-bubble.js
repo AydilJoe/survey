@@ -548,6 +548,7 @@ function syncKiraHub() {
     pill.textContent = isAi ? tr("AI+") : tr("Local");
     pill.classList.toggle("is-local", !isAi);
   });
+  if (typeof syncAiQualityPickers === "function") syncAiQualityPickers();
 }
 
 function openKiraHub() {

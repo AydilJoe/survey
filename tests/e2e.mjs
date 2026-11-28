@@ -17341,7 +17341,7 @@ check('the brand catalogue makes no network calls at all',
   check('ai+ tasks: all 8 v1 tasks pass schema & guard checks through api/ai.js',
     veOk.data?.result?.amount === 12.5 && siOk.data?.result?.items?.length === 1
     && eaOk.data?.result?.b1a === 54000 && lnOk.data?.result?.balance === 15000
-    && stOk.data?.result?.rows?.length === 1 && aiModels.MODELS.lite === 'gemini-2.5-flash-lite' && aiModels.MODELS.vision === 'gemini-2.5-flash',
+    && stOk.data?.result?.rows?.length === 1 && aiModels.MODELS.lite === 'gemini-2.5-flash-lite' && aiModels.MODELS.vision === 'gemini-3.5-flash-lite',
     JSON.stringify({ ve: veOk.data?.ok, si: siOk.data?.ok, ea: eaOk.data?.ok, ln: lnOk.data?.ok, st: stOk.data?.ok }));
 
   // 6) Client-side Playwright checks: hidden by default, nothing sent when off,
@@ -20843,6 +20843,146 @@ check('the brand catalogue makes no network calls at all',
     JSON.stringify(out));
   check('v1.95.0: no page errors in Stage A follow-ups suite', sErr.length === 0, JSON.stringify(sErr));
   await sCtx.close();
+}
+
+// ── v1.96.0: Option A Kira model picker (Fast 1x / Smart 2x / Deep 10x) & voice-entry v2 ──
+{
+  const { createRequire } = await import('node:module');
+  const reqB = createRequire(import.meta.url);
+  const crypto = reqB('node:crypto');
+  const prevMem = process.env.AI_MEMORY;
+  const prevLicKey = process.env.LICENSE_SIGNING_PRIVATE_KEY;
+  process.env.AI_MEMORY = '1';
+  const { privateKey, publicKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
+  process.env.LICENSE_SIGNING_PRIVATE_KEY = privateKey.export({ type: 'pkcs8', format: 'pem' });
+  global.__DUITFUL_PRO_PUBKEY_PEM__ = publicKey.export({ type: 'spki', format: 'pem' });
+  const { signLicense } = reqB('../api/_lib/license.js');
+  const aiHandler = reqB('../api/ai.js');
+  const { MODELS, TEXT_QUALITIES } = reqB('../api/_lib/ai/models.js');
+  const { resetMemory } = reqB('../api/_lib/ai/kv.js');
+  const voiceTask = reqB('../api/_lib/ai/tasks/voice-entry.js');
+  const { validateInput } = reqB('../api/_lib/ai/tasks/helpers.js');
+
+  const callAiB = async (op, body, headers = {}) => {
+    let status = 200, data = null;
+    const req = { method: body ? 'POST' : 'GET', url: `/api/ai?op=${op}`, query: { op }, headers: { 'x-forwarded-for': '9.8.7.6', ...headers }, body };
+    const res = { statusCode: 200, setHeader() {}, status(c) { status = c; return this; }, end(s) { data = s ? JSON.parse(s) : null; }, json(o) { data = o; } };
+    await aiHandler(req, res);
+    return { status, data };
+  };
+
+  // 1) Server voice-entry v2: 400-char limit, multi-item check, strips invalid amount/category/note/kind, keeps v1 compat
+  const len400Ok = validateInput(voiceTask.input, { sentence: 'a'.repeat(400) }) === null;
+  const len401Err = validateInput(voiceTask.input, { sentence: 'a'.repeat(401) }) !== null;
+  const sMulti = '12 ringgit nasi lemak split half with Ali, then found 50 ringgit on the floor';
+  const checkedMulti = voiceTask.check(
+    { sentence: sMulti, categories: ['Food', 'Income'], people: ['Ali'] },
+    {
+      items: [
+        { kind: 'spend', amount: 12, category: 'Food', note: 'nasi lemak', split: { mode: 'equal', people: [{ name: 'Ali' }] } },
+        { kind: 'income', amount: 50, category: 'NotInList', note: 'found floor' },
+        { kind: 'spend', amount: 777, category: 'Food', note: 'nasi lemak' },
+        { kind: 'spend', amount: 12, category: 'Food', note: 'invented starbucks' },
+        { kind: 'bogus', amount: 12 },
+      ],
+    }
+  );
+  const checkedLegacy = voiceTask.check(
+    { sentence: 'RM 12.50 nasi lemak pakai MAE', categories: ['Food'], wallets: ['MAE'] },
+    { amount: 12.5, category: 'Food', wallet: 'MAE', note: 'nasi lemak' }
+  );
+  check('v1.96.0: voice-entry v2 accepts 400 chars, drops hallucinated amount/category/note/kind, and keeps legacy single-object compatibility',
+    len400Ok && len401Err
+    && checkedMulti && checkedMulti.items.length === 3
+    && checkedMulti.items[0].kind === 'spend' && checkedMulti.items[0].amount === 12 && checkedMulti.items[0].split?.people?.[0]?.name === 'Ali'
+    && checkedMulti.items[1].kind === 'income' && checkedMulti.items[1].amount === 50 && checkedMulti.items[1].category === undefined
+    && checkedMulti.items[2].note === undefined
+    && checkedLegacy && checkedLegacy.amount === 12.5 && checkedLegacy.items?.length === 1,
+    JSON.stringify({ len400Ok, len401Err, checkedMulti, checkedLegacy }));
+
+  // 2) Option A weighted credits (Fast 1x, Smart 2x, Deep 10x) + auto-downgrade to Fast when low + full refund on check fail
+  resetMemory();
+  const proLic = signLicense({ id: 'LIC-V196-OPT-A', iat: Math.floor(Date.now() / 1000) });
+  const seen = [];
+  global.__DUITFUL_AI_GEMINI_STUB__ = async (args) => { seen.push(args); return { payee: 'Grab' }; };
+  const qSmart = await callAiB('run', { task: 'payee-clean', quality: 'smart', input: { raw: 'GRAB KL' } }, { 'x-pro-license': proLic });
+  const qDeep = await callAiB('run', { task: 'payee-clean', quality: 'deep', input: { raw: 'GRAB KL' } }, { 'x-pro-license': proLic });
+  const qDown = await callAiB('run', { task: 'payee-clean', quality: 'deep', input: { raw: 'GRAB KL' } }, { 'x-pro-license': proLic });
+  global.__DUITFUL_AI_GEMINI_STUB__ = async () => ({ payee: 'HALLUCINATED' });
+  const qRefund = await callAiB('run', { task: 'payee-clean', quality: 'smart', input: { raw: 'GRAB KL' } }, { 'x-pro-license': proLic });
+  check('v1.96.0: Option A weighted credits charge 2x (Smart) / 10x (Deep), downgrade to Fast 1x when low, and refund full weight on check failure',
+    MODELS.vision === 'gemini-3.5-flash-lite' && MODELS.text === 'gemini-3.5-flash-lite' && MODELS.deep === 'gemini-4-hydrogen'
+    && TEXT_QUALITIES.fast.weight === 1 && TEXT_QUALITIES.smart.weight === 2 && TEXT_QUALITIES.deep.weight === 10
+    && qSmart.status === 200 && qSmart.data.weight === 2 && qSmart.data.status.textUsed === 2 && seen[0].modelId === 'gemini-3.5-flash-lite'
+    && qDeep.status === 200 && qDeep.data.weight === 10 && qDeep.data.status.textUsed === 12 && seen[1].modelId === 'gemini-4-hydrogen' && seen[1].thinkingLevel === 'low'
+    && qDown.status === 200 && qDown.data.quality === 'fast' && qDown.data.weight === 1 && qDown.data.downgraded === true && qDown.data.status.textUsed === 13
+    && qRefund.status === 200 && qRefund.data.ok === false && qRefund.data.status.textUsed === 13,
+    JSON.stringify({ qSmart: qSmart.data, qDeep: qDeep.data, qDown: qDown.data, qRefund: qRefund.data }));
+
+  delete global.__DUITFUL_PRO_PUBKEY_PEM__;
+  delete global.__DUITFUL_AI_GEMINI_STUB__;
+  if (prevMem === undefined) delete process.env.AI_MEMORY; else process.env.AI_MEMORY = prevMem;
+  if (prevLicKey === undefined) delete process.env.LICENSE_SIGNING_PRIVATE_KEY; else process.env.LICENSE_SIGNING_PRIVATE_KEY = prevLicKey;
+
+  // 3) Browser UI: Kira model picker syncs Settings + Kira hub, updates live remaining calls, fits at 360px, and sends quality in aiCloudRun
+  const qCtx = await b.newContext({ viewport: { width: 360, height: 780 } });
+  const qp = await qCtx.newPage();
+  const qErr = [];
+  qp.on('pageerror', (e) => qErr.push(e.message));
+  await qp.goto(`${BASE}/app/index.html`);
+  await qp.waitForTimeout(500);
+  await qp.click('#btn-start-open');
+  await qp.waitForTimeout(1200);
+  const qUi = await qp.evaluate(async () => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    state.pro = true;
+    state.aiPlusEnabled = true;
+    state.aiPlusPreviewedKinds = { payee: true };
+    state.aiSub = {
+      active: true,
+      tier: 'aiplus',
+      subToken: 'dev.mock.tok',
+      expiresAt: Date.now() + 30 * 86400000,
+      textUsed: 0,
+      textLimit: 1000,
+      scansUsed: 0,
+      scansLimit: 100,
+      syncedAt: Date.now(),
+    };
+    save(); renderAll(); renderAiCloudSettings();
+    openKiraHub();
+    const res = {};
+    res.hubPickerVisible = !document.getElementById('kira-hub-quality').hidden;
+    res.fastHint = document.getElementById('kira-hub-quality-hint').textContent.trim();
+    document.querySelector('#kira-hub-quality-picker [data-ai-quality="smart"]').click();
+    res.smartState = state.aiQuality;
+    res.smartHint = document.getElementById('kira-hub-quality-hint').textContent.trim();
+    res.settingsSynced = document.querySelector('#ai-quality-picker [data-ai-quality="smart"]').classList.contains('active');
+    document.querySelector('#kira-hub-quality-picker [data-ai-quality="deep"]').click();
+    res.deepHint = document.getElementById('kira-hub-quality-hint').textContent.trim();
+    const pills = [...document.querySelectorAll('#kira-hub-quality-picker .ai-quality-pill')];
+    const box = document.getElementById('kira-hub-quality-picker').getBoundingClientRect();
+    res.pillsFit = pills.every((p) => { const r = p.getBoundingClientRect(); return r.left >= box.left - 1 && r.right <= box.right + 1; });
+    closeKiraHub();
+
+    let sentBody = null;
+    const origFetch = window.fetch;
+    window.fetch = async (_u, init) => {
+      sentBody = JSON.parse(init.body);
+      return new Response(JSON.stringify({ ok: true, result: { payee: 'Grab' } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    };
+    await aiCloudCleanPayee('GRAB KL', { skipPreview: true });
+    window.fetch = origFetch;
+    res.sentQuality = sentBody && sentBody.quality;
+    return res;
+  });
+  check('v1.96.0: Kira model picker syncs Settings + Kira hub, updates live remaining-call estimates (~1000 / ~500 / ~100), fits at 360px, and sends quality on aiCloudRun',
+    qUi.hubPickerVisible && /1000/.test(qUi.fastHint) && qUi.smartState === 'smart'
+    && /500/.test(qUi.smartHint) && qUi.settingsSynced && /100/.test(qUi.deepHint)
+    && qUi.pillsFit && qUi.sentQuality === 'deep',
+    JSON.stringify(qUi));
+  check('v1.96.0: no page errors in Option A model picker suite', qErr.length === 0, JSON.stringify(qErr));
+  await qCtx.close();
 }
 
 await b.close();
