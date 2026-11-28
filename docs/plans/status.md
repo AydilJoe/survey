@@ -1,6 +1,6 @@
 # Who is on what (read before starting, update when you finish)
 
-Updated 27 Nov 2026. Two AIs work in this repo: **Claude Code** (design, review, shipping) and **Antigravity** (long builds from written specs). The owner decides priorities.
+Updated 28 Nov 2026. Two AIs work in this repo: **Claude Code** (design, review, shipping) and **Antigravity** (long builds from written specs). The owner decides priorities.
 
 ## Freeze: beta only until Duitful 2.0 (target live 25 Dec 2026)
 
@@ -12,14 +12,13 @@ Updated 27 Nov 2026. Two AIs work in this repo: **Claude Code** (design, review,
 
 | Area | Owner | Notes |
 |---|---|---|
-| Duitful 2.0 shell: glance Home, middle bubble, radial menu, add modals, ☰ menu | Antigravity | Stage A, in progress on branch `feat/duitful-2-stage-a` (building on top of Claude's `56030ba`) |
-| Kira (mascot, voice sheet, festive outfits) | Claude | Stage B spec: `kira-2-stage-b.md` |
+| Duitful 2.0 shell: glance Home, Jelly bubble, 4-bubble radial, Money out / Income / Kira hub, ☰ menu | Antigravity | On `main` since v1.84.0. **`main` is the only 2.0 line**: Claude's old 2.0 branch (`claude/gallant-faraday-jv8nue`) is retired, nothing more merges from it. |
+| Kira (mascot, festive outfits) and the voice parser (`app/voice.js`: several items, history, on-device AI labels, row fixes) | Claude | Voice look (Stage B stage, waves) is Antigravity's; the parsing and the preview rows are Claude's |
 | Sheets, voice hints, split request tidy (1.82.0) | Claude | Merged in PR #478 |
 | AI+ server (`api/ai.js`, `api/_lib/ai/*`): quotas, Pro taste, trial attestation | Antigravity | Spec: `kira-tiers.md`; plan: `cloud-ai-subscription.md`, `ai-plus-handoff.md` |
 | Store billing and verification (StoreKit 2, Play Billing, webhooks) | Antigravity | StoreKit 2 shipped in 1.81.0 |
 | Exchange rates / `api/fx.js` | Antigravity | |
 | Repetitive work: bank alert patterns, translation rows, guides | Whoever is free | Claude posts any user-reported sample (e.g. Boost Bank) here |
-| Stage B build (voice screen, Kira meter, paywall wiring) | Antigravity, after stage A merges | Spec: `kira-2-stage-b.md` |
 
 Shared files (`app/script.js`, `app/styles.css`, `app/index.html`, `scripts/i18n/locales/*`, `tests/e2e.mjs`, `CLAUDE.md`): tell the other side in this file before a big edit, keep PRs small, and merge `origin/main` before every PR. Whoever lands second resolves the conflicts.
 
@@ -39,6 +38,10 @@ Shared files (`app/script.js`, `app/styles.css`, `app/index.html`, `scripts/i18n
 | 2.0 stage A (v1.84.0) + Free Debt Strategy Library (v1.85.0) + Native Haptics (v1.86.0) + Statement Reconciliation (v1.87.0) + Stage B Voice & Kira Assistant (v1.88.0) + Country Tax Packs (v1.90.0) + Floating Kira Animations (v1.91.0) | Antigravity | shipped to TestFlight & Play Beta |
 | First-time statement bank, card & wallet auto-matching (v1.92.0) | Antigravity | implemented on `feat/statement-wallet-automatch` |
 | Pro taste (20 actions + 3 scans a month) and attested trial quota on the AI+ server | Antigravity | next up — spec in `kira-tiers.md` |
+| Voice: several spends / split / income in one sentence (v1.89.0), income words + note fix (v1.92.1) | Claude | shipped (PRs #488, #492) |
+| Voice understands meaning, not word lists (v1.93.0): learns from your own entries, on-device AI labels unclear items (`aiReadVoice`, Swift + Java, never the amount), In / Out toggle + category chip per row | Claude | building on `claude/voice-smart` |
+| AI+ `voice-entry` returns several items (+ sentence 400 chars) and a model check for `voice-entry` / `kira-ask` | Antigravity | spec: `voice-items-ai-plus.md`. Touches `app/voice.js` `parseVoiceSmart` only after 1.93.0 merges |
+| Stage A follow-ups: a **"To savings"** tab in Money out (one tap to put money in a goal; not "Save", which is the submit button) and an easier way into **Talk** (a mic in the Kira hub's top row or a first-use "Talk" label; hold-only is hard to find) | Antigravity | owner agreed 28 Nov |
 | Boost Bank alert wording (user email, 26 Nov) | Claude | asked the user for a screenshot; add the pattern when it arrives |
 | Real-device test of "Talk to Kira", Siri-style voice waves, iOS Taptic Engine haptics, and StoreKit 2 sandbox | Owner | |
 
