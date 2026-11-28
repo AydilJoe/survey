@@ -20250,6 +20250,226 @@ check('the brand catalogue makes no network calls at all',
   await wCtx.close();
 }
 
+// ── v1.93.0: AI+ Server Tiers (Pro taste, 14-day attested trial, unified op=status, 429 resetsAt) ──
+{
+  const cryptoMod = await import('node:crypto');
+  const { createRequire } = await import('node:module');
+  const reqCjs = createRequire(import.meta.url);
+  const prevMem = process.env.AI_MEMORY;
+  const prevLicKey = process.env.LICENSE_SIGNING_PRIVATE_KEY;
+  process.env.AI_MEMORY = '1';
+
+  const aiHandler = reqCjs(path.join(REPO_ROOT, 'api/ai.js'));
+  const { resetMemory, store, keys } = reqCjs(path.join(REPO_ROOT, 'api/_lib/ai/kv.js'));
+  const { signLicense } = reqCjs(path.join(REPO_ROOT, 'api/_lib/license.js'));
+  const { playIntegrityBoundNonce } = reqCjs(path.join(REPO_ROOT, 'api/_lib/ai/attest.js'));
+
+  const callTierApi = async ({ method = 'POST', op, token, headers = {}, body }) => {
+    const req = {
+      method,
+      query: { op },
+      headers: {
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v])),
+      },
+      body,
+      socket: { remoteAddress: '127.0.0.1' },
+    };
+    let status = 200, data = null;
+    const res = {
+      setHeader() {},
+      status(c) { status = c; return this; },
+      json(d) { data = d; return this; },
+      end() { return this; },
+    };
+    await aiHandler(req, res);
+    return { status, data };
+  };
+
+  resetMemory();
+  const { publicKey, privateKey } = cryptoMod.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  global.__DUITFUL_PRO_PUBKEY_PEM__ = publicKey.export({ type: 'spki', format: 'pem' });
+  process.env.LICENSE_SIGNING_PRIVATE_KEY = privateKey.export({ type: 'pkcs8', format: 'pem' });
+  let tierStubOut = { payee: 'Grab' };
+  global.__DUITFUL_AI_GEMINI_STUB__ = async () => tierStubOut;
+
+  // 1) Free status (no credentials)
+  const freeSt = await callTierApi({ method: 'GET', op: 'status' });
+  check('v1.93.0: GET ?op=status without auth returns unified tier "free" (0/0)',
+    freeSt.status === 200 && freeSt.data?.status?.tier === 'free'
+    && freeSt.data.status.text?.limit === 0 && freeSt.data.status.scan?.limit === 0,
+    JSON.stringify(freeSt));
+
+  // 2) Pro taste: ECDSA P-256 licence (direct X-Pro-License + verify-pro + tamper reject + 3-scan MY-time cap)
+  const proLic = signLicense({ id: 'lic-e2e-93', product: 'duitful_pro', sub: 'pro-user' });
+  const badLic = proLic.slice(0, -3) + 'ZZZ';
+  const proDirect = await callTierApi({ method: 'GET', op: 'status', headers: { 'x-pro-license': proLic } });
+  const proBad = await callTierApi({ method: 'GET', op: 'status', headers: { 'x-pro-license': badLic } });
+  const proVer = await callTierApi({ op: 'verify-pro', body: { proLicense: proLic } });
+  const proNative = await callTierApi({ op: 'verify-pro', body: { platform: 'ios', productId: 'duitful_pro', transactionId: 'pro-tx-93' } });
+
+  tierStubOut = { total: 12.5, vendor: 'Kopi', category: 'Food' };
+  const scanRuns = [];
+  for (let i = 0; i < 4; i++) {
+    scanRuns.push(await callTierApi({
+      op: 'run', token: proVer.data?.tierToken,
+      body: { task: 'receipt-read', input: { ocrText: 'KOPI\nTOTAL 12.50', categories: ['Food'] } },
+    }));
+  }
+  check('v1.93.0: Pro taste verifies ECDSA licence & native receipt, grants 20 text + 3 scans/mo (MY UTC+8), and returns 429 { reason: "quota", resetsAt } at cap',
+    proDirect.status === 200 && proDirect.data?.status?.tier === 'pro_taste'
+    && proDirect.data.status.text?.limit === 20 && proDirect.data.status.scan?.limit === 3
+    && /\+08:00$/.test(proDirect.data.status.resetsAt || '')
+    && proBad.status === 401
+    && proVer.status === 200 && String(proVer.data?.tierToken || '').startsWith('t.')
+    && proNative.status === 200 && proNative.data?.status?.tier === 'pro_taste'
+    && scanRuns[0].status === 200 && scanRuns[2].status === 200 && scanRuns[2].data?.status?.scan?.used === 3
+    && scanRuns[3].status === 429 && scanRuns[3].data?.reason === 'quota' && /\+08:00$/.test(scanRuns[3].data?.resetsAt || ''),
+    JSON.stringify({ proDirect: proDirect.data, proBad: proBad.status, scan4: scanRuns[3] }));
+
+  // 3) Precedence: active AI+ always beats Pro taste; expired AI+ falls back cleanly to Pro taste
+  const aiVer = await callTierApi({ op: 'verify-sub', body: { platform: 'ios', plan: 'duitful_ai_monthly', transactionId: 'tx-ai-93-combo' } });
+  const bothActive = await callTierApi({ method: 'GET', op: 'status', token: aiVer.data?.subToken, headers: { 'x-pro-license': proLic } });
+  const aiExp = await callTierApi({ op: 'verify-sub', body: { platform: 'ios', plan: 'duitful_ai_monthly', transactionId: 'tx-ai-93-exp', expiresAt: Date.now() + 5000 } });
+  // Manually expire tx-ai-93-exp in KV to verify Pro taste fallback
+  const kvStore = store();
+  const expSubKey = `ai_sub:ios_${cryptoMod.createHash('sha256').update('tx-ai-93-exp').digest('hex').slice(0, 20)}`;
+  const expRec = await kvStore.get(expSubKey);
+  if (expRec) { expRec.expiresAt = Date.now() - 1000; await kvStore.set(expSubKey, expRec); }
+  const lapsedFallback = await callTierApi({ method: 'GET', op: 'status', token: aiExp.data?.subToken, headers: { 'x-pro-license': proLic } });
+  check('v1.93.0: active AI+ never lowered by Pro taste (1000/100); lapsed AI+ falls back cleanly to Pro taste (20/3)',
+    bothActive.status === 200 && bothActive.data?.status?.tier === 'aiplus' && bothActive.data.status.text?.limit === 1000
+    && lapsedFallback.status === 200 && lapsedFallback.data?.status?.tier === 'pro_taste' && lapsedFallback.data.status.text?.limit === 20,
+    JSON.stringify({ bothActive: bothActive.data?.status, lapsedFallback: lapsedFallback.data?.status }));
+
+  // 4) 14-day attested trial: web rejected, single-use nonce, Play Integrity verified, reinstall idempotent, expired refused
+  const ch1 = await callTierApi({ op: 'trial-challenge' });
+  const webTrial = await callTierApi({ op: 'verify-trial', body: { platform: 'web', nonce: ch1.data?.nonce } });
+  const devId = 'android-e2e-device-93';
+  global.__DUITFUL_PLAY_INTEGRITY_STUB__ = async ({ nonce, deviceId }) => ({
+    requestDetails: { requestPackageName: 'com.aydiljoe.duitful', nonce: playIntegrityBoundNonce(nonce, deviceId) },
+    appIntegrity: { appRecognitionVerdict: 'PLAY_RECOGNIZED' },
+    deviceIntegrity: { deviceRecognitionVerdict: ['MEETS_DEVICE_INTEGRITY'] },
+  });
+  const tr1 = await callTierApi({ op: 'verify-trial', body: { platform: 'android', nonce: ch1.data?.nonce, integrityToken: 'tok-integrity-e2e-valid-9301', deviceId: devId } });
+  const trReplay = await callTierApi({ op: 'verify-trial', body: { platform: 'android', nonce: ch1.data?.nonce, integrityToken: 'tok-integrity-e2e-valid-9301', deviceId: devId } });
+  tierStubOut = { payee: 'Grab' };
+  const trRun = await callTierApi({ op: 'run', token: tr1.data?.tierToken, body: { task: 'payee-clean', input: { raw: 'GRAB KL' } } });
+  const ch2 = await callTierApi({ op: 'trial-challenge' });
+  const trReinstall = await callTierApi({ op: 'verify-trial', body: { platform: 'android', nonce: ch2.data?.nonce, integrityToken: 'tok-integrity-e2e-valid-9302', deviceId: devId } });
+
+  // Expire the trial record in KV and verify reinstall & run both get 403 trial-expired
+  const devHash = cryptoMod.createHash('sha256').update(`and-attest:${devId}`).digest('hex').slice(0, 24);
+  const trRec = await kvStore.get(keys.trial(devHash));
+  if (trRec) { trRec.expiresAt = Date.now() - 1000; await kvStore.set(keys.trial(devHash), trRec); }
+  const ch3 = await callTierApi({ op: 'trial-challenge' });
+  const trExpiredVerify = await callTierApi({ op: 'verify-trial', body: { platform: 'android', nonce: ch3.data?.nonce, integrityToken: 'tok-integrity-e2e-valid-9303', deviceId: devId } });
+  const trExpiredRun = await callTierApi({ op: 'run', token: tr1.data?.tierToken, body: { task: 'payee-clean', input: { raw: 'GRAB KL' } } });
+
+  check('v1.93.0: 14-day attested trial rejects web & nonce replay, enforces Play Integrity (100/10), survives reinstall without resetting clock, and refuses expired trials',
+    ch1.status === 200 && webTrial.status === 400 && webTrial.data?.error === 'attestation-required'
+    && tr1.status === 200 && tr1.data?.status?.tier === 'trial' && tr1.data.status.text?.limit === 100 && tr1.data.status.scan?.limit === 10
+    && trReplay.status === 400 && trReplay.data?.error === 'invalid-nonce'
+    && trRun.status === 200 && trRun.data?.status?.text?.used === 1
+    && trReinstall.status === 200 && trReinstall.data?.status?.startedAt === tr1.data.status.startedAt && trReinstall.data.status.text?.used === 1
+    && trExpiredVerify.status === 403 && trExpiredVerify.data?.error === 'trial-expired'
+    && trExpiredRun.status === 403 && trExpiredRun.data?.error === 'trial-expired',
+    JSON.stringify({ webTrial: webTrial.data, tr1: tr1.data?.status, trReplay: trReplay.data, trReinstall: trReinstall.data?.status, trExpiredVerify: trExpiredVerify.status, trExpiredRun: trExpiredRun.status }));
+
+  // Clean up test globals
+  delete global.__DUITFUL_PRO_PUBKEY_PEM__;
+  delete global.__DUITFUL_AI_GEMINI_STUB__;
+  delete global.__DUITFUL_PLAY_INTEGRITY_STUB__;
+  if (prevMem === undefined) delete process.env.AI_MEMORY; else process.env.AI_MEMORY = prevMem;
+  if (prevLicKey === undefined) delete process.env.LICENSE_SIGNING_PRIVATE_KEY; else process.env.LICENSE_SIGNING_PRIVATE_KEY = prevLicKey;
+
+  // 5) Static checks: native App Attest & Play Integrity bridges + zero new Vercel functions (<= 12 cap)
+  const swiftSrc = readFileSync(path.join(REPO_ROOT, 'native/duitful-kit/ios/Sources/DuitfulKitPlugin/DuitfulKitPlugin.swift'), 'utf8');
+  const javaSrc = readFileSync(path.join(REPO_ROOT, 'native/duitful-kit/android/DuitfulKitPlugin.java'), 'utf8');
+  const { DEPENDENCIES: dkDeps } = await import(pathToFileURL(path.join(REPO_ROOT, 'scripts/install-duitful-kit.mjs')).href);
+  const apiFuncs = readdirSync(path.join(REPO_ROOT, 'api')).filter((f) => f.endsWith('.js'));
+  check('v1.93.0: native App Attest (iOS) & Play Integrity (Android) bridges wired and api/ stays within Hobby function cap',
+    /DCAppAttestService/.test(swiftSrc) && /func attestDevice/.test(swiftSrc)
+    && /IntegrityManagerFactory/.test(javaSrc) && /void attestDevice/.test(javaSrc)
+    && dkDeps.some((d) => d.startsWith('com.google.android.play:integrity:'))
+    && apiFuncs.length <= 4 && apiFuncs.includes('ai.js'),
+    JSON.stringify({ apiFuncs }));
+
+  // 6) Browser E2E: Pro taste enables Cloud AI toggle + Kira hub meter; web trial shows plain on-device note; 429 resetsAt falls back cleanly
+  const tCtx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  const tp = await tCtx.newPage();
+  const tErr = [];
+  tp.on('pageerror', (e) => tErr.push(e.message));
+  await tp.goto(`${BASE}/app/index.html`);
+  await tp.waitForTimeout(500);
+  await tp.click('#btn-start-open');
+  await tp.waitForTimeout(1500);
+  await tp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+
+  const uiRes = await tp.evaluate(async () => {
+    const out = {};
+    // Web trial shows plain on-device note in Kira Hub
+    state.pro = false;
+    state.proTrialStartedAt = Date.now();
+    state.aiSub = null;
+    save(); renderAll();
+    openKiraHub();
+    out.webTrialVisible = !document.getElementById('kira-hub-meter').hidden;
+    out.webTrialText = document.getElementById('kira-hub-meter-text').textContent.trim();
+    closeKiraHub();
+
+    // Pro taste enables Cloud AI toggle & renders 14 of 20 left meter in Kira Hub
+    state.pro = true;
+    state.proTrialStartedAt = 0;
+    state.aiPlusEnabled = true;
+    state.aiPlusPreviewedKinds = { payee: true };
+    state.aiSub = {
+      active: false,
+      tier: 'pro_taste',
+      tierToken: 't.mock.token',
+      periodKey: new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 7),
+      resetsAt: '2026-12-01T00:00:00+08:00',
+      textUsed: 6,
+      textLimit: 20,
+      scansUsed: 1,
+      scansLimit: 3,
+      syncedAt: Date.now(),
+    };
+    save(); renderAll(); renderAiCloudSettings();
+    out.toggleEnabled = !document.getElementById('ai-cloud-toggle').disabled;
+    out.cloudAllowed = aiCloudAllowed();
+    openKiraHub();
+    out.hubMeter = document.getElementById('kira-hub-meter-text').textContent.trim();
+    out.hubSub = document.getElementById('kira-hub-meter-sub').textContent.trim();
+    closeKiraHub();
+
+    // 429 { reason: "quota", resetsAt } dispatches duitful:ai-quota with resetsAt and returns null cleanly
+    let quotaEv = null;
+    const onQ = (e) => { quotaEv = e.detail; };
+    window.addEventListener('duitful:ai-quota', onQ, { once: true });
+    const origFetch = window.fetch;
+    window.fetch = async () => new Response(JSON.stringify({
+      error: 'quota',
+      reason: 'quota',
+      resetsAt: '2026-12-01T00:00:00+08:00',
+      status: { tier: 'pro_taste', active: false, text: { used: 20, limit: 20 }, scan: { used: 1, limit: 3 }, resetsAt: '2026-12-01T00:00:00+08:00' },
+    }), { status: 429, headers: { 'Content-Type': 'application/json' } });
+    const runRes = await aiCloudCleanPayee('GRAB KL', { skipPreview: true });
+    window.fetch = origFetch;
+    out.runNull = runRes === null;
+    out.quotaResetsAt = quotaEv && quotaEv.resetsAt;
+    return out;
+  });
+  check('v1.93.0: web trial shows on-device notice, Pro taste unlocks Cloud AI toggle & Kira hub meter, and 429 resetsAt falls back quietly',
+    uiRes.webTrialVisible && /on-device AI only/i.test(uiRes.webTrialText)
+    && uiRes.toggleEnabled && uiRes.cloudAllowed
+    && /14 of 20 left/.test(uiRes.hubMeter) && /2 of 3 scans left/.test(uiRes.hubSub)
+    && uiRes.runNull && uiRes.quotaResetsAt === '2026-12-01T00:00:00+08:00',
+    JSON.stringify(uiRes));
+  check('v1.93.0: no page errors in AI+ Server Tiers browser suite', tErr.length === 0, JSON.stringify(tErr));
+  await tCtx.close();
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();

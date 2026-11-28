@@ -53,6 +53,8 @@ export const DEPENDENCIES = [
   "com.google.mlkit:genai-prompt:1.0.0-beta5",
   // Play's in-app review sheet, asked once at the debt-free moment.
   "com.google.android.play:review:2.0.2",
+  // Google Play Integrity for the 14-day attested Kira trial (minSdk 19).
+  "com.google.android.play:integrity:1.4.0",
   // The background check for "I've paid" on split bills (DuitfulRelayWorker).
   // Entity Extraction already brings WorkManager; this pins it as ours.
   "androidx.work:work-runtime:2.9.1",

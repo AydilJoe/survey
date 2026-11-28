@@ -36,9 +36,8 @@ Shared files (`app/script.js`, `app/styles.css`, `app/index.html`, `scripts/i18n
 
 | What | Owner | State |
 |---|---|---|
-| 2.0 stage A (v1.84.0) + Free Debt Strategy Library (v1.85.0) + Native Haptics (v1.86.0) + Statement Reconciliation (v1.87.0) + Stage B Voice & Kira Assistant (v1.88.0) + Country Tax Packs (v1.90.0) + Floating Kira Animations (v1.91.0) | Antigravity | shipped to TestFlight & Play Beta |
-| First-time statement bank, card & wallet auto-matching (v1.92.0) | Antigravity | implemented on `feat/statement-wallet-automatch` |
-| Pro taste (20 actions + 3 scans a month) and attested trial quota on the AI+ server | Antigravity | next up — spec in `kira-tiers.md` |
+| 2.0 stage A (v1.84.0) + Free Debt Strategy Library (v1.85.0) + Native Haptics (v1.86.0) + Statement Reconciliation (v1.87.0) + Stage B Voice & Kira Assistant (v1.88.0) + Country Tax Packs (v1.90.0) + Floating Kira Animations (v1.91.0) + Statement Wallet Auto-Match (v1.92.0) | Antigravity | shipped to TestFlight & Play Beta |
+| AI+ Server Tiers: Pro taste (20 text + 3 scans/mo MY time), 14-day attested trial (App Attest / Play Integrity), unified `op=status` & `429 resetsAt` (v1.93.0) | Antigravity | implemented on `feat/kira-ai-tiers` (`docs/plans/kira-tiers.md`) |
 | Boost Bank alert wording (user email, 26 Nov) | Claude | asked the user for a screenshot; add the pattern when it arrives |
 | Real-device test of "Talk to Kira", Siri-style voice waves, iOS Taptic Engine haptics, and StoreKit 2 sandbox | Owner | |
 
