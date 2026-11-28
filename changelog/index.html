@@ -153,6 +153,16 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-98-0">
+    <span class="release-date">November 2026 &middot; v1.98.0</span>
+    <h2 class="release-title">Multi-item Cloud Kira for Talk to Kira</h2>
+    <ul>
+      <li><span class="tag feat">feat</span><strong>Multi-item cloud merge:</strong> <code>parseVoiceSmart</code> now upgrades sentences containing multiple spends, splits, and income entries (up to 400 characters) instead of skipping the cloud when more than one item is spoken.</li>
+      <li><span class="tag fix">fix</span><strong>Phone-first guards:</strong> amounts and split maths stay verified on the phone — if cloud and phone item counts differ, the phone's items stand and cloud labels apply only where amounts match. Rows you already edited are never overwritten by a late cloud reply.</li>
+      <li><span class="tag fix">fix</span><strong>Your own words win:</strong> what Kira learned from your past entries, and clear words like "salary" or "spent", beat the cloud; the cloud never invents an amount, never turns a spend into a debt payment, keeps an exact split request exact, and a row you removed while it was thinking stays removed.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-97-0">
     <span class="release-date">November 2026 &middot; v1.97.0</span>
     <h2 class="release-title">Hold the bubble, slide to Save or Cancel</h2>

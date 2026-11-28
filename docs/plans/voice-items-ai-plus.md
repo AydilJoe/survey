@@ -39,7 +39,7 @@ That sentence should give a spend with a split request, then income.
   - "found / got / received / gaji / freelance / income / jumpa duit" means money in.
   - A split's own figure ("request RM 20 from Ali") is **not** a new item.
 
-### 2. The phone side (Claude does this after your server change merges, or you do it in the same PR, your call)
+### 2. The phone side (shipped in 1.98.0: `voiceMergeCloud` in `app/voice.js`)
 
 - `parseVoiceSmart`: send the sentence even when the local parse found several items.
   - The cloud may fill in or relabel items: kind, category, note, split.
