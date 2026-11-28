@@ -8406,6 +8406,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.95.0": [
+    "<strong>To savings tab &amp; faster Talk to Kira</strong> — Money out now includes a dedicated \"To savings\" tab next to Spend, Split, and Pay debt so topping up a savings goal takes one tap (without mixing up \"Save\" with the submit button), and the Kira hub now puts a one-tap Talk mic button right in its top bar alongside the first-use Talk pill.",
+  ],
   "1.94.0": [
     "<strong>Kira learns your words</strong> — Talk to Kira now goes by what you've logged before: say \"100 ringgit tutoring\" and it's income if that's how you saved it last time. Each row has an In / Out switch and a category chip to fix it in one tap, and Kira remembers the fix. On supported phones, the phone's own AI helps with rows Kira isn't sure of (never the amount).",
   ],

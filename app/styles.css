@@ -11465,6 +11465,25 @@ html[data-theme="pastel"] {
   background: color-mix(in srgb, var(--text) 10%, transparent);
   color: var(--ink2);
 }
+.kira-hub-talk-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--r-pill);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--brand-ink);
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--brand) 30%, transparent);
+  flex: none;
+  white-space: nowrap;
+}
+.kira-hub-talk-btn:hover {
+  background: color-mix(in srgb, var(--brand) 22%, transparent);
+}
+.kira-hub-talk-btn svg { width: 0.95rem; height: 0.95rem; flex: none; }
 .kira-hub-card {
   padding: 0.75rem 0.85rem;
   border-radius: var(--r-md);
@@ -11630,12 +11649,22 @@ html[data-theme="pastel"] {
 .home-cat-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
 .home-cats .today-links { margin-top: 0.5rem; }
 .up-more { cursor: pointer; }
-/* The sheet is narrower than the old card on a small phone: the three tabs
-   stack icon over label so a long word ("Bayar hutang", "Tabung") stays in. */
-.add-dialog .quick-add .type-pills { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.add-dialog .quick-add .pill { min-width: 0; text-align: center; overflow-wrap: anywhere; }
+/* The sheet is narrower than the old card on a small phone: the four tabs
+   (Spend, Split, Pay debt, To savings) stack icon over label so longer words
+   ("Bayar hutang", "Ke simpanan", "存入储蓄") stay cleanly inside. */
+.add-dialog .quick-add .type-pills { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.35rem; }
+.add-dialog .quick-add .pill {
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.22rem;
+  padding: 0.52rem 0.25rem;
+  font-size: 0.8rem;
+  line-height: 1.18;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
 @media (max-width: 420px) {
-  .add-dialog .quick-add .pill { flex-direction: column; gap: 0.2rem; padding: 0.55rem 0.3rem; font-size: 0.82rem; line-height: 1.2; }
+  .add-dialog .quick-add .pill { gap: 0.18rem; padding: 0.48rem 0.18rem; font-size: 0.75rem; line-height: 1.14; }
 }
 
 /* ---------- Kira purchase processing / waiting modal ---------- */
@@ -12262,6 +12291,9 @@ html.kb-open .voice-waves {
   position: fixed;
   z-index: 45;
   transform: translate(-50%, -100%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
   padding: 0.35rem 0.72rem;
   border-radius: var(--r-pill, 999px);
   border: 0;
@@ -12273,6 +12305,7 @@ html.kb-open .voice-waves {
   box-shadow: 0 6px 18px color-mix(in srgb, var(--text) 18%, transparent);
   cursor: pointer;
 }
+.bubble-hold-hint svg { width: 0.88rem; height: 0.88rem; flex: none; }
 .bubble-hold-hint[data-pos="side"] {
   transform: translate(0, -50%);
 }

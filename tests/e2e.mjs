@@ -20751,6 +20751,100 @@ check('the brand catalogue makes no network calls at all',
   await tCtx.close();
 }
 
+// ── v1.95.0: Stage A follow-ups ("To savings" tab in Money out + easier Talk) ──
+{
+  const sCtx = await b.newContext({ viewport: { width: 360, height: 780 } });
+  const sp = await sCtx.newPage();
+  const sErr = [];
+  sp.on('pageerror', (e) => sErr.push(e.message));
+  await sp.goto(`${BASE}/app/index.html`);
+  await sp.waitForTimeout(500);
+  await sp.click('#btn-start-open');
+  await sp.waitForTimeout(1200);
+  await sp.evaluate(() => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    state.savings = [{ id: 'g-emg', name: 'Emergency fund', target: 5000, current: 200 }];
+    state.wallets = [{ id: 'w-main', name: 'Main Bank', type: 'bank', balance: 1000, currency: 'MYR' }];
+    save(); renderAll();
+  });
+
+  // 1) "To savings" tab sits in Money out beside Spend / Split / Pay debt, never overflows at 360px across EN/MS/ZH, and records a goal deposit cleanly.
+  const langs = {};
+  for (const lang of ['en', 'ms', 'zh']) {
+    await sp.evaluate((v) => {
+      const sel = document.getElementById('pref-language');
+      if (sel) { sel.value = v; sel.dispatchEvent(new Event('change')); }
+    }, lang);
+    await sp.waitForFunction((want) => typeof I18N !== 'undefined' && I18N.lang === want, lang, { timeout: 5000 });
+    langs[lang] = await sp.evaluate(() => {
+      openAddEntry('expense');
+      const pills = [...document.querySelectorAll('#add-dialog .type-pills .pill')];
+      const box = document.querySelector('#add-dialog .type-pills').getBoundingClientRect();
+      const saveTab = document.querySelector('#add-dialog [data-type="saving"]');
+      const info = {
+        count: pills.length,
+        saveLabel: saveTab ? saveTab.textContent.trim() : '',
+        allFit: pills.every((p) => {
+          const r = p.getBoundingClientRect();
+          return r.left >= box.left - 1 && r.right <= box.right + 1 && p.scrollWidth <= p.clientWidth + 2;
+        }),
+      };
+      closeAddEntry();
+      return info;
+    });
+  }
+  await sp.evaluate(() => {
+    const sel = document.getElementById('pref-language');
+    if (sel) { sel.value = 'en'; sel.dispatchEvent(new Event('change')); }
+  });
+  await sp.waitForFunction(() => typeof I18N !== 'undefined' && I18N.lang === 'en', { timeout: 5000 });
+
+  const out = await sp.evaluate(() => {
+    const res = {};
+    // Click "To savings", enter RM 150, submit -> updates Emergency fund to 350 and logs kind:'saving'
+    openAddEntry('expense');
+    document.querySelector('#add-dialog [data-type="saving"]').click();
+    res.typeAfterClick = document.getElementById('daily-type').value;
+    res.submitLabel = document.getElementById('daily-submit-btn').textContent.trim();
+    const form = document.getElementById('form-daily');
+    form.querySelector('input[name="amount"]').value = '150';
+    form.querySelector('select[name="target"]').value = 'saving:g-emg';
+    form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    res.goalAfter = state.savings.find((g) => g.id === 'g-emg')?.current;
+    res.savingEntry = (state.dailyExpenses || []).some((e) => e.kind === 'saving' && e.amount === 150 && e.savingId === 'g-emg');
+    res.addClosed = !document.getElementById('add-dialog').open;
+
+    // 2) Kira hub top-row Talk mic button opens #voice-dialog immediately and marks hold-talk done.
+    localStorage.removeItem('duitful.holdTalkDone');
+    syncBubbleHoldHint();
+    res.hintHasMic = !!document.querySelector('#bubble-hold-hint svg');
+    openKiraHub();
+    const talkBtn = document.getElementById('kira-hub-talk');
+    res.hubTalkVisible = !!talkBtn && talkBtn.getBoundingClientRect().width > 20;
+    talkBtn.click();
+    res.hubClosed = !document.getElementById('kira-hub-dialog').open;
+    res.voiceOpened = !!document.getElementById('voice-dialog').open;
+    res.holdDoneMarked = localStorage.getItem('duitful.holdTalkDone') === '1';
+    document.getElementById('voice-dialog').close();
+    return res;
+  });
+
+  check('v1.95.0: Money out has 4 tabs including "To savings" (EN/MS "Ke simpanan"/ZH "存入储蓄") fitting cleanly at 360px',
+    langs.en.count === 4 && langs.en.saveLabel === 'To savings' && langs.en.allFit
+    && langs.ms.saveLabel === 'Ke simpanan' && langs.ms.allFit
+    && langs.zh.saveLabel === '存入储蓄' && langs.zh.allFit,
+    JSON.stringify(langs));
+  check('v1.95.0: "To savings" tab deposits RM 150 into Emergency fund with "Save deposit" submit label',
+    out.typeAfterClick === 'saving' && out.submitLabel === 'Save deposit'
+    && out.goalAfter === 350 && out.savingEntry && out.addClosed,
+    JSON.stringify(out));
+  check('v1.95.0: Kira hub top-row Talk mic button opens Voice sheet and marks first-use Talk pill done',
+    out.hintHasMic && out.hubTalkVisible && out.hubClosed && out.voiceOpened && out.holdDoneMarked,
+    JSON.stringify(out));
+  check('v1.95.0: no page errors in Stage A follow-ups suite', sErr.length === 0, JSON.stringify(sErr));
+  await sCtx.close();
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();

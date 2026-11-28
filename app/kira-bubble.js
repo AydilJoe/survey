@@ -385,7 +385,7 @@ function openAddEntry(kind, opts) {
   if (title) {
     title.textContent = addEntryFresh()
       ? tr("Log your first spend")
-      : (kind === "saving" ? tr("Save") : tr("Money out"));
+      : tr("Money out");
   }
   if (!dlg.open && typeof dlg.showModal === "function") dlg.showModal();
   if (o.focus !== false) {
@@ -582,6 +582,14 @@ function initKiraHub() {
     const voiceBtn = e.target instanceof Element ? e.target.closest("#btn-voice") : null;
     if (voiceBtn) closeKiraHub();
   }, { capture: true });
+
+  bubbleEl("kira-hub-talk")?.addEventListener("click", () => {
+    playBloop();
+    kiraHaptic(10, "LIGHT");
+    markHoldTalkDone();
+    closeKiraHub();
+    if (typeof openVoiceEntry === "function") openVoiceEntry("", { listen: true });
+  });
 
   bubbleEl("kira-hub-info-btn")?.addEventListener("click", () => {
     closeKiraHub();
@@ -942,7 +950,10 @@ function syncBubbleHoldHint() {
     return;
   }
   const kira = kiraTier() !== "free";
-  pill.textContent = kira ? tr("Hold to talk to Kira") : tr("Hold to talk");
+  const textEl = bubbleEl("bubble-hold-hint-text");
+  const hintLabel = kira ? tr("Hold to talk to Kira") : tr("Hold to talk");
+  if (textEl) textEl.textContent = hintLabel;
+  else pill.textContent = hintLabel;
   const r = btn.getBoundingClientRect();
   const side = radialSide();
   if (side) {
