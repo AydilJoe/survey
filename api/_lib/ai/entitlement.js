@@ -79,10 +79,10 @@ async function readUsage(kv, subId, periodKey) {
 async function reserveUse(kv, subId, periodKey, bucket, limit, weight = 1) {
   const step = Math.max(1, Math.floor(Number(weight) || 1));
   const k = keys.use(subId, periodKey, bucket);
-  const n = await kvIncrBy(kv, k, step);
+  const n = step === 1 ? (Number(await kv.incr(k)) || 0) : await kvIncrBy(kv, k, step);
   if (n === step) await kv.expire(k, USE_TTL_S);
   if (n > limit) {
-    await kvDecrBy(kv, k, step);
+    if (step === 1) await kv.decr(k); else await kvDecrBy(kv, k, step);
     return { ok: false, used: n - step, limit };
   }
   return { ok: true, used: n, limit };
@@ -91,7 +91,7 @@ async function reserveUse(kv, subId, periodKey, bucket, limit, weight = 1) {
 async function releaseUse(kv, subId, periodKey, bucket, weight = 1) {
   const step = Math.max(1, Math.floor(Number(weight) || 1));
   const k = keys.use(subId, periodKey, bucket);
-  const n = await kvDecrBy(kv, k, step);
+  const n = step === 1 ? (Number(await kv.decr(k)) || 0) : await kvDecrBy(kv, k, step);
   if (n < 0) await kvIncrBy(kv, k, -n);
 }
 
