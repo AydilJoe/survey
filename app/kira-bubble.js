@@ -242,11 +242,19 @@ function squishBubble(btn) {
   setTimeout(() => btn.classList.remove("is-squish"), 560);
 }
 
-function spawnPopDroplets(btn) {
-  if (!btn || bubbleReducedMotion()) return;
-  const r = btn.getBoundingClientRect();
+function spawnPopDroplets(btn, originRect, host) {
+  if ((!btn && !originRect) || bubbleReducedMotion()) return;
+  const r = originRect || btn.getBoundingClientRect();
+  if (!r || (!r.width && !r.height)) return;
+  const target = host || document.body;
   const cx = Math.round(r.left + r.width / 2);
   const cy = Math.round(r.top + r.height / 2);
+  const ring = document.createElement("span");
+  ring.className = "pop-ring";
+  ring.style.left = `${cx}px`;
+  ring.style.top = `${cy}px`;
+  target.appendChild(ring);
+  setTimeout(() => ring.remove(), 340);
   for (let i = 0; i < 14; i++) {
     const dot = document.createElement("span");
     dot.className = "pop-particle";
@@ -256,7 +264,7 @@ function spawnPopDroplets(btn) {
     dot.style.top = `${cy}px`;
     dot.style.setProperty("--dx", `${Math.round(Math.cos(ang) * dist)}px`);
     dot.style.setProperty("--dy", `${Math.round(Math.sin(ang) * dist - 18)}px`);
-    document.body.appendChild(dot);
+    target.appendChild(dot);
     setTimeout(() => dot.remove(), 620);
   }
 }
@@ -782,14 +790,16 @@ function initBubble() {
       h.fired = true;
       bubbleHoldFiredAt = Date.now();
       stopBubbling();
+      const bubbleRect = btn.getBoundingClientRect();
       btn.classList.remove("is-charging");
       btn.classList.add("is-popped");
-      spawnPopDroplets(btn);
       playPop();
       kiraHaptic(38, "HEAVY", 1.0);
       markHoldTalkDone();
       radialClose();
-      if (typeof openVoiceEntry === "function") openVoiceEntry("", { listen: true, fromBubble: true });
+      if (typeof openVoiceEntry === "function") openVoiceEntry("", { listen: true, fromBubble: true, bubbleRect });
+      const voiceDlg = bubbleEl("voice-dialog");
+      spawnPopDroplets(btn, bubbleRect, voiceDlg && voiceDlg.open ? voiceDlg : document.body);
       setTimeout(() => btn.classList.remove("is-popped"), 340);
     }, BUBBLE_HOLD_MS);
     bubbleHold = h;
@@ -1104,6 +1114,7 @@ window.kiraHapticsEnabled = kiraHapticsEnabled;
 window.kiraPlaySaveFeedback = kiraPlaySaveFeedback;
 window.kiraHaptic = kiraHaptic;
 window.kiraPlayBloop = playBloop;
+window.kiraSquishBubble = () => squishBubble(bubbleEl("kira-bubble"));
 window.syncBubbleHoldHint = syncBubbleHoldHint;
 window.markHoldTalkDone = markHoldTalkDone;
 window.maybeShowVoiceNudge = maybeShowVoiceNudge;

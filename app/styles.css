@@ -10702,10 +10702,10 @@ svg.kira .kira-body { pointer-events: visiblePainted; }
   .kira-listen-head { transform-box: fill-box; transform-origin: 50% 100%; }
   .kira-ear { transform-box: fill-box; transform-origin: center; animation: kira-ear 1.4s ease-in-out infinite; }
   .kira-ear.ke-2 { animation-delay: 0.25s; }
-  svg.kira.is-hearing .kira-listen-head { animation: kira-listen-nod 0.6s ease-in-out 1; }
+  svg.kira.is-hearing .kira-listen-head { animation: kira-listen-nod 0.28s ease-out 1; }
 }
 @keyframes kira-ear { 0%, 100% { opacity: 0.25; transform: scale(0.85); } 50% { opacity: 0.85; transform: scale(1.05); } }
-@keyframes kira-listen-nod { 0%, 100% { transform: rotate(0) translateY(0); } 35% { transform: rotate(-3deg) translateY(1.5px); } 70% { transform: rotate(2deg) translateY(-1px); } }
+@keyframes kira-listen-nod { 0% { transform: scale(1) rotate(0deg); } 45% { transform: scale(1.06, 0.94) translateY(3px) rotate(3deg); } 100% { transform: scale(1) rotate(0deg); } }
 
 /* The confetti burst (kiraBurst): pieces fly out from the slot's middle. */
 .kira-burst { position: absolute; left: 50%; top: 45%; width: 0; height: 0; pointer-events: none; }
@@ -11147,7 +11147,7 @@ html[data-theme="pastel"] {
     inset 0 -6px 12px var(--jelly-rim),
     0 10px 26px var(--jelly-glow);
 }
-.kira-bubble:active { transform: scale(0.94); }
+.kira-bubble:active:not(.is-charging):not(.is-popped) { transform: scale(0.94); }
 .kira-bubble:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
 .kira-bubble.is-kira { color: var(--text); }
 .kira-bubble.is-charging {
@@ -11163,6 +11163,18 @@ html[data-theme="pastel"] {
 .kira-bubble-face .bubble-plus { width: 1.9rem; height: 1.9rem; }
 .kira-bubble-face svg.kira { width: 2.85rem; height: 2.85rem; overflow: visible; }
 
+.pop-ring {
+  position: fixed;
+  width: 64px;
+  height: 64px;
+  margin-left: -32px;
+  margin-top: -32px;
+  border-radius: 50%;
+  border: 2.5px solid color-mix(in srgb, var(--brand) 65%, var(--jelly-spec));
+  box-shadow: 0 0 20px var(--jelly-glow);
+  pointer-events: none;
+  z-index: 210;
+}
 .pop-particle {
   position: fixed;
   width: 10px;
@@ -11173,7 +11185,7 @@ html[data-theme="pastel"] {
   background: radial-gradient(circle at 30% 30%, var(--jelly-spec), var(--brand));
   border: 1px solid var(--jelly-border);
   pointer-events: none;
-  z-index: 200;
+  z-index: 210;
 }
 
 /* Phones: the bar has four tabs and the raised bubble between them. */
@@ -11345,6 +11357,7 @@ html[data-theme="pastel"] {
   .kira-bubble.is-squish { animation: jelly-squish 0.54s cubic-bezier(0.22, 1.2, 0.36, 1) forwards; }
   .kira-bubble.is-charging { animation: jelly-charge 0.48s cubic-bezier(0.3, 0, 0.6, 1) forwards; }
   .kira-bubble.is-popped { animation: jelly-pop-out 0.28s ease-out forwards; }
+  .pop-ring { animation: jelly-pop-out 0.32s ease-out forwards; }
   .pop-particle { animation: pop-droplet 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
   .radial-item {
     transform: var(--t) translate(var(--dx, 0px), var(--dy, 0px)) scale(0.3);
@@ -11753,8 +11766,8 @@ html[data-theme="pastel"] {
 }
 
 /* Full-screen blurred Siri-style voice stage (#voice-dialog).
-   The blurred dim backdrop covers the entire screen edge-to-edge while the
-   stage container itself respects --sat / --sab and html.kb-open rules. */
+   The translucent frosted backdrop blooms smoothly while Kira launches from
+   the bottom Jelly Bubble into screen center above the 3-layer colour waves. */
 dialog.voice-stage {
   position: fixed;
   top: calc(var(--sat, 0px) + 8px);
@@ -11774,9 +11787,17 @@ dialog.voice-stage {
   overflow: hidden;
 }
 dialog.voice-stage::backdrop {
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
-  -webkit-backdrop-filter: blur(22px) saturate(1.15);
-  backdrop-filter: blur(22px) saturate(1.15);
+  background: color-mix(in srgb, var(--bg) 52%, rgba(20, 16, 13, 0.42));
+  -webkit-backdrop-filter: blur(20px) saturate(1.25);
+  backdrop-filter: blur(20px) saturate(1.25);
+}
+:root[data-theme="dark"] dialog.voice-stage::backdrop {
+  background: color-mix(in srgb, var(--bg) 44%, rgba(6, 5, 4, 0.56));
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="pastel"]) dialog.voice-stage::backdrop {
+    background: color-mix(in srgb, var(--bg) 44%, rgba(6, 5, 4, 0.56));
+  }
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   dialog.voice-stage::backdrop {
@@ -11803,7 +11824,7 @@ html.kb-open dialog.voice-stage:modal {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 0.55rem;
+  gap: 0.5rem;
   min-height: 0;
 }
 .voice-stage .voice-head {
@@ -11813,11 +11834,20 @@ html.kb-open dialog.voice-stage:modal {
   gap: 0.5rem;
 }
 .voice-stage .voice-head h2 {
-  font-size: 1.05rem;
+  font-size: 0.92rem;
   font-weight: 600;
+  padding: 0.3rem 0.8rem;
+  border-radius: var(--r-pill, 999px);
+  background: var(--card);
+  border: 0.5px solid var(--border);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--text) 10%, transparent);
 }
 .voice-close-btn {
   flex: none;
+  background: var(--card);
+  border: 0.5px solid var(--border);
+  border-radius: 999px;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--text) 10%, transparent);
 }
 
 /* Live chat bubble & session multi-turn thread */
@@ -11835,7 +11865,7 @@ html.kb-open dialog.voice-stage:modal {
   flex-direction: column;
   gap: 0.45rem;
   overflow-y: auto;
-  max-height: 32vh;
+  max-height: 30vh;
   padding-right: 0.15rem;
 }
 .voice-thread[hidden] { display: none; }
@@ -11893,7 +11923,7 @@ html.kb-open dialog.voice-stage:modal {
   border-radius: var(--r-md);
   background: var(--card);
   border: 0.5px solid var(--border);
-  box-shadow: 0 6px 20px color-mix(in srgb, var(--text) 8%, transparent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--text) 14%, transparent);
 }
 .voice-transcript-wrap[hidden] { display: none; }
 .voice-transcript {
@@ -11920,27 +11950,36 @@ html.kb-open dialog.voice-stage:modal {
   padding: 0.28rem 0.55rem;
 }
 
-/* Centerpiece stage: 3-layer SVG waves + Kira (Paid/Pro/Trial) or Mic Orb (Free) */
+/* Centerpiece stage: Floating Kira (Paid/Pro/Trial) or Mic Orb (Free) above 3-layer colour waves */
 .voice-stage-center {
   position: relative;
   flex: 0 0 auto;
-  height: 138px;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  overflow: visible;
+}
+.voice-figure {
+  position: relative;
+  width: 118px;
+  height: 142px;
   display: grid;
   place-items: center;
-  overflow: hidden;
+  will-change: transform, opacity;
 }
 .voice-waves {
-  position: absolute;
-  inset: 0;
+  position: relative;
   width: 100%;
-  height: 100%;
+  height: 64px;
   pointer-events: none;
-  opacity: 0.3;
-  transition: opacity 220ms ease;
+  opacity: 0.45;
+  transition: opacity 260ms ease;
 }
 dialog.voice-stage.is-listening .voice-waves {
-  opacity: 0.92;
+  opacity: 0.96;
 }
 .voice-wave {
   fill: none;
@@ -11948,22 +11987,25 @@ dialog.voice-stage.is-listening .voice-waves {
   vector-effect: non-scaling-stroke;
 }
 .voice-wave-1 {
-  stroke: var(--primary);
-  stroke-width: 2.6;
+  stroke: var(--brand);
+  stroke-width: 3.2;
+  opacity: 0.85;
 }
 .voice-wave-2 {
-  stroke: color-mix(in srgb, var(--accent-3) 85%, transparent);
-  stroke-width: 2.1;
+  stroke: var(--gain);
+  stroke-width: 2.6;
+  opacity: 0.68;
 }
 .voice-wave-3 {
-  stroke: color-mix(in srgb, var(--paid, var(--brand)) 72%, transparent);
-  stroke-width: 1.8;
+  stroke: var(--accent-3);
+  stroke-width: 2.2;
+  opacity: 0.6;
 }
 .voice-rm-ring {
   display: none;
   position: absolute;
-  width: 96px;
-  height: 96px;
+  width: 112px;
+  height: 112px;
   border-radius: 999px;
   border: 2.5px solid color-mix(in srgb, var(--primary) 55%, transparent);
   transform: scale(var(--voice-level, 1));
@@ -11972,38 +12014,56 @@ dialog.voice-stage.is-listening .voice-waves {
 .voice-stage .voice-kira {
   position: relative;
   z-index: 2;
-  width: 82px;
-  height: 98px;
+  width: 114px;
+  height: 140px;
+  display: grid;
+  place-items: center;
+  filter: drop-shadow(0 14px 26px color-mix(in srgb, var(--text) 24%, transparent));
+}
+.voice-stage .voice-kira svg.kira {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 .voice-stage .voice-kira[hidden] { display: none; }
 .voice-orb {
   position: relative;
   z-index: 2;
-  width: 72px;
-  height: 72px;
+  width: 78px;
+  height: 78px;
   border-radius: 999px;
   display: grid;
   place-items: center;
   background: var(--card);
   border: 1.5px solid var(--border);
   color: var(--primary);
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--text) 10%, transparent);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--text) 16%, transparent);
 }
 .voice-orb[hidden] { display: none; }
 .voice-orb svg {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
 }
 dialog.voice-stage.is-listening .voice-orb {
   border-color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 10%, var(--card));
+  background: color-mix(in srgb, var(--primary) 12%, var(--card));
 }
 
 .voice-stage .voice-status {
+  align-self: center;
   text-align: center;
   margin: 0;
   min-height: 1.2em;
+  padding: 0.24rem 0.78rem;
+  border-radius: var(--r-pill, 999px);
+  background: var(--card);
+  border: 0.5px solid var(--border);
+  color: var(--brand);
+  font-size: 0.82rem;
+  font-weight: 600;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--text) 10%, transparent);
 }
+.voice-stage .voice-status[hidden] { display: none; }
 .voice-bottom {
   flex: none;
   display: flex;
@@ -12014,7 +12074,11 @@ dialog.voice-stage.is-listening .voice-orb {
 .voice-hint {
   margin: 0;
   text-align: center;
-  font-size: 0.84rem;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  border: 0.5px solid var(--border);
 }
 .voice-input-field {
   margin: 0;
@@ -12026,6 +12090,7 @@ dialog.voice-stage.is-listening .voice-orb {
   margin: 0;
   background: var(--card);
   border-color: var(--border);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--text) 14%, transparent);
 }
 .voice-ask-btn {
   flex: 0 0 auto;
@@ -12043,19 +12108,92 @@ dialog.voice-stage.is-listening .voice-orb {
 .voice-actions {
   margin-top: 0.15rem;
 }
+.voice-stage #voice-cancel {
+  background: var(--card);
+  border: 0.5px solid var(--border);
+}
 
-@keyframes voice-pop-in {
-  0% { transform: translateY(34vh) scale(0.55); opacity: 0.2; }
-  70% { transform: translateY(-6px) scale(1.04); opacity: 1; }
-  100% { transform: translateY(0) scale(1); opacity: 1; }
+/* Compact figure & waves when the soft keyboard is up or viewport is short. */
+html.kb-open .voice-figure {
+  width: 78px;
+  height: 92px;
+}
+html.kb-open .voice-stage .voice-kira {
+  width: 74px;
+  height: 90px;
+}
+html.kb-open .voice-waves {
+  height: 34px;
+}
+@media (max-height: 640px) {
+  .voice-figure { width: 88px; height: 106px; }
+  .voice-stage .voice-kira { width: 84px; height: 102px; }
+  .voice-waves { height: 44px; }
+}
+
+/* Transient return-flight ghost as Kira glides back into #kira-bubble on close. */
+.kira-return-flight {
+  position: fixed;
+  pointer-events: none;
+  z-index: 220;
+  display: grid;
+  place-items: center;
+  transform-origin: center center;
+  transition:
+    transform 360ms cubic-bezier(0.32, 0, 0.24, 1),
+    opacity 320ms ease-in;
+  will-change: transform, opacity;
+}
+.kira-return-flight svg.kira {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 10px 20px color-mix(in srgb, var(--text) 20%, transparent));
+}
+.kira-return-flight.is-orb {
+  border-radius: 999px;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  color: var(--primary);
+}
+
+@keyframes voice-backdrop-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes voice-chrome-in {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes kira-flight-in {
+  0% { transform: translate(var(--flight-dx, 0px), var(--flight-dy, 38vh)) scale(0.32); opacity: 0.15; }
+  18% { opacity: 1; }
+  100% { transform: translate(0, 0) scale(1); opacity: 1; }
+}
+@keyframes kira-hover-float {
+  0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+  50% { transform: translateY(-7px) rotate(1.5deg); }
 }
 @keyframes voice-orb-pulse {
   0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 26%, transparent); }
   50% { box-shadow: 0 0 0 14px color-mix(in srgb, var(--primary) 0%, transparent); }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .voice-stage-center.is-pop-in {
-    animation: voice-pop-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  dialog.voice-stage.is-launching::backdrop {
+    animation: voice-backdrop-in 480ms ease both;
+  }
+  dialog.voice-stage.is-launching .voice-head,
+  dialog.voice-stage.is-launching .voice-chat-area,
+  dialog.voice-stage.is-launching .voice-waves,
+  dialog.voice-stage.is-launching .voice-status,
+  dialog.voice-stage.is-launching .voice-bottom {
+    animation: voice-chrome-in 360ms ease 240ms both;
+  }
+  .voice-figure.is-flying-in {
+    animation: kira-flight-in 720ms cubic-bezier(0.22, 1.18, 0.36, 1) both;
+  }
+  .voice-stage .voice-kira svg.kira {
+    animation: kira-hover-float 3.2s ease-in-out infinite;
   }
   dialog.voice-stage.is-listening .voice-orb {
     animation: voice-orb-pulse 1.5s ease-in-out infinite;
@@ -12064,6 +12202,8 @@ dialog.voice-stage.is-listening .voice-orb {
 @media (prefers-reduced-motion: reduce) {
   .voice-waves { display: none; }
   .voice-rm-ring { display: block; }
+  .voice-stage .voice-kira svg.kira { animation: none; }
+  .pop-ring, .kira-return-flight { display: none; }
 }
 
 /* Hold-to-talk first-time pill, one-time post-save nudge & landing jump chip */

@@ -736,8 +736,7 @@
       }
       return true;
     }
-    voiceStopListening({ cancel: true });
-    if (dlg && dlg.open) dlg.close();
+    voiceCloseStage({ clearThread: false });
     if (action.kind === "open_scan") {
       setTimeout(() => document.getElementById("btn-scan")?.click(), 60);
       return true;
@@ -1074,11 +1073,13 @@
   let voiceHearTimer = 0;
   const voiceNativeCache = {};
 
-  // Reactive 3-layer SVG waves driven by native speechLevel (~20 Hz, 0..1 float).
+  // Reactive 3-layer SVG waves driven by native speechLevel (~20 Hz, 0..1 float)
+  // plus gentle word-arrival surges (waveWordPulse) so web/quiet mics animate too.
   let waveRaf = 0;
   let wavePhase = 0;
   let waveTarget = 0;
   let waveSmooth = 0;
+  let waveWordPulse = 0;
   let waveHasLiveLevel = false;
 
   function voiceReducedMotion() {
@@ -1089,7 +1090,7 @@
     const w = 320;
     const mid = 60;
     const pts = [];
-    const steps = 16;
+    const steps = 20;
     for (let i = 0; i <= steps; i++) {
       const t = i / steps;
       const x = Math.round(t * w);
@@ -1130,16 +1131,19 @@
       voiceApplyLevelRing(waveHasLiveLevel ? waveTarget : 0);
       return;
     }
-    const target = waveHasLiveLevel ? (0.14 + waveTarget * 0.86) : 0.16;
-    waveSmooth += (target - waveSmooth) * (waveHasLiveLevel ? 0.28 : 0.08);
-    wavePhase += waveHasLiveLevel ? (0.09 + waveSmooth * 0.1) : 0.035;
+    waveWordPulse = waveWordPulse > 0.01 ? waveWordPulse * 0.9 : 0;
+    const energy = Math.max(waveHasLiveLevel ? waveTarget : 0, waveWordPulse);
+    const active = waveHasLiveLevel || waveWordPulse > 0.01;
+    const target = active ? (0.18 + energy * 0.82) : 0.18;
+    waveSmooth += (target - waveSmooth) * (active ? 0.24 : 0.06);
+    wavePhase += active ? (0.095 + waveSmooth * 0.11) : 0.042;
 
     const p1 = document.getElementById("voice-wave-1");
     const p2 = document.getElementById("voice-wave-2");
     const p3 = document.getElementById("voice-wave-3");
-    if (p1) p1.setAttribute("d", voiceWavePath(44 * waveSmooth, 1.8, wavePhase));
-    if (p2) p2.setAttribute("d", voiceWavePath(34 * waveSmooth, 2.3, -wavePhase * 0.85 + 1.2));
-    if (p3) p3.setAttribute("d", voiceWavePath(24 * waveSmooth, 1.4, wavePhase * 0.65 + 2.5));
+    if (p1) p1.setAttribute("d", voiceWavePath(46 * waveSmooth, 1.9, wavePhase));
+    if (p2) p2.setAttribute("d", voiceWavePath(36 * waveSmooth, 2.5, -wavePhase * 1.15 + 1.2));
+    if (p3) p3.setAttribute("d", voiceWavePath(28 * waveSmooth, 1.4, wavePhase * 0.75 + 2.5));
 
     waveRaf = requestAnimationFrame(voiceWaveTick);
   }
@@ -1147,7 +1151,8 @@
   function voiceWaveStart() {
     waveHasLiveLevel = false;
     waveTarget = 0;
-    waveSmooth = 0.08;
+    waveWordPulse = 0;
+    waveSmooth = 0.12;
     const center = document.getElementById("voice-stage-center");
     if (center) {
       center.dataset.waveMode = "idle";
@@ -1165,6 +1170,7 @@
     }
     waveHasLiveLevel = false;
     waveTarget = 0;
+    waveWordPulse = 0;
     waveSmooth = 0;
     const center = document.getElementById("voice-stage-center");
     if (center) {
@@ -1277,13 +1283,91 @@
   }
 
   function voiceKiraHear() {
+    if (!voiceReducedMotion()) {
+      waveWordPulse = Math.max(waveWordPulse, 0.72 + Math.random() * 0.32);
+      if (!waveRaf && voiceListening()) waveRaf = requestAnimationFrame(voiceWaveTick);
+    }
     const svg = document.querySelector("#voice-kira svg.kira--listening");
     if (!svg) return;
     svg.classList.remove("is-hearing");
     void svg.getBoundingClientRect();
     svg.classList.add("is-hearing");
     clearTimeout(voiceHearTimer);
-    voiceHearTimer = setTimeout(() => svg.classList.remove("is-hearing"), 700);
+    voiceHearTimer = setTimeout(() => svg.classList.remove("is-hearing"), 420);
+  }
+
+  let voiceFlightTimer = 0;
+
+  function voiceClearFlight() {
+    if (voiceFlightTimer) { clearTimeout(voiceFlightTimer); voiceFlightTimer = 0; }
+    const dlg = document.getElementById("voice-dialog");
+    const fig = document.getElementById("voice-figure");
+    if (dlg) dlg.classList.remove("is-launching");
+    if (fig) {
+      fig.classList.remove("is-flying-in");
+      fig.style.removeProperty("--flight-dx");
+      fig.style.removeProperty("--flight-dy");
+    }
+  }
+
+  function voiceCaptureFigure() {
+    if (voiceReducedMotion()) return null;
+    const dlg = document.getElementById("voice-dialog");
+    if (!dlg || !dlg.open) return null;
+    const slot = document.getElementById("voice-kira");
+    const orb = document.getElementById("voice-orb");
+    const el = slot && !slot.hidden && slot.innerHTML.trim()
+      ? slot
+      : (orb && !orb.hidden ? orb : null);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) return null;
+    return {
+      rect: { left: r.left, top: r.top, width: r.width, height: r.height },
+      html: el.innerHTML,
+      isOrb: el === orb,
+    };
+  }
+
+  function voiceLaunchReturnFlight(snap) {
+    if (!snap || voiceReducedMotion()) return;
+    const bubble = document.getElementById("kira-bubble");
+    if (!bubble) return;
+    const br = bubble.getBoundingClientRect();
+    if (!br.width || !br.height) return;
+    const from = snap.rect;
+    const dx = Math.round((br.left + br.width / 2) - (from.left + from.width / 2));
+    const dy = Math.round((br.top + br.height / 2) - (from.top + from.height / 2));
+    const ghost = document.createElement("div");
+    ghost.className = snap.isOrb ? "kira-return-flight is-orb" : "kira-return-flight";
+    ghost.setAttribute("aria-hidden", "true");
+    ghost.style.left = `${Math.round(from.left)}px`;
+    ghost.style.top = `${Math.round(from.top)}px`;
+    ghost.style.width = `${Math.round(from.width)}px`;
+    ghost.style.height = `${Math.round(from.height)}px`;
+    ghost.innerHTML = snap.html;
+    document.body.appendChild(ghost);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        ghost.style.transform = `translate(${dx}px, ${dy}px) scale(0.32)`;
+        ghost.style.opacity = "0";
+      });
+    });
+    setTimeout(() => {
+      if (typeof window.kiraSquishBubble === "function") window.kiraSquishBubble();
+    }, 280);
+    setTimeout(() => ghost.remove(), 400);
+  }
+
+  function voiceCloseStage(opts) {
+    const o = opts || {};
+    const dlg = document.getElementById("voice-dialog");
+    const snap = o.animateReturn !== false ? voiceCaptureFigure() : null;
+    voiceStopListening({ cancel: true });
+    if (o.clearThread !== false) clearVoiceThread();
+    voiceClearFlight();
+    if (dlg && dlg.open) dlg.close();
+    if (snap) voiceLaunchReturnFlight(snap);
   }
 
   // Live speech bubble above Kira / orb: auto-scrolls to newest words and fades
@@ -1645,10 +1729,7 @@
     if (typeof save === "function") save();
     if (typeof renderAll === "function") renderAll();
 
-    const dlg = document.getElementById("voice-dialog");
-    voiceStopListening({ cancel: true });
-    clearVoiceThread();
-    if (dlg && dlg.open) dlg.close();
+    voiceCloseStage();
     if (typeof kiraPlaySaveFeedback === "function") kiraPlaySaveFeedback();
     const n = booked.length;
     const allSpends = booked.every((x) => x.expense && x.expense.kind === "expense");
@@ -1773,10 +1854,7 @@
     if (typeof save === "function") save();
     if (typeof renderAll === "function") renderAll();
 
-    const dlg = document.getElementById("voice-dialog");
-    voiceStopListening({ cancel: true });
-    clearVoiceThread();
-    if (dlg && dlg.open) dlg.close();
+    voiceCloseStage();
 
     if (typeof kiraPlaySaveFeedback === "function") kiraPlaySaveFeedback();
 
@@ -1795,12 +1873,17 @@
   }
 
   // opts.listen: open already listening (holding Kira on Home or bubble hold-pop).
-  // opts.fromBubble: float Kira / orb up from the popped center bubble.
+  // opts.fromBubble: float Kira / orb up continuously from the popped center bubble.
   function openVoiceEntry(initialText, opts) {
     const o = opts || {};
     const dlg = document.getElementById("voice-dialog");
     const input = document.getElementById("voice-input");
     if (!dlg || !input) return;
+    if (!dlg.open) {
+      voiceStopListening({ cancel: true });
+      voiceWaveStop();
+    }
+    voiceClearFlight();
     voiceStatus("");
     clearVoiceThread();
     const micReady = voiceSyncMic();
@@ -1812,14 +1895,28 @@
     if (title) {
       title.textContent = voiceUseKiraFace() ? voiceT("Talk to Kira") : voiceT("Voice entry");
     }
+    const bubbleBtn = document.getElementById("kira-bubble");
+    const originRect = o.bubbleRect || (o.fromBubble && bubbleBtn ? bubbleBtn.getBoundingClientRect() : null);
+
     if (!dlg.open && typeof dlg.showModal === "function") dlg.showModal();
 
-    const center = document.getElementById("voice-stage-center");
-    if (center && o.fromBubble && !voiceReducedMotion()) {
-      center.classList.remove("is-pop-in");
-      void center.offsetWidth;
-      center.classList.add("is-pop-in");
-      setTimeout(() => center.classList.remove("is-pop-in"), 460);
+    const fig = document.getElementById("voice-figure");
+    if (fig && o.fromBubble && !voiceReducedMotion()) {
+      const targetRect = fig.getBoundingClientRect();
+      let dx = 0;
+      let dy = Math.round((window.innerHeight || 640) * 0.36);
+      if (originRect && originRect.width && targetRect.width) {
+        dx = Math.round((originRect.left + originRect.width / 2) - (targetRect.left + targetRect.width / 2));
+        dy = Math.round((originRect.top + originRect.height / 2) - (targetRect.top + targetRect.height / 2));
+      }
+      fig.style.setProperty("--flight-dx", `${dx}px`);
+      fig.style.setProperty("--flight-dy", `${dy}px`);
+      dlg.classList.remove("is-launching");
+      fig.classList.remove("is-flying-in");
+      void fig.offsetWidth;
+      dlg.classList.add("is-launching");
+      fig.classList.add("is-flying-in");
+      voiceFlightTimer = setTimeout(() => voiceClearFlight(), 760);
     }
 
     if (input.value) {
@@ -1915,19 +2012,22 @@
     const editBtn = document.getElementById("voice-edit-btn");
 
     const closeVoice = () => {
-      voiceStopListening({ cancel: true });
-      clearVoiceThread();
-      if (dlg && dlg.open) dlg.close();
+      voiceCloseStage();
     };
 
     if (openBtn) openBtn.addEventListener("click", () => openVoiceEntry(""));
     if (cancelBtn) cancelBtn.addEventListener("click", closeVoice);
     if (closeX) closeX.addEventListener("click", closeVoice);
     if (dlg) {
+      dlg.addEventListener("cancel", (e) => {
+        e.preventDefault();
+        closeVoice();
+      });
       dlg.addEventListener("close", () => {
         // The close event arrives asynchronously a task after close(); ignore
         // a stale close if #voice-dialog has already been reopened.
         if (dlg.open) return;
+        voiceClearFlight();
         voiceStopListening({ cancel: true });
         voiceStatus("");
         clearVoiceThread();

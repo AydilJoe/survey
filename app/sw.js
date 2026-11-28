@@ -15,14 +15,14 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "h-117e90e7";
+const VERSION = "h-eb86baf5";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=5f2f984a",
-  "/app/script.js?v=a96d34cc",
+  "/app/styles.css?v=c7d0bc76",
+  "/app/script.js?v=7fa7857c",
   // Languages: registry + boot loader run at startup; packs are precached so
   // switching languages still works offline, without parsing unused packs at boot.
   "/app/i18n-langs.js?v=f94d7d91",
@@ -57,14 +57,14 @@ const SHELL = [
   "/app/kira-seasons.js?v=84d7b80b",
   "/app/kira.js?v=0a738a14",
   "/app/streak.js?v=ce95b7ab",
-  "/app/voice.js?v=632cbba2",
+  "/app/voice.js?v=1c27ffa0",
   "/app/cloud.js?v=fcd02ad8",
   "/app/capture.js?v=3af549e5",
   "/app/ai-redact.js?v=e6257012",
   "/app/ai-cloud.js?v=790422fa",
   "/app/pro.js?v=c4ca182d",
   "/app/ocr.js?v=d135377e",
-  "/app/kira-bubble.js?v=f59e7083",
+  "/app/kira-bubble.js?v=8ba22a35",
   "/app/analytics.js?v=01a6bc4a",
   "/app/theme-boot.js?v=68fa9ffd",
   // Brand marks: tiny (0.3–3 KB each) and drawn on the Debts tab, so they are

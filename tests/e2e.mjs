@@ -20055,6 +20055,103 @@ check('the brand catalogue makes no network calls at all',
   await mCtx.close();
 }
 
+// ── v1.91.0: Floating Kira mockup animations (top-layer pop, continuous flight, hover-float above waves, return glide) ──
+{
+  const fCtx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  const fp = await fCtx.newPage();
+  const fErr = [];
+  fp.on('pageerror', (e) => fErr.push(e.message));
+  await fp.goto(`${BASE}/app/index.html`);
+  await fp.waitForTimeout(500);
+  await fp.click('#btn-start-open');
+  await fp.waitForTimeout(1500);
+  await fp.evaluate(() => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    state.pro = true;
+    renderAll();
+    if (typeof kiraBubbleSync === 'function') kiraBubbleSync();
+  });
+  await fp.waitForTimeout(120);
+
+  // Hold the Jelly Bubble until POP!
+  const bb = await fp.locator('#kira-bubble').boundingBox();
+  await fp.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
+  await fp.mouse.down();
+  await fp.waitForTimeout(560);
+  const popState = await fp.evaluate(() => {
+    const dlg = document.getElementById('voice-dialog');
+    const fig = document.getElementById('voice-figure');
+    return {
+      open: !!dlg && dlg.open,
+      launching: !!dlg && dlg.classList.contains('is-launching'),
+      flyingIn: !!fig && fig.classList.contains('is-flying-in'),
+      flightDy: fig ? parseFloat(fig.style.getPropertyValue('--flight-dy')) : 0,
+      ringsInDlg: dlg ? dlg.querySelectorAll('.pop-ring').length : 0,
+      particlesInDlg: dlg ? dlg.querySelectorAll('.pop-particle').length : 0,
+    };
+  });
+  await fp.mouse.up();
+  await fp.waitForTimeout(820);
+
+  // Settled floating stage: Kira hovers continuously above 3-layer colour waves.
+  const settled = await fp.evaluate(() => {
+    const kiraSvgEl = document.querySelector('#voice-kira svg.kira');
+    const kiraRect = document.getElementById('voice-kira').getBoundingClientRect();
+    const wavesRect = document.getElementById('voice-waves').getBoundingClientRect();
+    return {
+      hoverAnim: kiraSvgEl ? getComputedStyle(kiraSvgEl).animationName : '',
+      kiraAboveWaves: kiraRect.bottom <= wavesRect.top + 8,
+      wavesHeight: Math.round(wavesRect.height),
+    };
+  });
+
+  // Cancel closes immediately and spawns return-flight ghost gliding back to the bubble.
+  await fp.click('#voice-cancel');
+  await fp.waitForTimeout(40);
+  const ret = await fp.evaluate(() => ({
+    closed: !document.getElementById('voice-dialog').open,
+    returnGhost: document.querySelectorAll('.kira-return-flight').length,
+  }));
+  await fp.waitForTimeout(450);
+  const retCleaned = await fp.evaluate(() => document.querySelectorAll('.kira-return-flight').length);
+
+  // Reduced motion: zero pop particles, zero return ghost, zero hover animation.
+  await fp.emulateMedia({ reducedMotion: 'reduce' });
+  const bbRm = await fp.locator('#kira-bubble').boundingBox();
+  await fp.mouse.move(bbRm.x + bbRm.width / 2, bbRm.y + bbRm.height / 2);
+  await fp.mouse.down();
+  await fp.waitForTimeout(560);
+  const rmPop = await fp.evaluate(() => {
+    const dlg = document.getElementById('voice-dialog');
+    const kiraSvgEl = document.querySelector('#voice-kira svg.kira');
+    return {
+      open: !!dlg && dlg.open,
+      rings: dlg ? dlg.querySelectorAll('.pop-ring').length : 0,
+      particles: dlg ? dlg.querySelectorAll('.pop-particle').length : 0,
+      hoverAnim: kiraSvgEl ? getComputedStyle(kiraSvgEl).animationName : '',
+    };
+  });
+  await fp.mouse.up();
+  await fp.click('#voice-cancel');
+  await fp.waitForTimeout(40);
+  const rmRet = await fp.evaluate(() => document.querySelectorAll('.kira-return-flight').length);
+  await fp.emulateMedia({ reducedMotion: 'no-preference' });
+
+  check('v1.91.0: bubble hold-pop bursts pop ring & 14 droplets inside top-layer #voice-dialog and launches Kira continuously from bubble coordinates',
+    popState.open && popState.launching && popState.flyingIn && popState.flightDy > 80
+    && popState.ringsInDlg === 1 && popState.particlesInDlg === 14,
+    JSON.stringify(popState));
+  check('v1.91.0: Kira continuously hover-floats above the 3-layer colour waves and glides smoothly back into the bubble on close',
+    settled.hoverAnim === 'kira-hover-float' && settled.kiraAboveWaves && settled.wavesHeight >= 40
+    && ret.closed && ret.returnGhost === 1 && retCleaned === 0,
+    JSON.stringify({ settled, ret, retCleaned }));
+  check('v1.91.0: reduced motion disables pop particles, hover float, and return-flight ghost',
+    rmPop.open && rmPop.rings === 0 && rmPop.particles === 0 && rmPop.hoverAnim === 'none' && rmRet === 0,
+    JSON.stringify({ rmPop, rmRet }));
+  check('v1.91.0: no page errors in floating Kira animations suite', fErr.length === 0, JSON.stringify(fErr));
+  await fCtx.close();
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();
