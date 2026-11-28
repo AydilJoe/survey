@@ -39,6 +39,7 @@ Shared files (`app/script.js`, `app/styles.css`, `app/index.html`, `scripts/i18n
 | Stage A follow-ups (v1.95.0): **"To savings"** tab in Money out (`Ke simpanan` / `存入储蓄`) + 1-tap **Talk** mic button in Kira hub top row & first-use mic pill | Antigravity | implemented on `feat/stage-a-followups` |
 | Voice: several spends / split / income (v1.89.0), income words + note fix (v1.92.1), smart voice learning + on-device AI labels + row toggles (v1.94.0) | Claude | shipped (PRs #488, #492, #494) |
 | AI+ `voice-entry` v2 (several items + 400 chars), Dec 1 `vision` migration (`gemini-3.5-flash-lite`), and Option A credit-weighted model picker (Fast 1× / Smart 2× / Deep 10×) | Antigravity | next up — spec: `voice-items-ai-plus.md` |
+| Voice hold gesture: the bubble stays the mic under the thumb, slide to Save (with Undo) or Cancel, let go to check; fix the empty-stage Save looking active | Antigravity | spec: `voice-hold-gesture.md`. Start after #495 merges |
 | Boost Bank alert wording (user email, 26 Nov) | Claude | asked the user for a screenshot; add the pattern when it arrives |
 | Real-device test of "Talk to Kira", Siri-style voice waves, iOS Taptic Engine haptics, and StoreKit 2 sandbox | Owner | |
 
