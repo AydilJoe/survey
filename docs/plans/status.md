@@ -39,6 +39,7 @@ Shared files (`app/script.js`, `app/styles.css`, `app/index.html`, `scripts/i18n
 | AI+ Option A credit-weighted model picker (Fast 1× / Smart 2× / Deep 10×), Dec 1 `vision` migration (`gemini-3.5-flash-lite`), and server `voice-entry` v2 (multi-item + 400 chars) (v1.96.0) | Antigravity | implemented on `feat/ai-model-picker-voice-v2` |
 | Voice: several spends / split / income (v1.89.0), income words + note fix (v1.92.1), smart voice learning + on-device AI labels + row toggles (v1.94.0) | Claude | shipped (PRs #488, #492, #494) |
 | Phone-side multi-item AI+ `parseVoiceSmart` merge (`app/voice.js`, `it.touched` guard, 400 chars) | Antigravity | next up (PR C) — spec: `voice-items-ai-plus.md` |
+| Voice hold gesture: the bubble stays the mic under the thumb, slide to Save (with Undo) or Cancel, let go to check; fix the empty-stage Save looking active | Antigravity | spec: `voice-hold-gesture.md` |
 | Boost Bank alert wording (user email, 26 Nov) | Claude | asked the user for a screenshot; add the pattern when it arrives |
 | Real-device test of "Talk to Kira", Siri-style voice waves, iOS Taptic Engine haptics, and StoreKit 2 sandbox | Owner | |
 
