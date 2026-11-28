@@ -8388,6 +8388,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.92.1": [
+    "<strong>Talk to Kira fixes</strong> — \"100 ringgit freelancing income\" is now saved as income, not a spend, and a spoken amount like \"Two ringgit\" no longer stays in the note.",
+  ],
   "1.92.0": [
     "<strong>Smarter statement wallet matching</strong> — First-time bank, card, and e-wallet statement imports now detect your bank or e-wallet from the statement header and automatically pre-select the matching wallet (keeping credit cards and bank accounts separate), with 1-tap override before importing.",
   ],
