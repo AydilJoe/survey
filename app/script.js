@@ -8406,7 +8406,7 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
-  "1.97.0": [
+  "1.98.0": [
     "<strong>Multi-item Cloud Kira for Talk to Kira</strong> — AI+, Pro taste, and 14-day trial users now get cloud AI help even when speaking several spends, splits, and income entries in one sentence (up to 400 characters). Amounts and split maths always stay on your phone, what Kira learned from your own entries beats the cloud, and any row you edit or remove stays the way you left it.",
   ],
   "1.96.0": [

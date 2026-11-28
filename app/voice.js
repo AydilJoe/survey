@@ -959,7 +959,7 @@
     return [...names];
   }
 
-  /* ---------- AI+ voice-entry v2: the cloud labels, the phone decides (1.97.0) ----------
+  /* ---------- AI+ voice-entry v2: the cloud labels, the phone decides (1.98.0) ----------
      The sentence goes to the cloud even when the phone found several items
      (docs/plans/voice-items-ai-plus.md). What the cloud may change, per row:
        - kind, only when the phone's rules had no cue word (kindFrom weak / none)

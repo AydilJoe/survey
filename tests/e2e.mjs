@@ -20985,7 +20985,7 @@ check('the brand catalogue makes no network calls at all',
   await qCtx.close();
 }
 
-// ── v1.97.0: Multi-item AI+ voice merge (parseVoiceSmart, docs/plans/voice-items-ai-plus.md) ──
+// ── v1.98.0: Multi-item AI+ voice merge (parseVoiceSmart, docs/plans/voice-items-ai-plus.md) ──
 {
   const vCtx = await b.newContext({ viewport: { width: 390, height: 844 } });
   const vp = await vCtx.newPage();
@@ -21093,13 +21093,13 @@ check('the brand catalogue makes no network calls at all',
     return out;
   });
 
-  check('v1.97.0: owner sentences parse multi-item via cloud AI+ (spend 2 + income 100; spend 12 split Ali:6 + income 50) and send >200 chars (up to 400)',
+  check('v1.98.0: owner sentences parse multi-item via cloud AI+ (spend 2 + income 100; spend 12 split Ali:6 + income 50) and send >200 chars (up to 400)',
     vRes.s1?.length === 2 && vRes.s1[0].kind === 'expense' && vRes.s1[0].amount === 2 && vRes.s1[1].kind === 'income' && vRes.s1[1].amount === 100
     && vRes.s2?.length === 2 && vRes.s2[0].kind === 'expense' && vRes.s2[0].amount === 12 && vRes.s2[0].splitAli === 'Ali:6'
     && vRes.s2[1].kind === 'income' && vRes.s2[1].amount === 50
     && vRes.sentLongLen > 250 && vRes.sentLongLen <= 400,
     JSON.stringify(vRes));
-  check('v1.97.0: cloud vs phone item-count mismatch keeps phone items/amounts; edited row is never overwritten; offline/cap fallback saves cleanly',
+  check('v1.98.0: cloud vs phone item-count mismatch keeps phone items/amounts; edited row is never overwritten; offline/cap fallback saves cleanly',
     vRes.misCount === 2 && vRes.misAmts.join() === '12,50' && vRes.misKinds.join() === 'expense,income'
     && vRes.row0Kept && vRes.row1Upgraded
     && vRes.offlineSavedExp === 1 && vRes.offlineSavedInc === 1,
@@ -21162,13 +21162,13 @@ check('the brand catalogue makes no network calls at all',
     window.aiCloudRun = origRun;
     return out;
   });
-  check('v1.97.0 review: cloud never makes a debt the phone didn\'t match, never beats learned or rule-strong kinds, never invents an amount, keeps an exact split, flips to a real category, keeps dropped rows dropped, and checks notes per row',
+  check('v1.98.0 review: cloud never makes a debt the phone didn\'t match, never beats learned or rule-strong kinds, never invents an amount, keeps an exact split, flips to a real category, keeps dropped rows dropped, and checks notes per row',
     vFix.debt === 'expense' && vFix.learned === 'income' && vFix.strong === 'income' && vFix.invented === 0
     && vFix.exact === 20 && /^expense:/.test(vFix.flipCat) && vFix.flipCat !== 'expense:Income'
     && vFix.afterDrop === 0 && /15/.test(vFix.afterDropLine)
     && !/^teh tarik\|/i.test(vFix.notes),
     JSON.stringify(vFix));
-  check('v1.97.0: no page errors in multi-item AI+ voice merge suite', vErr.length === 0, JSON.stringify(vErr));
+  check('v1.98.0: no page errors in multi-item AI+ voice merge suite', vErr.length === 0, JSON.stringify(vErr));
   await vCtx.close();
 }
 
