@@ -764,5 +764,9 @@
   "Save {n} entry": "保存 {n} 笔记录",
   "Save {n} entries": "保存 {n} 笔记录",
   "Saved {n} entry": "已保存 {n} 笔记录",
-  "Saved {n} entries": "已保存 {n} 笔记录"
+  "Saved {n} entries": "已保存 {n} 笔记录",
+  "In": "收入",
+  "Out": "支出",
+  "Voice entries": "语音记账",
+  "When Kira isn't sure: money in or out, and the category. Never the amount.": "Kira 不确定时：判断是收入还是支出，以及类别。绝不改动金额。"
 }

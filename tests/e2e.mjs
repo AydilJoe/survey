@@ -2734,11 +2734,11 @@ const aiInfo = await S(async () => {
 });
 check('AI card: a summary line and a "What it does" row that opens the sheet (no AI settings button from the card itself)',
   aiInfo.android.row && /receipts, bank alerts, statements, tax relief and your monthly recap/.test(aiInfo.android.summary) && aiInfo.android.open && !aiInfo.android.settings && aiInfo.closed, JSON.stringify(aiInfo.android));
-check('AI sheet on Android: receipts, bank alerts, bank statements, tax relief, monthly recap; Gemini Nano; the live status (and "Off" when switched off)',
-  JSON.stringify(aiInfo.android.items) === JSON.stringify(['Receipts', 'Bank alerts', 'Bank statements', 'Tax relief', 'Monthly recap'])
+check('AI sheet on Android: receipts, bank alerts, bank statements, tax relief, voice entries, monthly recap; Gemini Nano; the live status (and "Off" when switched off)',
+  JSON.stringify(aiInfo.android.items) === JSON.stringify(['Receipts', 'Bank alerts', 'Bank statements', 'Tax relief', 'Voice entries', 'Monthly recap'])
   && aiInfo.android.model === 'Model: Gemini Nano' && aiInfo.android.status === 'On · runs on this phone' && /^Off/.test(aiInfo.androidOff), JSON.stringify([aiInfo.android, aiInfo.androidOff]));
-check('AI sheet on iPhone: receipts and monthly recap only (no bank alerts, statements or tax relief); Apple\'s on-device model; summary and switch label say so',
-  JSON.stringify(aiInfo.ios.items) === JSON.stringify(['Receipts', 'Monthly recap']) && aiInfo.ios.model === "Model: Apple's on-device model"
+check('AI sheet on iPhone: receipts, voice entries and monthly recap only (no bank alerts, statements or tax relief); Apple\'s on-device model; summary and switch label say so',
+  JSON.stringify(aiInfo.ios.items) === JSON.stringify(['Receipts', 'Voice entries', 'Monthly recap']) && aiInfo.ios.model === "Model: Apple's on-device model"
   && aiInfo.ios.summary === 'Helps with receipts and your monthly recap.' && aiInfo.ios.label === "Use this phone's AI for receipts and your recap" && aiInfo.android.label === "Use this phone's AI for receipts and bank alerts", JSON.stringify(aiInfo.ios));
 check('AI sheet: "What it never does" lists no upload, no made-up amounts, no chat or advice, nothing saved without your OK',
   aiInfo.android.never.length === 4 && /uploaded/.test(aiInfo.android.never[0]) && /amount/.test(aiInfo.android.never[1]) && /chat.*advice/.test(aiInfo.android.never[2]) && /OK/.test(aiInfo.android.never[3]), JSON.stringify(aiInfo.android.never));
@@ -20059,6 +20059,281 @@ check('the brand catalogue makes no network calls at all',
     JSON.stringify(v1921) === JSON.stringify(['expense:2:Nasi lemak', 'income:100:Freelancing income']), JSON.stringify(v1921));
   check('v1.89.0: no page errors in multi-spend suite', mErr.length === 0, JSON.stringify(mErr));
   await mCtx.close();
+}
+
+// ── v1.93.0: Talk to Kira learns — history, corrections, on-device AI, one-tap fix ──
+{
+  const read = (f) => readFileSync(path.join(REPO_ROOT, f), 'utf8');
+  const javaKit = read('native/duitful-kit/android/DuitfulKitPlugin.java');
+  const javaAi = read('native/duitful-kit/android/DuitfulKitAi.java');
+  const swiftKit = read('native/duitful-kit/ios/Sources/DuitfulKitPlugin/DuitfulKitPlugin.swift');
+  check('v1.93.0: native DuitfulKit defines aiReadVoice on Android (PluginMethod + VOICE_INSTRUCTIONS via generate) and iOS (registered, @Generable, iOS 26 guard), never an amount',
+    /@PluginMethod\s+public void aiReadVoice\(PluginCall call\)/.test(javaKit) && javaKit.includes('DuitfulKitAi.readVoice(')
+    && javaAi.includes('VOICE_INSTRUCTIONS') && /static void readVoice\([^)]*\)\s*\{[\s\S]*?generate\(ctx, VOICE_INSTRUCTIONS/.test(javaAi) && !/VOICE_INSTRUCTIONS[\s\S]{0,700}amount\\?"/.test(javaAi)
+    && swiftKit.includes('CAPPluginMethod(name: "aiReadVoice"') && /@objc func aiReadVoice\(_ call: CAPPluginCall\)/.test(swiftKit)
+    && /@Generable\s+struct DuitfulVoiceFields/.test(swiftKit) && !/struct DuitfulVoiceFields \{[^}]*amount/.test(swiftKit)
+    && /func aiReadVoice[\s\S]*?#if canImport\(FoundationModels\)[\s\S]*?#available\(iOS 26\.0, \*\)[\s\S]*?UNSUPPORTED/.test(swiftKit));
+
+  // A fresh profile, so earlier blocks' voice saves don't leak into history.
+  const lCtx = await b.newContext({ viewport: { width: 360, height: 780 } });
+  const lp = await lCtx.newPage();
+  const lErr = [];
+  lp.on('pageerror', (e) => lErr.push(e.message));
+  await lp.goto(`${BASE}/app/index.html`);
+  await lp.waitForTimeout(500);
+  await lp.click('#btn-start-open');
+  await lp.waitForTimeout(1500);
+  await lp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+
+  const hist = await lp.evaluate(() => {
+    state.currency = 'MYR';
+    const m = todayISO().slice(0, 7);
+    const sum = (p) => (p.items ? p.items.map((i) => `${i.entryKind}|${i.amount}|${i.category}`) : [`${p.entryKind}|${p.amount}|${p.category}`]);
+    const before = {
+      tutoring: sum(parseVoiceEntry('100 ringgit tutoring')),
+      mydin: sum(parseVoiceEntry('RM 30 Mydin')),
+      kedai: sum(parseVoiceEntry('RM 8 Kedai Pak Seng')),
+    };
+    state.income.push({ id: uid(), name: 'Freelancing', amount: 800, month: m, day: 2, repeatNext: false });
+    state.income.push({ id: uid(), name: 'Tutoring', amount: 300, month: m, day: 3, repeatNext: false });
+    state.income.push({ id: uid(), name: 'Salary Maybank', amount: 4000, month: m, day: 1, repeatNext: true });
+    state.dailyExpenses.push({ id: uid(), date: todayISO(), amount: 55, category: 'Household', note: 'Mydin', kind: 'expense', createdAt: Date.now() });
+    state.dailyExpenses.push({ id: uid(), date: todayISO(), amount: 9, category: 'Food', note: 'Kedai Pak Seng', kind: 'expense', createdAt: Date.now() });
+    state.dailyExpenses.push({ id: uid(), date: todayISO(), amount: 20, category: 'Groceries', note: 'Mydin Mart', kind: 'expense', createdAt: Date.now() - 5000 });
+    const after = {
+      freelancing: sum(parseVoiceEntry('100 ringgit freelancing')),
+      tutoring: sum(parseVoiceEntry('100 ringgit tutoring')),
+      tutoringWord: sum(parseVoiceEntry('RM 50 tutoring Adam')),
+      mydin: sum(parseVoiceEntry('RM 30 Mydin')),
+      kedai: sum(parseVoiceEntry('RM 8 kedai pak seng')),
+      // "Maybank" also appears in a past income, but an explicit spend cue wins.
+      fee: sum(parseVoiceEntry('paid RM 5 Maybank card fee')),
+      multi: sum(parseVoiceEntry('100 ringgit tutoring, 12 ringgit nasi lemak')),
+      kinds: [voiceLearnedKind('Tutoring'), voiceLearnedKind('nothing like it'), voiceLearnedCategory('mydin')],
+    };
+    state.voiceLearn = { 'mydin': { kind: 'expense', category: 'Groceries', at: Date.now() }, 'tutoring': { kind: 'expense', category: 'Others', at: Date.now() } };
+    const fixed = { mydin: sum(parseVoiceEntry('RM 30 Mydin')), tutoring: sum(parseVoiceEntry('100 ringgit tutoring')) };
+    state.voiceLearn = {};
+    return { before, after, fixed };
+  });
+  check('v1.93.0: without history the rules decide ("tutoring" is a spend in Others, "Kedai Pak Seng" is Others)',
+    hist.before.tutoring[0] === 'expense|100|Others' && hist.before.kedai[0] === 'expense|8|Others' && hist.before.mydin[0] === 'expense|30|Groceries', JSON.stringify(hist.before));
+  check('v1.93.0: history decides — an income named "Freelancing" / "Tutoring" makes "100 ringgit tutoring" income; a past "Mydin" spend in Household beats the Groceries word rule',
+    hist.after.freelancing[0] === 'income|100|Income' && hist.after.tutoring[0] === 'income|100|Income' && hist.after.tutoringWord[0] === 'income|50|Income'
+    && hist.after.mydin[0] === 'expense|30|Household' && hist.after.kedai[0] === 'expense|8|Food'
+    && JSON.stringify(hist.after.multi) === JSON.stringify(['income|100|Income', 'expense|12|Food'])
+    && JSON.stringify(hist.after.kinds) === JSON.stringify(['income', '', 'Household']), JSON.stringify(hist.after));
+  check('v1.93.0: a word shared with a past income never overrides an explicit spend cue ("paid RM 5 Maybank card fee" stays a spend)',
+    hist.after.fee[0].startsWith('expense|5|'), JSON.stringify(hist.after.fee));
+  check('v1.93.0: a correction in state.voiceLearn wins over history and rules',
+    hist.fixed.mydin[0] === 'expense|30|Groceries' && hist.fixed.tutoring[0] === 'expense|100|Others', JSON.stringify(hist.fixed));
+
+  // One-tap fix on each row: In / Out and the category; Save books what the rows say and remembers the fix.
+  const fix = await lp.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const out = {};
+    for (const lang of ['en', 'ms', 'zh']) {
+      await I18N.set(lang);
+      openVoiceEntry('12 ringgit nasi lemak, 300 ringgit design job, 5 ringgit teh tarik');
+      await wait(120);
+      const dlg = document.getElementById('voice-dialog');
+      const over = [...dlg.querySelectorAll('.voice-item, .voice-item-text, .voice-fix, .voice-chip, .voice-item-drop')].some((el) => {
+        const r = el.getBoundingClientRect(); return r.right > innerWidth + 1 || r.left < -1;
+      });
+      const small = [...dlg.querySelectorAll('#voice-preview-items .voice-chip')].some((el) => el.getBoundingClientRect().height < 44);
+      out[lang] = { rows: document.getElementById('voice-preview-items').children.length, kinds: document.querySelectorAll('#voice-preview-items .voice-kind').length,
+        cats: document.querySelectorAll('#voice-preview-items select.voice-cat').length, over, small, x: document.documentElement.scrollWidth <= innerWidth + 1 };
+      dlg.close();
+      await wait(30);
+    }
+    await I18N.set('en');
+    const inc0 = state.income.length, sp0 = state.dailyExpenses.length;
+    openVoiceEntry('12 ringgit nasi lemak, 300 ringgit design job, 5 ringgit teh tarik');
+    await wait(120);
+    const rowsEls = () => [...document.querySelectorAll('#voice-preview-items .voice-item')];
+    out.before = { save: document.getElementById('voice-save').textContent, pressed: rowsEls()[1].querySelector('.voice-kind').getAttribute('aria-pressed'), label: rowsEls()[1].querySelector('.voice-kind').getAttribute('aria-label') };
+    rowsEls()[1].querySelector('.voice-kind').focus();
+    rowsEls()[1].querySelector('.voice-kind').click();
+    await wait(30);
+    out.flipped = { pressed: rowsEls()[1].querySelector('.voice-kind').getAttribute('aria-pressed'), text: rowsEls()[1].querySelector('.voice-kind').textContent,
+      catGone: !rowsEls()[1].querySelector('select.voice-cat'), focus: document.activeElement && document.activeElement.classList.contains('voice-kind'),
+      save: document.getElementById('voice-save').textContent, head: document.getElementById('voice-preview-spend').textContent };
+    const sel = rowsEls()[2].querySelector('select.voice-cat');
+    sel.value = 'Groceries';
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    await wait(30);
+    out.cat = rowsEls()[2].querySelector('select.voice-cat').value;
+    voiceSaveConfirmed();
+    out.income = state.income.slice(inc0).map((i) => `${i.amount}|${i.name}`);
+    out.spends = state.dailyExpenses.slice(sp0).map((e) => `${e.amount}|${e.category}|${e.note}`);
+    out.learn = JSON.parse(JSON.stringify(state.voiceLearn));
+    out.again = parseVoiceEntry('300 ringgit design job').entryKind;
+    // Single entry: the fix row sits beside the preview line (never inside it).
+    openVoiceEntry('RM 40 photo shoot');
+    await wait(80);
+    const fixRow = document.getElementById('voice-preview-fix');
+    out.single = { shown: !fixRow.hidden, spend: document.getElementById('voice-preview-spend').textContent, hasSelectInSpend: !!document.querySelector('#voice-preview-spend select') };
+    fixRow.querySelector('.voice-kind').click();
+    await wait(30);
+    out.single.save = document.getElementById('voice-save').textContent;
+    out.single.spendAfter = document.getElementById('voice-preview-spend').textContent;
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    // Split rows have no In / Out toggle.
+    openVoiceEntry('RM 40 dinner split half with Ali');
+    await wait(80);
+    out.splitToggle = !!document.querySelector('#voice-preview-fix .voice-kind');
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    return out;
+  });
+  check('v1.93.0: every voice row has an In / Out toggle (aria-pressed, "Money in") and a category chip; 44px targets; fits 360px in EN/MS/ZH',
+    ['en', 'ms', 'zh'].every((l) => fix[l].rows === 3 && fix[l].kinds === 3 && fix[l].cats === 3 && !fix[l].over && !fix[l].small && fix[l].x)
+    && fix.before.pressed === 'false' && fix.before.label === 'Money in' && fix.before.save === 'Save 3 spends', JSON.stringify(fix));
+  check('v1.93.0: flipping a row to In makes it income (no category chip, focus kept, "Save 3 entries"); a new category sticks',
+    fix.flipped.pressed === 'true' && fix.flipped.text === 'In' && fix.flipped.catGone && fix.flipped.focus && fix.flipped.save === 'Save 3 entries' && fix.cat === 'Groceries', JSON.stringify(fix.flipped));
+  check('v1.93.0: Save books what the rows say (income row → state.income) and remembers each fix in state.voiceLearn',
+    JSON.stringify(fix.income) === JSON.stringify(['300|Design job'])
+    && JSON.stringify(fix.spends) === JSON.stringify(['12|Food|Nasi lemak', '5|Groceries|Teh tarik'])
+    && fix.learn['design job'] && fix.learn['design job'].kind === 'income' && fix.learn['teh tarik'] && fix.learn['teh tarik'].category === 'Groceries'
+    && !fix.learn['nasi lemak'] && fix.again === 'income', JSON.stringify(fix));
+  check('v1.93.0: a single entry gets the same fix row beside the preview line; Out → In turns it into "Save income"; a split has no toggle',
+    fix.single.shown && !fix.single.hasSelectInSpend && /40\.00/.test(fix.single.spend) && fix.single.save === 'Save income' && /Income/.test(fix.single.spendAfter) && !fix.splitToggle,
+    JSON.stringify(fix.single));
+
+  const csv = await lp.evaluate(() => {
+    state.voiceLearn = { 'design job': { kind: 'income', category: 'Income', at: 5 } };
+    const text = toCSV();
+    return { row: text.split('\n').find((l) => l.startsWith('setting,voiceLearn,')) || '', coerced: JSON.stringify(coerceVoiceLearn({ a: { kind: 'x' }, b: { kind: 'expense', category: '' }, c: [1] })) };
+  });
+  check('v1.93.0: state.voiceLearn rides in the CSV as one setting row and is coerced on load (bad rows dropped)',
+    csv.row.includes('design job') && csv.coerced === JSON.stringify({ b: { kind: 'expense', category: 'Others', at: 0 } }), JSON.stringify(csv));
+
+  // On-device AI: stub the phone's kit.
+  const ai = await lp.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const keepCap = window.Capacitor;
+    const asked = [];
+    let reply = () => ({ json: '{"direction":"spend","category":"Entertainment","note":"karaoke"}' });
+    window.Capacitor = {
+      isNativePlatform: () => true,
+      getPlatform: () => 'android',
+      Plugins: { DuitfulKit: {
+        aiStatus: async () => ({ available: true }),
+        aiReadVoice: async (o) => { asked.push(o); return reply(o.text); },
+      } },
+    };
+    const out = {};
+    const run = async (text) => {
+      const input = document.getElementById('voice-input');
+      openVoiceEntry(text);
+      await wait(30);
+      await voiceAiLabel();
+      await wait(30);
+      const p = window.__voiceCurrent ? window.__voiceCurrent() : null;
+      return {
+        rows: [...document.querySelectorAll('#voice-preview-items .voice-item')].map((li) => li.textContent + (li.querySelector('select.voice-cat') ? '|' + li.querySelector('select.voice-cat').value : '') + (li.querySelector('.voice-ai-tag') ? '|AI' : '')),
+        single: document.getElementById('voice-preview-spend').textContent + (document.querySelector('#voice-preview-fix .voice-ai-tag') ? '|AI' : ''),
+        input: input.value,
+      };
+    };
+    try {
+      state.aiEnabled = true;
+      out.single = await run('RM 45 karaoke night');
+      out.askedSingle = asked.length && asked[0].text;
+      out.cats = asked.length ? asked[0].categories : [];
+      document.getElementById('voice-dialog').close();
+      // Not in the list / not in the text / an amount in the reply: ignored.
+      asked.length = 0;
+      reply = () => ({ json: '{"direction":"spend","category":"Yacht","note":"golden yacht","amount":999}' });
+      out.bad = await run('RM 45 karaoke night');
+      document.getElementById('voice-dialog').close();
+      // Income from the AI on a multi row; a row with a known category is never asked.
+      asked.length = 0;
+      reply = (t) => (/gig/.test(t) ? { direction: 'income', category: '', note: 'band gig' } : { json: '{"direction":"spend","category":"Food"}' });
+      out.multi = await run('12 ringgit nasi lemak, 200 ringgit band gig');
+      out.askedMulti = asked.map((a) => a.text);
+      out.multiSave = document.getElementById('voice-save').textContent;
+      document.getElementById('voice-dialog').close();
+      // A row the person already touched is not overwritten.
+      asked.length = 0;
+      let release;
+      reply = () => new Promise((r) => { release = () => r({ json: '{"direction":"income","category":"","note":"karaoke"}' }); });
+      openVoiceEntry('RM 45 karaoke night');
+      await wait(30);
+      const pending = voiceAiLabel();
+      await wait(30);
+      const sel = document.querySelector('#voice-preview-fix select.voice-cat');
+      sel.value = 'Shopping';
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+      await wait(10);
+      release && release();
+      await pending;
+      await wait(20);
+      out.touched = { spend: document.getElementById('voice-preview-spend').textContent, cat: document.querySelector('#voice-preview-fix select.voice-cat').value, save: document.getElementById('voice-save').textContent };
+      document.getElementById('voice-dialog').close();
+      // The box changed while the AI was thinking: the answer is dropped.
+      reply = () => new Promise((r) => { release = () => r({ json: '{"direction":"income","category":"","note":"karaoke"}' }); });
+      openVoiceEntry('RM 45 karaoke night');
+      await wait(30);
+      const p2 = voiceAiLabel();
+      await wait(20);
+      const input = document.getElementById('voice-input');
+      input.value = 'RM 46 karaoke night';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      await wait(10);
+      release && release();
+      await p2;
+      out.changed = document.getElementById('voice-save').textContent;
+      document.getElementById('voice-dialog').close();
+      // AI off: never asked.
+      asked.length = 0;
+      reply = () => ({ json: '{"direction":"income","category":"","note":"karaoke"}' });
+      state.aiEnabled = false;
+      out.off = await run('RM 45 karaoke night');
+      out.askedOff = asked.length;
+      document.getElementById('voice-dialog').close();
+      state.aiEnabled = true;
+      // Web (no native shell): never asked.
+      window.Capacitor = { isNativePlatform: () => false };
+      out.web = await run('RM 45 karaoke night');
+      out.askedWeb = asked.length;
+      document.getElementById('voice-dialog').close();
+    } finally {
+      window.Capacitor = keepCap;
+      state.aiEnabled = true;
+    }
+    return out;
+  });
+  check('v1.93.0 AI: an "Others" item gets the phone AI\'s category, note from its own words, an "AI" tag; the amount never changes; only the item\'s words and the app\'s categories are sent',
+    /45\.00/.test(ai.single.single) && /Entertainment/.test(ai.single.single) && /Karaoke/.test(ai.single.single) && ai.single.single.endsWith('|AI')
+    && ai.askedSingle === 'RM 45 karaoke night' && Array.isArray(ai.cats) && ai.cats.includes('Others') && !ai.cats.includes('Income'), JSON.stringify(ai));
+  check('v1.93.0 AI: a category not in the list, a note not in the text and an amount in the reply are all ignored',
+    /45\.00/.test(ai.bad.single) && /Others/.test(ai.bad.single) && !/Yacht|999|golden/i.test(ai.bad.single) && !ai.bad.single.endsWith('|AI'), JSON.stringify(ai.bad));
+  check('v1.93.0 AI: on several rows only the unsure one is asked; an "income" answer turns it into money in with its tag',
+    JSON.stringify(ai.askedMulti) === JSON.stringify(['200 ringgit band gig']) && ai.multi.rows.length === 2
+    && /^\+\D*200\.00/.test(ai.multi.rows[1]) && ai.multi.rows[1].endsWith('|AI') && /Nasi lemak.*\|Food$/.test(ai.multi.rows[0]) && ai.multiSave === 'Save 2 entries', JSON.stringify(ai.multi));
+  check('v1.93.0 AI: a row the person changed while the AI was thinking keeps their choice; a changed box drops the late answer',
+    ai.touched.cat === 'Shopping' && ai.touched.save === 'Save spend' && ai.changed === 'Save spend', JSON.stringify([ai.touched, ai.changed]));
+  check('v1.93.0 AI: AI switched off, or the web, never calls aiReadVoice',
+    ai.askedOff === 0 && ai.askedWeb === 0 && !ai.off.single.endsWith('|AI'), JSON.stringify([ai.askedOff, ai.askedWeb]));
+
+  const info = await lp.evaluate(async () => {
+    const keepCap = window.Capacitor;
+    const out = {};
+    try {
+      for (const plat of ['android', 'ios']) {
+        window.Capacitor = { isNativePlatform: () => true, getPlatform: () => plat, Plugins: { DuitfulKit: { aiStatus: async () => ({ available: true }) } } };
+        openAiInfo('badge');
+        out[plat] = !document.getElementById('ai-info-voice').hidden;
+        document.getElementById('ai-info-dialog').close();
+      }
+    } finally { window.Capacitor = keepCap; }
+    out.rows = ['In', 'Out', 'Voice entries', "When Kira isn't sure: money in or out, and the category. Never the amount."].every((k) => !!I18N.tables.ms[k] && !!I18N.tables.zh[k]);
+    return out;
+  });
+  check('v1.93.0: the "What on-device AI does" sheet lists Voice entries on Android and iPhone, with Malay and Chinese rows',
+    info.android && info.ios && info.rows, JSON.stringify(info));
+  check('v1.93.0: no page errors in voice learning suite', lErr.length === 0, JSON.stringify(lErr));
+  await lCtx.close();
 }
 
 // ── v1.91.0: Floating Kira mockup animations (top-layer pop, continuous flight, hover-float above waves, return glide) ──

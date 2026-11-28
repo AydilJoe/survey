@@ -58,6 +58,9 @@ import java.util.concurrent.Executors;
  *   aiReadReceipt    opinion on a receipt the rule-based parser isn't sure of.
  *   aiReadAlert      The same model labelling a bank notification the capture
  *                    rules couldn't place (direction, counterparty, category).
+ *   aiReadVoice      The same model labelling one Talk to Kira item the voice
+ *                    rules and history were unsure of (in or out, category,
+ *                    note from its own words). Never an amount.
  *   speechAvailable/ Android's SpeechRecognizer for "Talk to Kira" (1.80.0,
  *   speechStart /    DuitfulKitSpeech): on-device on Android 12+ when the
  *   speechStop       phone has it, else the phone's recognition service with
@@ -393,6 +396,40 @@ public class DuitfulKitPlugin extends Plugin {
             DuitfulKitAi.readAlert(getContext(), text, categories, call);
         } catch (Throwable e) {
             Log.e(TAG, "DuitfulKitAi.readAlert threw", e);
+            call.reject("Unavailable", "UNAVAILABLE");
+        }
+    }
+
+    /** One voice item's words -> {json: {direction, category, note}}. Never an amount (1.93.0). */
+    @PluginMethod
+    public void aiReadVoice(PluginCall call) {
+        String text = call.getString("text", "");
+        if (Build.VERSION.SDK_INT < MIN_SDK_FOR_ML) {
+            call.reject("Needs Android 8 or newer", "UNSUPPORTED");
+            return;
+        }
+        if (text == null || text.trim().isEmpty()) {
+            call.reject("No text", "EMPTY");
+            return;
+        }
+        String categories = "";
+        try {
+            JSArray cats = call.getArray("categories");
+            if (cats != null) {
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < cats.length() && i < 40; i++) {
+                    String c = cats.optString(i, "");
+                    if (c.isEmpty()) continue;
+                    if (sb.length() > 0) sb.append(", ");
+                    sb.append(c);
+                }
+                categories = sb.toString();
+            }
+        } catch (Exception ignored) {}
+        try {
+            DuitfulKitAi.readVoice(getContext(), text, categories, call);
+        } catch (Throwable e) {
+            Log.e(TAG, "DuitfulKitAi.readVoice threw", e);
             call.reject("Unavailable", "UNAVAILABLE");
         }
     }

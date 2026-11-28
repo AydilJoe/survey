@@ -35,6 +35,9 @@ import FoundationModels
 ///   aiStatus /       Apple's on-device Foundation Models (iOS 26, Apple
 ///   aiReadReceipt    Intelligence phones): a second opinion on a receipt the
 ///                    rule-based parser isn't sure of.
+///   aiReadVoice      The same model labelling one Talk to Kira item the
+///                    voice rules were unsure of (in or out, category, note).
+///                    Never an amount.
 ///   takePurchaseIntents  StoreKit 2 PurchaseIntent (iOS 16.4+): a Buy tapped
 ///                    on the App Store product page (a promoted in-app
 ///                    purchase). Only the product id is kept, until the web
@@ -61,6 +64,7 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         CAPPluginMethod(name: "aiStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "aiReadReceipt", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "aiWriteRecap", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "aiReadVoice", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "requestReview", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "relayWatch", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "readSharedFile", returnType: CAPPluginReturnPromise),
@@ -366,6 +370,33 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         call.reject("Needs iOS 26 with Apple Intelligence", "UNSUPPORTED")
     }
 
+    /// One Talk to Kira item the voice rules weren't sure of (1.93.0): in or
+    /// out, a category from the app's own list, a short note from its own
+    /// words. Never an amount: the app keeps the one its rules found, and
+    /// drops a category it doesn't have or a note the text doesn't contain.
+    /// -> {direction, category, note}
+    @objc func aiReadVoice(_ call: CAPPluginCall) {
+        let text = String((call.getString("text") ?? "").prefix(DuitfulVoiceAI.maxChars))
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            call.reject("No text", "EMPTY")
+            return
+        }
+        let cats = (call.getArray("categories") ?? []).compactMap { $0 as? String }.prefix(40).joined(separator: ", ")
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            Task {
+                do {
+                    call.resolve(try await DuitfulVoiceAI.read(text, categories: String(cats.prefix(500))))
+                } catch {
+                    call.reject(error.localizedDescription, "AI")
+                }
+            }
+            return
+        }
+        #endif
+        call.reject("Needs iOS 26 with Apple Intelligence", "UNSUPPORTED")
+    }
+
     /// A PDF or photo opened in Duitful from Mail, Files or a bank app. iOS
     /// copies it into the app's own Inbox and hands over a file URL
     /// (appUrlOpen); this reads it once and deletes the copy. Only files
@@ -606,6 +637,17 @@ enum DuitfulRecapAI {
         """
 }
 
+enum DuitfulVoiceAI {
+    static let maxChars = 200
+    static let instructions = """
+        You label one short money note a person said to a Malaysian personal finance app. \
+        direction is spend when the person paid for something, income when money came to them \
+        (pay, freelance work, a gift, a refund, money found), or empty if unsure. \
+        category must be one of the categories you are given, or empty. \
+        note is two to four words copied from the text naming what it was, without the amount. Never write a number.
+        """
+}
+
 enum DuitfulReceiptAI {
     static let maxChars = 3000
     static let instructions = """
@@ -629,6 +671,28 @@ struct DuitfulReceiptFields {
     var date: String
     @Guide(description: "ISO 4217 currency code such as MYR, or empty")
     var currency: String
+}
+
+@available(iOS 26.0, *)
+@Generable
+struct DuitfulVoiceFields {
+    @Guide(description: "spend, income, or empty if unsure")
+    var direction: String
+    @Guide(description: "One of the given categories, or empty")
+    var category: String
+    @Guide(description: "Two to four words from the text naming what it was; no numbers")
+    var note: String
+}
+
+@available(iOS 26.0, *)
+extension DuitfulVoiceAI {
+    static func read(_ text: String, categories: String) async throws -> [String: Any] {
+        let session = LanguageModelSession(instructions: instructions)
+        let prompt = "Categories: " + categories + "\n\nText:\n" + text
+        let response = try await session.respond(to: prompt, generating: DuitfulVoiceFields.self)
+        let f = response.content
+        return ["direction": f.direction, "category": f.category, "note": f.note]
+    }
 }
 
 @available(iOS 26.0, *)

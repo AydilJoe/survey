@@ -342,6 +342,10 @@ function toCSV() {
   // Own-account names ("This is my account"), one setting row each.
   for (const n of state.ownAccounts || []) rows.push(blank(["setting", "ownAccount", n]));
   rows.push(blank(["setting", "aiEnabled", state.aiEnabled === false ? "N" : "Y"]));
+  // Talk to Kira's corrections (1.93.0): one JSON row; older builds skip it.
+  if (state.voiceLearn && Object.keys(state.voiceLearn).length) {
+    rows.push(blank(["setting", "voiceLearn", JSON.stringify(state.voiceLearn)]));
+  }
   // The vault's currency: every amount in the file is in it (1.63.1; older
   // files mean MYR, which is what an import without the row keeps).
   if (state.currency && state.currency !== "MYR") rows.push(blank(["setting", "currency", state.currency]));
@@ -773,6 +777,10 @@ function fromCSV(text) {
       walletLastRow = iAmount >= 0 ? (row[iAmount] || "").toString().trim() : "";
     } else if (type === "setting" && name.toLowerCase() === "aienabled") {
       next.aiEnabled = (iAmount >= 0 ? String(row[iAmount] || "") : "").trim().toUpperCase() !== "N";
+    } else if (type === "setting" && name.toLowerCase() === "voicelearn") {
+      try {
+        next.voiceLearn = coerceVoiceLearn(JSON.parse(iAmount >= 0 ? String(row[iAmount] || "") : ""));
+      } catch { /* a damaged row: Kira just relearns */ }
     } else if (type === "setting" && name.toLowerCase() === "ownaccount") {
       const raw = iAmount >= 0 ? (row[iAmount] || "").toString() : "";
       next.ownAccounts = coerceOwnAccounts([...(next.ownAccounts || []), raw]);

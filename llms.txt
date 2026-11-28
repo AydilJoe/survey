@@ -102,7 +102,10 @@
   and, from 1.62.0, suggests which tax relief a spend may fit when the
   keyword rules miss it (only reliefs in the schedule; the user confirms
   every claim). iPhone (iOS 26): Apple's on-device Foundation Models, for receipts
-  (there is no notification capture on iPhone). From 1.58.1 both may also
+  (there is no notification capture on iPhone). From 1.93.0 both also label
+  Talk to Kira voice entries the rules and the user's own history can't
+  place (money in or out, a category from the app's list, a note from the
+  spoken words; never the amount). From 1.58.1 both may also
   reword the monthly recap on Reports (English only): the app computes
   every figure, and any text with a number not among them, or with advice,
   is discarded for the plain template. Rules run first and win;
@@ -315,7 +318,7 @@ diffed against the repository. The hosted product is not a subscription
   https://apps.apple.com/app/duitful-money-debt-tracker/id6827191645
   The native app adds encrypted backup to the user's own iCloud, the
   iPhone document scanner and Apple Vision OCR for receipts and statements,
-  and (iOS 26) Apple's on-device model for receipts and the English monthly recap.
+  and (iOS 26) Apple's on-device model for receipts, voice-entry labels and the English monthly recap.
   Bank-alert capture, AI statement suggestions and AI tax relief
   matching are Android only (iOS does not permit reading other apps'
   notifications). The web app at https://duitful.app/app also works

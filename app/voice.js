@@ -527,6 +527,10 @@
   }
 
   function parseVoiceItems(rawText, opts) {
+    return voiceItemsByRules(rawText, opts).map(voiceRefine);
+  }
+
+  function voiceItemsByRules(rawText, opts) {
     const raw = String(rawText || "").trim();
     const whole = parseVoiceSentence(raw, opts);
     if (!raw) return [whole];
@@ -577,6 +581,340 @@
       items.push(p);
     }
     return items;
+  }
+
+  /* ---------- Learned from the person's own entries (1.93.0) ----------
+     The word lists above are the last fallback. Before them, an item's note
+     is matched against what this person has already logged: a correction they
+     made on a voice row (state.voiceLearn), then a past entry with the same
+     note (income names → money in; spends → that category), then a past entry
+     sharing a significant word (≥ 4 letters, not a filler). A word match only
+     counts when every past entry with that word agrees, and only changes in /
+     out when the sentence had no cue word ("received", "spent"…). Offline,
+     every platform; never touches the amount. */
+  const VOICE_LEARN_MAX = 200;
+  const VOICE_HISTORY_MAX = 400;
+  const VOICE_LEARN_FILLER = new Set([
+    "income", "spend", "spending", "spent", "expense", "expenses", "from", "with", "dengan", "untuk",
+    "this", "that", "today", "tadi", "semalam", "yesterday", "ringgit", "money", "duit", "paid", "bayar",
+    "beli", "belanja", "dapat", "terima", "received", "receive", "found", "jumpa", "terjumpa", "also",
+    "then", "lepas", "pastu", "lagi", "just", "some", "sikit", "please", "tolong", "record", "catat",
+    "bought", "payment", "pembayaran", "pendapatan", "dollars", "bucks", "cents",
+  ]);
+  const VOICE_SPEND_CUE = /\b(?:spent|spend|spending|paid|pay|bought|buy|beli|belanja|bayar|makan|ate|expenses?|bill)\b|花了|买了|付了/i;
+  const VOICE_STRONG_IN_CUE = /\b(?:received|receive|earned|earn|salary|bonus|income|commission|komisen|allowance|elaun|side\s+income|dividend|refund|gaji|pendapatan|upah)\b|工资|薪水|收入|收到|赚了/i;
+
+  function voiceNormNote(s) {
+    return String(s || "")
+      .toLowerCase()
+      .replace(/\d+(?:[.,]\d+)*/g, " ")
+      .replace(/(?:^|\s)(?:ringgit|rm|myr|sen|dollars|bucks|cents?)(?=\s|$)/g, " ")
+      .replace(/块|元|令吉|马币/g, " ")
+      .replace(/[^\p{L}\p{N}\s'&-]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 60);
+  }
+  function voiceSigWords(norm) {
+    return [...new Set(String(norm || "").split(" ").filter((w) => w.length >= 4 && /^\p{L}+$/u.test(w) && !VOICE_LEARN_FILLER.has(w)))];
+  }
+  function voiceCategories() {
+    try { return typeof scanAllCategories === "function" ? scanAllCategories() : []; } catch { return []; }
+  }
+  function voiceCatIn(cat, cats) {
+    const c = String(cat || "").trim().toLowerCase();
+    return c ? ((cats || voiceCategories()).find((x) => String(x).toLowerCase() === c) || "") : "";
+  }
+
+  // The last ~400 income and spend entries, newest first, cached on the
+  // lists' lengths (the parser runs on every keystroke).
+  let voiceHistCache = null;
+  function voiceHistory() {
+    const st = typeof state === "object" && state ? state : null;
+    if (!st) return [];
+    const inc = Array.isArray(st.income) ? st.income : [];
+    const daily = Array.isArray(st.dailyExpenses) ? st.dailyExpenses : [];
+    const key = `${inc.length}|${daily.length}`;
+    if (voiceHistCache && voiceHistCache.st === st && voiceHistCache.key === key) return voiceHistCache.rows;
+    const rows = [];
+    for (const x of inc) {
+      if (!x || !x.name) continue;
+      const day = String(Number(x.day) || 1).padStart(2, "0");
+      rows.push({ norm: voiceNormNote(x.name), kind: "income", category: "Income", at: `${x.month || ""}-${day}`, ts: 0 });
+    }
+    for (const x of daily) {
+      if (!x || x.kind !== "expense" || !x.note) continue;
+      rows.push({ norm: voiceNormNote(x.note), kind: "expense", category: x.category || "", at: String(x.date || ""), ts: Number(x.createdAt) || 0 });
+    }
+    rows.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : b.ts - a.ts));
+    const out = rows.filter((r) => r.norm).slice(0, VOICE_HISTORY_MAX);
+    voiceHistCache = { st, key, rows: out };
+    return out;
+  }
+
+  // → { kind: "income" | "expense", category, from: "learn" | "history" | "word" } or null.
+  function voiceLearnedFor(note) {
+    const norm = voiceNormNote(note);
+    if (!norm) return null;
+    const cats = voiceCategories();
+    const fix = (k, c, from) => {
+      if (k === "income") return { kind: "income", category: "Income", from };
+      if (k !== "expense") return null;
+      return { kind: "expense", category: voiceCatIn(c, cats), from };
+    };
+    const learn = typeof state === "object" && state && state.voiceLearn && typeof state.voiceLearn === "object" ? state.voiceLearn : {};
+    if (learn[norm]) { const r = fix(learn[norm].kind, learn[norm].category, "learn"); if (r) return r; }
+    const hist = voiceHistory();
+    const exact = hist.find((r) => r.norm === norm);
+    if (exact) { const r = fix(exact.kind, exact.category, "history"); if (r) return r; }
+    for (const w of voiceSigWords(norm)) {
+      const re = new RegExp(`(?:^|\\s)${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\\s|$)`);
+      const hits = [
+        ...Object.entries(learn).filter(([k]) => re.test(k)).map(([, v]) => v),
+        ...hist.filter((r) => re.test(r.norm)),
+      ].filter((v) => v && (v.kind === "income" || v.kind === "expense"));
+      if (!hits.length) continue;
+      const k = hits[0].kind;
+      const c = k === "income" ? "Income" : voiceCatIn(hits[0].category, cats);
+      // Every past entry with this word must agree, or the word decides nothing.
+      if (hits.every((v) => v.kind === k && (k === "income" || voiceCatIn(v.category, cats) === c))) {
+        const r = fix(k, c, "word");
+        if (r) return r;
+      }
+    }
+    return null;
+  }
+  function voiceLearnedKind(note) {
+    const r = voiceLearnedFor(note);
+    return r ? r.kind : "";
+  }
+  function voiceLearnedCategory(note) {
+    const r = voiceLearnedFor(note);
+    return r && r.kind === "expense" ? r.category : "";
+  }
+
+  // Rules first (parseVoiceSentence), then what this person taught us. Debt
+  // payments are left alone; a split is always a spend.
+  function voiceRefine(p) {
+    if (!p || !(p.amount > 0) || p.entryKind === "debt") return p;
+    const seg = String(p.raw || "");
+    p.kindFrom = VOICE_STRONG_IN_CUE.test(seg) || (p.entryKind === "expense" && VOICE_SPEND_CUE.test(seg)) || (p.split && p.split.people && p.split.people.length)
+      ? "rule"
+      : (p.entryKind === "income" ? "weak" : "none");
+    p.catFrom = p.entryKind === "expense" && p.category && p.category !== "Others" ? "rule" : "none";
+    const hit = voiceLearnedFor(p.note);
+    if (!hit) return p;
+    const hasSplit = !!(p.split && p.split.people && p.split.people.length);
+    const mayFlip = hit.from !== "word" || p.kindFrom !== "rule";
+    if (hit.kind === "income" && p.entryKind === "expense" && mayFlip && !hasSplit) {
+      p.spendCat = p.category;
+      p.entryKind = "income";
+      p.category = "Income";
+      p.split = null;
+      p.kindFrom = hit.from;
+      p.learned = true;
+    } else if (hit.kind === "expense" && p.entryKind === "income" && mayFlip) {
+      p.entryKind = "expense";
+      p.category = hit.category || voiceInferCategory(p.note);
+      p.kindFrom = hit.from;
+      p.catFrom = hit.category ? hit.from : p.catFrom;
+      p.learned = true;
+    } else if (hit.kind === "expense" && p.entryKind === "expense" && hit.category && hit.category !== p.category) {
+      p.category = hit.category;
+      p.catFrom = hit.from;
+      p.learned = true;
+    } else if (hit.kind === p.entryKind) {
+      if (p.kindFrom !== "rule") p.kindFrom = hit.from;
+      if (hit.kind === "expense" && hit.category) p.catFrom = hit.from;
+    }
+    return p;
+  }
+
+  // A row the person fixed (In / Out, category): remembered on Save.
+  function voiceRemember(it) {
+    if (!it || !(it.userKind || it.userCat) || typeof state !== "object" || !state) return;
+    if (it.entryKind !== "income" && it.entryKind !== "expense") return;
+    const norm = voiceNormNote(it.note);
+    if (!norm) return;
+    const learn = state.voiceLearn && typeof state.voiceLearn === "object" && !Array.isArray(state.voiceLearn) ? state.voiceLearn : {};
+    learn[norm] = { kind: it.entryKind, category: it.entryKind === "income" ? "Income" : (it.category || "Others"), at: Date.now() };
+    const keys = Object.keys(learn);
+    if (keys.length > VOICE_LEARN_MAX) {
+      keys.sort((a, b) => (Number(learn[a].at) || 0) - (Number(learn[b].at) || 0));
+      for (const k of keys.slice(0, keys.length - VOICE_LEARN_MAX)) delete learn[k];
+    }
+    state.voiceLearn = learn;
+  }
+
+  /* ---------- On-device AI for the rows the rules are unsure of (1.93.0) ----------
+     Phone app only, behind aiAllowed(): DuitfulKit.aiReadVoice (Gemini Nano
+     on Android, Foundation Models on iOS 26) labels ONE item's words —
+     direction, a category from the app's own list, a short note made of the
+     item's own words. It never returns an amount: the amount is the rules'.
+     Asked only when nothing learned answered and the rules said "Others" or
+     guessed the direction from a weak word; ≤ 6 items, 6 s each, badge only.
+     The preview is already on screen; answers land row by row, never on a row
+     the person touched, and only while the box still says the same thing. */
+  const VOICE_AI_MAX = 6;
+  const VOICE_AI_TIMEOUT_MS = 6000;
+  let voiceAiGen = 0;
+
+  async function voiceAiKit() {
+    try {
+      if (typeof aiAllowed === "function" && !aiAllowed()) return null;
+      const kit = typeof duitfulKit === "function" ? duitfulKit("aiReadVoice") : null;
+      if (!kit || typeof kit.aiStatus !== "function") return null;
+      const st = await (typeof withTimeout === "function" ? withTimeout(kit.aiStatus(), 2000) : kit.aiStatus());
+      return st && st.available ? kit : null;
+    } catch { return null; }
+  }
+
+  // Android answers {json: "<model text>"}, iOS the fields themselves.
+  function parseAiVoiceReply(reply) {
+    if (!reply || typeof reply !== "object") return null;
+    let f = reply;
+    if (typeof reply.json === "string") {
+      const m = reply.json.replace(/```(?:json)?/gi, "").match(/\{[\s\S]*\}/);
+      if (!m) return null;
+      try { f = JSON.parse(m[0]); } catch { return null; }
+    }
+    if (!f || typeof f !== "object") return null;
+    const dir = String(f.direction || "").trim().toLowerCase();
+    return {
+      direction: dir === "spend" || dir === "income" ? dir : "",
+      category: typeof f.category === "string" ? f.category.trim().slice(0, 40) : "",
+      note: typeof f.note === "string" ? f.note.trim().slice(0, 60) : "",
+    };
+  }
+
+  function voiceAiWants(it) {
+    if (!it || !(it.amount > 0) || it.entryKind === "debt" || it.learned || it.ai || it.userKind || it.userCat) return false;
+    if (it.split && it.split.people && it.split.people.length) return false;
+    if (it.kindFrom === "learn" || it.kindFrom === "history" || it.kindFrom === "word") return false;
+    return (it.entryKind === "expense" && it.category === "Others") || it.kindFrom === "weak";
+  }
+
+  // Applies one validated answer to the item; true when something changed.
+  function voiceAiApply(it, ans, cats) {
+    if (!ans) return false;
+    let changed = false;
+    const hasSplit = !!(it.split && it.split.people && it.split.people.length);
+    if (ans.direction === "income" && it.entryKind === "expense" && !hasSplit) {
+      it.spendCat = it.category;
+      it.entryKind = "income";
+      it.category = "Income";
+      it.split = null;
+      changed = true;
+    } else if (ans.direction === "spend" && it.entryKind === "income") {
+      it.entryKind = "expense";
+      it.category = voiceInferCategory(it.note);
+      changed = true;
+    }
+    if (it.entryKind === "expense") {
+      const cat = voiceCatIn(ans.category, cats);
+      if (cat && cat !== it.category && cat !== "Income") { it.category = cat; changed = true; }
+    }
+    // A note must be the item's own words (no figures): never a made-up name.
+    const note = ans.note && !/\d/.test(ans.note) && typeof aiNameInText === "function"
+      ? aiNameInText(ans.note, it.raw)
+      : (ans.note && !/\d/.test(ans.note) && ans.note.length >= 2 && String(it.raw || "").toLowerCase().includes(ans.note.toLowerCase()) ? ans.note : "");
+    if (note && note.toLowerCase() !== String(it.note || "").toLowerCase()) {
+      it.note = (note.charAt(0).toUpperCase() + note.slice(1)).slice(0, 80);
+      changed = true;
+    }
+    if (changed) { it.ai = true; it.kindFrom = "ai"; }
+    return changed;
+  }
+
+  // Runs on whatever the sheet shows now; resolves when every answer is in.
+  // One pass per preview: a second ask for the same rows joins the first.
+  let voiceAiRun = null;
+  function voiceAiLabel() {
+    const parsed = voiceCurrent;
+    const r = voiceAiRun;
+    if (r && parsed && r.gen === voiceAiGen && (r.parsed === parsed || (!!parsed.items && r.parsed.items === parsed.items))) return r.promise;
+    const promise = voiceAiLabelRun(parsed);
+    const run = { parsed, promise, gen: voiceAiGen };
+    voiceAiRun = run;
+    promise.finally(() => { if (voiceAiRun === run) voiceAiRun = null; }).catch(() => {});
+    return promise;
+  }
+
+  async function voiceAiLabelRun(parsed) {
+    const gen = ++voiceAiGen;
+    if (!parsed || !(parsed.amount > 0) || parsed.source === "cloud-ai") return 0;
+    const items = parsed.items && parsed.items.length > 1 ? parsed.items : [parsed];
+    const ask = items.filter(voiceAiWants).slice(0, VOICE_AI_MAX);
+    if (!ask.length) return 0;
+    const kit = await voiceAiKit();
+    if (!kit) return 0;
+    const input = document.getElementById("voice-input");
+    const raw = input ? input.value.trim() : String(parsed.raw || "").trim();
+    const cats = voiceCategories().filter((c) => c !== "Income");
+    const still = () => gen === voiceAiGen && voiceCurrent && (voiceCurrent === parsed || (!!parsed.items && voiceCurrent.items === parsed.items))
+      && (!input || input.value.trim() === raw);
+    let n = 0;
+    for (const it of ask) {
+      if (!still()) break;
+      let ans = null;
+      try {
+        const call = () => (typeof withTimeout === "function"
+          ? withTimeout(kit.aiReadVoice({ text: String(it.raw || "").slice(0, 200), categories: cats.slice(0, 40) }), VOICE_AI_TIMEOUT_MS)
+          : kit.aiReadVoice({ text: String(it.raw || "").slice(0, 200), categories: cats.slice(0, 40) }));
+        ans = parseAiVoiceReply(typeof withAiThinking === "function" ? await withAiThinking(call) : await call());
+      } catch { ans = null; }
+      if (!still() || it.userKind || it.userCat || voiceRowBusy(it)) continue;
+      const amount = it.amount;
+      if (voiceAiApply(it, ans, cats)) {
+        it.amount = amount;
+        n++;
+        voiceRefreshAfterAi(it);
+      }
+    }
+    return n;
+  }
+
+  // The person's finger is on this row right now: leave it be.
+  function voiceRowBusy(it) {
+    const el = document.activeElement;
+    if (!el || !el.closest) return false;
+    const li = el.closest("[data-voice-idx]");
+    if (li && voiceCurrent && voiceCurrent.items) return voiceCurrent.items[Number(li.dataset.voiceIdx)] === it;
+    return !!el.closest("#voice-preview-fix") && voiceCurrent === it;
+  }
+
+  function voiceRefreshAfterAi(it) {
+    const p = voiceCurrent;
+    if (!p) return;
+    if (p.items && p.items.length > 1) {
+      const idx = p.items.indexOf(it);
+      const list = document.getElementById("voice-preview-items");
+      const li = list && list.querySelector(`[data-voice-idx="${idx}"]`);
+      const next = voiceCombine(p.raw, p.items);
+      voiceCurrent = next;
+      if (li) {
+        li.replaceWith(voiceItemRow(it, idx));
+        voiceItemsHeader(next);
+      } else {
+        renderVoicePreview(next);
+      }
+      return;
+    }
+    renderVoicePreview(p);
+  }
+
+  // After a parse settles (speech ended, text opened, typing paused).
+  let voiceAiTimer = 0;
+  function voiceAiSoon(ms) {
+    clearTimeout(voiceAiTimer);
+    voiceAiTimer = setTimeout(() => { voiceAiLabel().catch(() => {}); }, ms == null ? 450 : ms);
+  }
+
+  // A row the person already changed keeps their choice against late answers.
+  function voiceTouched(p) {
+    if (!p) return false;
+    const items = p.items && p.items.length > 1 ? p.items : [p];
+    return items.some((it) => it && (it.userKind || it.userCat || it.ai));
   }
 
   // What the sheet previews and saves: one entry, or `items` when the
@@ -1460,7 +1798,18 @@
     const corrected = voiceCorrectHeard(text);
     input.value = corrected;
     voiceSyncTranscript(corrected);
+    voiceAiGen++;
     renderVoicePreview(parseVoiceEntry(corrected));
+  }
+
+  // The AI+ upgrade (when on), then the phone's AI for rows still unsure. A
+  // late answer never replaces rows the person (or the phone's AI) changed.
+  function voiceSmartThenAi(raw) {
+    const input = document.getElementById("voice-input");
+    return parseVoiceSmart(raw).then((smart) => {
+      if (input && input.value.trim() === smart.raw.trim() && !voiceTouched(voiceCurrent)) renderVoicePreview(smart);
+      return voiceAiLabel();
+    }).catch(() => 0);
   }
 
   // Final words arrived: check local instant navigation first (0 quota),
@@ -1481,9 +1830,7 @@
     const local = parseVoiceEntry(raw);
     if (local.amount > 0) {
       renderVoicePreview(local);
-      parseVoiceSmart(raw).then((smart) => {
-        if (input && input.value.trim() === smart.raw.trim()) renderVoicePreview(smart);
-      }).catch(() => {});
+      voiceSmartThenAi(raw);
       return;
     }
 
@@ -1493,9 +1840,7 @@
     }
 
     renderVoicePreview(local);
-    parseVoiceSmart(raw).then((smart) => {
-      if (input && input.value.trim() === smart.raw.trim()) renderVoicePreview(smart);
-    }).catch(() => {});
+    voiceSmartThenAi(raw);
   }
 
   async function voiceStartNative(kit) {
@@ -1598,7 +1943,9 @@
     const hint = document.getElementById("voice-hint");
     if (!box || !spendLine || !saveBtn) return;
 
+    const fixRow = document.getElementById("voice-preview-fix");
     if (!parsed || !(parsed.amount > 0)) {
+      if (fixRow) { fixRow.hidden = true; fixRow.replaceChildren(); }
       box.hidden = true;
       saveBtn.disabled = true;
       saveBtn.textContent = typeof tr === "function" ? tr("Save spend") : "Save spend";
@@ -1626,6 +1973,16 @@
       : (parsed.entryKind === "debt" ? voiceT("Pay debt") : voiceT(parsed.category));
     const parts = [money, kindTag, parsed.entryKind === "debt" ? (parsed.debtName || parsed.note) : parsed.note, parsed.walletName].filter(Boolean);
     spendLine.textContent = parts.join(" · ");
+    if (fixRow) {
+      const keep = document.activeElement && fixRow.contains(document.activeElement) ? document.activeElement.dataset.voiceRole : "";
+      const fix = voiceFixControls(parsed, () => renderVoicePreview(parsed));
+      if (fix) fixRow.replaceChildren(fix); else fixRow.replaceChildren();
+      fixRow.hidden = !fix;
+      if (keep) {
+        const el = fixRow.querySelector(`[data-voice-role="${keep}"]`);
+        try { el && el.focus({ preventScroll: true }); } catch {}
+      }
+    }
 
     if (splitBox) {
       if (parsed.split && parsed.split.people && parsed.split.people.length) {
@@ -1660,52 +2017,159 @@
     return typeof fmtMoney === "function" ? fmtMoney(n) : `RM ${Number(n).toFixed(2)}`;
   }
 
-  // Several spends: one row each (amount · category · note · wallet) with a
-  // remove button, the total above, "Save 3 spends" (1.89.0).
+  // Several spends: one row each (amount · note · wallet, then the In / Out
+  // toggle and the category chip) with a remove button, the total above,
+  // "Save 3 spends" (1.89.0; one-tap fixes 1.93.0).
   function voiceRenderItems(parsed, spendLine, list, splitBox, saveBtn) {
+    const box = document.getElementById("voice-preview");
+    if (box) box.classList.add("is-multi");
+    const fix = document.getElementById("voice-preview-fix");
+    if (fix) { fix.hidden = true; fix.replaceChildren(); }
+    if (splitBox) { splitBox.hidden = true; splitBox.textContent = ""; }
+    if (list) {
+      // Keep the focused control across a re-render (a chip just changed).
+      const act = document.activeElement;
+      const actLi = act && act.closest ? act.closest("[data-voice-idx]") : null;
+      const keep = actLi && list.contains(actLi) ? { idx: actLi.dataset.voiceIdx, role: act.dataset.voiceRole || "" } : null;
+      list.replaceChildren(...parsed.items.map((it, idx) => voiceItemRow(it, idx)));
+      list.hidden = false;
+      if (keep && keep.role) {
+        const el = list.querySelector(`[data-voice-idx="${keep.idx}"] [data-voice-role="${keep.role}"]`);
+        try { el && el.focus({ preventScroll: true }); } catch {}
+      }
+    }
+    voiceItemsHeader(parsed, spendLine, saveBtn);
+  }
+
+  function voiceItemsHeader(parsed, spendLine, saveBtn) {
+    const line = spendLine || document.getElementById("voice-preview-spend");
+    const btn = saveBtn || document.getElementById("voice-save");
     const items = parsed.items;
     const n = items.length;
     const plain = items.every((it) => it.entryKind === "expense" && !it.split);
-    const box = document.getElementById("voice-preview");
-    if (box) box.classList.add("is-multi");
-    spendLine.textContent = typeof trn === "function"
-      ? (plain
-        ? trn(n, "{n} spend · {a}", "{n} spends · {a}", { a: voiceMoney(parsed.amount) })
-        : trn(n, "{n} entry", "{n} entries"))
-      : `${n} · ${voiceMoney(parsed.amount)}`;
-    if (splitBox) { splitBox.hidden = true; splitBox.textContent = ""; }
-    if (list) {
-      const rows = items.map((it, idx) => {
-        const li = document.createElement("li");
-        li.className = "voice-item" + (it.entryKind === "income" ? " is-income" : "");
-        const txt = document.createElement("span");
-        txt.className = "voice-item-text";
-        const amt = document.createElement("b");
-        amt.textContent = (it.entryKind === "income" ? "+" : "") + voiceMoney(it.amount);
-        const tag = it.entryKind === "income" ? voiceT("Income") : (it.entryKind === "debt" ? voiceT("Pay debt") : voiceT(it.category));
-        const note = it.entryKind === "debt" ? (it.debtName || it.note) : (it.note !== it.category ? it.note : "");
-        txt.append(amt, document.createTextNode(" · " + [tag, note, it.walletName].filter(Boolean).join(" · ")));
-        if (it.split && it.split.people && it.split.people.length) {
-          const sp = document.createElement("span");
-          sp.className = "voice-item-split";
-          sp.textContent = voiceT("Split request: {list}", { list: it.split.people.map((x) => `${x.name} (${voiceMoney(x.amount)})`).join(", ") });
-          txt.append(sp);
-        }
-        const drop = document.createElement("button");
-        drop.type = "button";
-        drop.className = "ghost voice-item-drop";
-        drop.setAttribute("aria-label", voiceT("Remove {name}", { name: note || tag || voiceMoney(it.amount) }));
-        drop.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
-        drop.addEventListener("click", () => voiceDropItem(idx));
-        li.append(txt, drop);
-        return li;
-      });
-      list.replaceChildren(...rows);
-      list.hidden = false;
+    if (line) {
+      line.textContent = typeof trn === "function"
+        ? (plain
+          ? trn(n, "{n} spend · {a}", "{n} spends · {a}", { a: voiceMoney(parsed.amount) })
+          : trn(n, "{n} entry", "{n} entries"))
+        : `${n} · ${voiceMoney(parsed.amount)}`;
     }
-    saveBtn.textContent = typeof trn === "function"
-      ? (plain ? trn(n, "Save {n} spend", "Save {n} spends") : trn(n, "Save {n} entry", "Save {n} entries"))
-      : `Save ${n}`;
+    if (btn) {
+      btn.textContent = typeof trn === "function"
+        ? (plain ? trn(n, "Save {n} spend", "Save {n} spends") : trn(n, "Save {n} entry", "Save {n} entries"))
+        : `Save ${n}`;
+    }
+  }
+
+  // The phone's AI filled this row: the statement review's "AI" tag.
+  function voiceAiTag() {
+    const t = voiceT("Suggested by your phone's AI");
+    const tag = document.createElement("span");
+    tag.className = "stmt-tag stmt-ai voice-ai-tag";
+    tag.setAttribute("translate", "no");
+    tag.title = t;
+    tag.setAttribute("aria-label", t);
+    tag.textContent = "AI";
+    return tag;
+  }
+
+  // In / Out and the category, one tap each. Split rows are always a spend
+  // (no toggle); debt payments keep their own line.
+  function voiceFixControls(it, onChange) {
+    const wrap = document.createElement("span");
+    wrap.className = "voice-fix";
+    if (it.entryKind === "debt") return null;
+    const hasSplit = !!(it.split && it.split.people && it.split.people.length);
+    const income = it.entryKind === "income";
+    if (!hasSplit) {
+      const kind = document.createElement("button");
+      kind.type = "button";
+      kind.className = "voice-chip voice-kind" + (income ? " is-in" : "");
+      kind.dataset.voiceRole = "kind";
+      kind.setAttribute("aria-pressed", income ? "true" : "false");
+      kind.setAttribute("aria-label", voiceT("Money in"));
+      kind.textContent = income ? voiceT("In") : voiceT("Out");
+      kind.addEventListener("click", () => {
+        voiceSetKind(it, it.entryKind === "income" ? "expense" : "income");
+        onChange();
+      });
+      wrap.append(kind);
+    }
+    // Money in has no category: the "In" chip says it all.
+    if (!income) {
+      const sel = document.createElement("select");
+      sel.className = "voice-chip voice-cat";
+      sel.dataset.voiceRole = "cat";
+      sel.setAttribute("aria-label", voiceT("Category"));
+      const cats = voiceCategories().filter((c) => c !== "Income");
+      if (it.category && !cats.includes(it.category)) cats.unshift(it.category);
+      for (const c of cats) {
+        const o = document.createElement("option");
+        o.value = c;
+        // Stored names stay as typed; the built-in ones read in the app's language.
+        o.textContent = voiceT(c);
+        if (c === it.category) o.selected = true;
+        sel.append(o);
+      }
+      sel.addEventListener("change", () => {
+        it.category = sel.value;
+        it.userCat = true;
+        it.ai = false;
+        onChange();
+      });
+      wrap.append(sel);
+    }
+    if (it.ai) wrap.append(voiceAiTag());
+    return wrap;
+  }
+
+  function voiceSetKind(it, kind) {
+    if (kind === it.entryKind) return;
+    if (kind === "income") {
+      if (it.split && it.split.people && it.split.people.length) return;
+      it.spendCat = it.category && it.category !== "Income" ? it.category : (it.spendCat || "");
+      it.entryKind = "income";
+      it.category = "Income";
+    } else {
+      it.entryKind = "expense";
+      it.category = it.spendCat || voiceLearnedCategory(it.note) || voiceInferCategory(it.note);
+    }
+    it.userKind = true;
+    it.ai = false;
+  }
+
+  function voiceItemRow(it, idx) {
+    const li = document.createElement("li");
+    li.className = "voice-item" + (it.entryKind === "income" ? " is-income" : "");
+    li.dataset.voiceIdx = String(idx);
+    const txt = document.createElement("span");
+    txt.className = "voice-item-text";
+    const amt = document.createElement("b");
+    amt.textContent = (it.entryKind === "income" ? "+" : "") + voiceMoney(it.amount);
+    const tag = it.entryKind === "income" ? voiceT("Income") : (it.entryKind === "debt" ? voiceT("Pay debt") : voiceT(it.category));
+    const note = it.entryKind === "debt" ? (it.debtName || it.note) : (it.note !== it.category ? it.note : "");
+    const words = it.entryKind === "debt" ? [tag, note, it.walletName] : [note, it.walletName];
+    const rest = words.filter(Boolean).join(" · ");
+    txt.append(amt, document.createTextNode(rest ? " · " + rest : ""));
+    if (it.split && it.split.people && it.split.people.length) {
+      const sp = document.createElement("span");
+      sp.className = "voice-item-split";
+      sp.textContent = voiceT("Split request: {list}", { list: it.split.people.map((x) => `${x.name} (${voiceMoney(x.amount)})`).join(", ") });
+      txt.append(sp);
+    }
+    const fix = voiceFixControls(it, () => {
+      const p = voiceCurrent;
+      if (p && p.items) renderVoicePreview(voiceCombine(p.raw, p.items));
+    });
+    if (fix) txt.append(fix);
+    const drop = document.createElement("button");
+    drop.type = "button";
+    drop.className = "ghost voice-item-drop";
+    drop.setAttribute("aria-label", voiceT("Remove {name}", { name: note || tag || voiceMoney(it.amount) }));
+    drop.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    drop.addEventListener("click", () => voiceDropItem(idx));
+    li.append(txt, drop);
+    return li;
   }
 
   // A misheard item goes without dropping the rest.
@@ -1728,6 +2192,7 @@
 
   function voiceSaveItems(p) {
     const date = typeof todayISO === "function" ? todayISO() : new Date().toISOString().slice(0, 10);
+    p.items.forEach(voiceRemember);
     const booked = p.items.filter((it) => it.amount > 0).map((it) => voiceBook(it, date));
     if (typeof save === "function") save();
     if (typeof renderAll === "function") renderAll();
@@ -1853,6 +2318,7 @@
     if (!p || !(p.amount > 0) || !state) return null;
     if (Array.isArray(p.items) && p.items.length > 1) return voiceSaveItems(p);
     const date = typeof todayISO === "function" ? todayISO() : new Date().toISOString().slice(0, 10);
+    voiceRemember(p);
     const { id, expense, splitRec, destTab, destLabel } = voiceBook(p, date);
     if (typeof save === "function") save();
     if (typeof renderAll === "function") renderAll();
@@ -1925,9 +2391,7 @@
     if (input.value) {
       const parsed = parseVoiceEntry(input.value);
       renderVoicePreview(parsed);
-      parseVoiceSmart(input.value).then((smart) => {
-        if (input.value.trim() === smart.raw.trim()) renderVoicePreview(smart);
-      }).catch(() => {});
+      voiceSmartThenAi(input.value);
     } else {
       renderVoicePreview(null);
       // Holding Kira / bubble: no keyboard over the sheet while listening.
@@ -2030,6 +2494,8 @@
         // The close event arrives asynchronously a task after close(); ignore
         // a stale close if #voice-dialog has already been reopened.
         if (dlg.open) return;
+        voiceAiGen++;
+        clearTimeout(voiceAiTimer);
         voiceClearFlight();
         voiceStopListening({ cancel: true });
         voiceStatus("");
@@ -2068,11 +2534,13 @@
         voiceSyncTranscript(val);
         renderVoicePreview(parseVoiceEntry(val));
         clearTimeout(timer);
-        if (val.trim().length >= 4 && typeof window.aiCloudRun === "function" && !voiceLooksLikeQuestion(val) && !voiceMatchLocalCommand(val)) {
+        clearTimeout(voiceAiTimer);
+        voiceAiGen++;
+        if (val.trim().length >= 4 && !voiceLooksLikeQuestion(val) && !voiceMatchLocalCommand(val)) {
           timer = setTimeout(() => {
-            parseVoiceSmart(val).then((smart) => {
-              if (input.value.trim() === smart.raw.trim()) renderVoicePreview(smart);
-            }).catch(() => {});
+            if (!dlg || !dlg.open) return;
+            if (typeof window.aiCloudRun === "function") voiceSmartThenAi(val);
+            else voiceAiSoon(0);
           }, 450);
         }
       });
@@ -2108,6 +2576,10 @@
   window.voiceCorrectHeard = voiceCorrectHeard;
   window.voiceSpeechHints = voiceSpeechHints;
   window.parseVoiceSmart = parseVoiceSmart;
+  window.voiceLearnedKind = voiceLearnedKind;
+  window.voiceLearnedCategory = voiceLearnedCategory;
+  window.voiceAiLabel = voiceAiLabel;
+  window.parseAiVoiceReply = parseAiVoiceReply;
   window.voiceMatchLocalCommand = voiceMatchLocalCommand;
   window.voiceAskKira = voiceAskKira;
   window.voiceOnSpeechLevel = voiceOnSpeechLevel;
