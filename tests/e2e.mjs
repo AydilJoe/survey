@@ -20061,13 +20061,13 @@ check('the brand catalogue makes no network calls at all',
   await mCtx.close();
 }
 
-// ── v1.93.0: Talk to Kira learns — history, corrections, on-device AI, one-tap fix ──
+// ── v1.94.0: Talk to Kira learns — history, corrections, on-device AI, one-tap fix ──
 {
   const read = (f) => readFileSync(path.join(REPO_ROOT, f), 'utf8');
   const javaKit = read('native/duitful-kit/android/DuitfulKitPlugin.java');
   const javaAi = read('native/duitful-kit/android/DuitfulKitAi.java');
   const swiftKit = read('native/duitful-kit/ios/Sources/DuitfulKitPlugin/DuitfulKitPlugin.swift');
-  check('v1.93.0: native DuitfulKit defines aiReadVoice on Android (PluginMethod + VOICE_INSTRUCTIONS via generate) and iOS (registered, @Generable, iOS 26 guard), never an amount',
+  check('v1.94.0: native DuitfulKit defines aiReadVoice on Android (PluginMethod + VOICE_INSTRUCTIONS via generate) and iOS (registered, @Generable, iOS 26 guard), never an amount',
     /@PluginMethod\s+public void aiReadVoice\(PluginCall call\)/.test(javaKit) && javaKit.includes('DuitfulKitAi.readVoice(')
     && javaAi.includes('VOICE_INSTRUCTIONS') && /static void readVoice\([^)]*\)\s*\{[\s\S]*?generate\(ctx, VOICE_INSTRUCTIONS/.test(javaAi) && !/VOICE_INSTRUCTIONS[\s\S]{0,700}amount\\?"/.test(javaAi)
     && swiftKit.includes('CAPPluginMethod(name: "aiReadVoice"') && /@objc func aiReadVoice\(_ call: CAPPluginCall\)/.test(swiftKit)
@@ -20116,16 +20116,16 @@ check('the brand catalogue makes no network calls at all',
     state.voiceLearn = {};
     return { before, after, fixed };
   });
-  check('v1.93.0: without history the rules decide ("tutoring" is a spend in Others, "Kedai Pak Seng" is Others)',
+  check('v1.94.0: without history the rules decide ("tutoring" is a spend in Others, "Kedai Pak Seng" is Others)',
     hist.before.tutoring[0] === 'expense|100|Others' && hist.before.kedai[0] === 'expense|8|Others' && hist.before.mydin[0] === 'expense|30|Groceries', JSON.stringify(hist.before));
-  check('v1.93.0: history decides — an income named "Freelancing" / "Tutoring" makes "100 ringgit tutoring" income; a past "Mydin" spend in Household beats the Groceries word rule',
+  check('v1.94.0: history decides — an income named "Freelancing" / "Tutoring" makes "100 ringgit tutoring" income; a past "Mydin" spend in Household beats the Groceries word rule',
     hist.after.freelancing[0] === 'income|100|Income' && hist.after.tutoring[0] === 'income|100|Income' && hist.after.tutoringWord[0] === 'income|50|Income'
     && hist.after.mydin[0] === 'expense|30|Household' && hist.after.kedai[0] === 'expense|8|Food'
     && JSON.stringify(hist.after.multi) === JSON.stringify(['income|100|Income', 'expense|12|Food'])
     && JSON.stringify(hist.after.kinds) === JSON.stringify(['income', '', 'Household']), JSON.stringify(hist.after));
-  check('v1.93.0: a word shared with a past income never overrides an explicit spend cue ("paid RM 5 Maybank card fee" stays a spend)',
+  check('v1.94.0: a word shared with a past income never overrides an explicit spend cue ("paid RM 5 Maybank card fee" stays a spend)',
     hist.after.fee[0].startsWith('expense|5|'), JSON.stringify(hist.after.fee));
-  check('v1.93.0: a correction in state.voiceLearn wins over history and rules',
+  check('v1.94.0: a correction in state.voiceLearn wins over history and rules',
     hist.fixed.mydin[0] === 'expense|30|Groceries' && hist.fixed.tutoring[0] === 'expense|100|Others', JSON.stringify(hist.fixed));
 
   // One-tap fix on each row: In / Out and the category; Save books what the rows say and remembers the fix.
@@ -20185,17 +20185,17 @@ check('the brand catalogue makes no network calls at all',
     document.querySelectorAll('dialog[open]').forEach((d) => d.close());
     return out;
   });
-  check('v1.93.0: every voice row has an In / Out toggle (aria-pressed, "Money in") and a category chip; 44px targets; fits 360px in EN/MS/ZH',
+  check('v1.94.0: every voice row has an In / Out toggle (aria-pressed, "Money in") and a category chip; 44px targets; fits 360px in EN/MS/ZH',
     ['en', 'ms', 'zh'].every((l) => fix[l].rows === 3 && fix[l].kinds === 3 && fix[l].cats === 3 && !fix[l].over && !fix[l].small && fix[l].x)
     && fix.before.pressed === 'false' && fix.before.label === 'Money in' && fix.before.save === 'Save 3 spends', JSON.stringify(fix));
-  check('v1.93.0: flipping a row to In makes it income (no category chip, focus kept, "Save 3 entries"); a new category sticks',
+  check('v1.94.0: flipping a row to In makes it income (no category chip, focus kept, "Save 3 entries"); a new category sticks',
     fix.flipped.pressed === 'true' && fix.flipped.text === 'In' && fix.flipped.catGone && fix.flipped.focus && fix.flipped.save === 'Save 3 entries' && fix.cat === 'Groceries', JSON.stringify(fix.flipped));
-  check('v1.93.0: Save books what the rows say (income row → state.income) and remembers each fix in state.voiceLearn',
+  check('v1.94.0: Save books what the rows say (income row → state.income) and remembers each fix in state.voiceLearn',
     JSON.stringify(fix.income) === JSON.stringify(['300|Design job'])
     && JSON.stringify(fix.spends) === JSON.stringify(['12|Food|Nasi lemak', '5|Groceries|Teh tarik'])
     && fix.learn['design job'] && fix.learn['design job'].kind === 'income' && fix.learn['teh tarik'] && fix.learn['teh tarik'].category === 'Groceries'
     && !fix.learn['nasi lemak'] && fix.again === 'income', JSON.stringify(fix));
-  check('v1.93.0: a single entry gets the same fix row beside the preview line; Out → In turns it into "Save income"; a split has no toggle',
+  check('v1.94.0: a single entry gets the same fix row beside the preview line; Out → In turns it into "Save income"; a split has no toggle',
     fix.single.shown && !fix.single.hasSelectInSpend && /40\.00/.test(fix.single.spend) && fix.single.save === 'Save income' && /Income/.test(fix.single.spendAfter) && !fix.splitToggle,
     JSON.stringify(fix.single));
 
@@ -20204,7 +20204,7 @@ check('the brand catalogue makes no network calls at all',
     const text = toCSV();
     return { row: text.split('\n').find((l) => l.startsWith('setting,voiceLearn,')) || '', coerced: JSON.stringify(coerceVoiceLearn({ a: { kind: 'x' }, b: { kind: 'expense', category: '' }, c: [1] })) };
   });
-  check('v1.93.0: state.voiceLearn rides in the CSV as one setting row and is coerced on load (bad rows dropped)',
+  check('v1.94.0: state.voiceLearn rides in the CSV as one setting row and is coerced on load (bad rows dropped)',
     csv.row.includes('design job') && csv.coerced === JSON.stringify({ b: { kind: 'expense', category: 'Others', at: 0 } }), JSON.stringify(csv));
 
   // On-device AI: stub the phone's kit.
@@ -20303,17 +20303,17 @@ check('the brand catalogue makes no network calls at all',
     }
     return out;
   });
-  check('v1.93.0 AI: an "Others" item gets the phone AI\'s category, note from its own words, an "AI" tag; the amount never changes; only the item\'s words and the app\'s categories are sent',
+  check('v1.94.0 AI: an "Others" item gets the phone AI\'s category, note from its own words, an "AI" tag; the amount never changes; only the item\'s words and the app\'s categories are sent',
     /45\.00/.test(ai.single.single) && /Entertainment/.test(ai.single.single) && /Karaoke/.test(ai.single.single) && ai.single.single.endsWith('|AI')
     && ai.askedSingle === 'RM 45 karaoke night' && Array.isArray(ai.cats) && ai.cats.includes('Others') && !ai.cats.includes('Income'), JSON.stringify(ai));
-  check('v1.93.0 AI: a category not in the list, a note not in the text and an amount in the reply are all ignored',
+  check('v1.94.0 AI: a category not in the list, a note not in the text and an amount in the reply are all ignored',
     /45\.00/.test(ai.bad.single) && /Others/.test(ai.bad.single) && !/Yacht|999|golden/i.test(ai.bad.single) && !ai.bad.single.endsWith('|AI'), JSON.stringify(ai.bad));
-  check('v1.93.0 AI: on several rows only the unsure one is asked; an "income" answer turns it into money in with its tag',
+  check('v1.94.0 AI: on several rows only the unsure one is asked; an "income" answer turns it into money in with its tag',
     JSON.stringify(ai.askedMulti) === JSON.stringify(['200 ringgit band gig']) && ai.multi.rows.length === 2
     && /^\+\D*200\.00/.test(ai.multi.rows[1]) && ai.multi.rows[1].endsWith('|AI') && /Nasi lemak.*\|Food$/.test(ai.multi.rows[0]) && ai.multiSave === 'Save 2 entries', JSON.stringify(ai.multi));
-  check('v1.93.0 AI: a row the person changed while the AI was thinking keeps their choice; a changed box drops the late answer',
+  check('v1.94.0 AI: a row the person changed while the AI was thinking keeps their choice; a changed box drops the late answer',
     ai.touched.cat === 'Shopping' && ai.touched.save === 'Save spend' && ai.changed === 'Save spend', JSON.stringify([ai.touched, ai.changed]));
-  check('v1.93.0 AI: AI switched off, or the web, never calls aiReadVoice',
+  check('v1.94.0 AI: AI switched off, or the web, never calls aiReadVoice',
     ai.askedOff === 0 && ai.askedWeb === 0 && !ai.off.single.endsWith('|AI'), JSON.stringify([ai.askedOff, ai.askedWeb]));
 
   const info = await lp.evaluate(async () => {
@@ -20330,9 +20330,9 @@ check('the brand catalogue makes no network calls at all',
     out.rows = ['In', 'Out', 'Voice entries', "When Kira isn't sure: money in or out, and the category. Never the amount."].every((k) => !!I18N.tables.ms[k] && !!I18N.tables.zh[k]);
     return out;
   });
-  check('v1.93.0: the "What on-device AI does" sheet lists Voice entries on Android and iPhone, with Malay and Chinese rows',
+  check('v1.94.0: the "What on-device AI does" sheet lists Voice entries on Android and iPhone, with Malay and Chinese rows',
     info.android && info.ios && info.rows, JSON.stringify(info));
-  check('v1.93.0: no page errors in voice learning suite', lErr.length === 0, JSON.stringify(lErr));
+  check('v1.94.0: no page errors in voice learning suite', lErr.length === 0, JSON.stringify(lErr));
   await lCtx.close();
 }
 
@@ -20529,6 +20529,226 @@ check('the brand catalogue makes no network calls at all',
     JSON.stringify(res));
   check('v1.92.0: no page errors in statement wallet auto-match suite', wErr.length === 0, JSON.stringify(wErr));
   await wCtx.close();
+}
+
+// ── v1.93.0: AI+ Server Tiers (Pro taste, 14-day attested trial, unified op=status, 429 resetsAt) ──
+{
+  const cryptoMod = await import('node:crypto');
+  const { createRequire } = await import('node:module');
+  const reqCjs = createRequire(import.meta.url);
+  const prevMem = process.env.AI_MEMORY;
+  const prevLicKey = process.env.LICENSE_SIGNING_PRIVATE_KEY;
+  process.env.AI_MEMORY = '1';
+
+  const aiHandler = reqCjs(path.join(REPO_ROOT, 'api/ai.js'));
+  const { resetMemory, store, keys } = reqCjs(path.join(REPO_ROOT, 'api/_lib/ai/kv.js'));
+  const { signLicense } = reqCjs(path.join(REPO_ROOT, 'api/_lib/license.js'));
+  const { playIntegrityBoundNonce } = reqCjs(path.join(REPO_ROOT, 'api/_lib/ai/attest.js'));
+
+  const callTierApi = async ({ method = 'POST', op, token, headers = {}, body }) => {
+    const req = {
+      method,
+      query: { op },
+      headers: {
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v])),
+      },
+      body,
+      socket: { remoteAddress: '127.0.0.1' },
+    };
+    let status = 200, data = null;
+    const res = {
+      setHeader() {},
+      status(c) { status = c; return this; },
+      json(d) { data = d; return this; },
+      end() { return this; },
+    };
+    await aiHandler(req, res);
+    return { status, data };
+  };
+
+  resetMemory();
+  const { publicKey, privateKey } = cryptoMod.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  global.__DUITFUL_PRO_PUBKEY_PEM__ = publicKey.export({ type: 'spki', format: 'pem' });
+  process.env.LICENSE_SIGNING_PRIVATE_KEY = privateKey.export({ type: 'pkcs8', format: 'pem' });
+  let tierStubOut = { payee: 'Grab' };
+  global.__DUITFUL_AI_GEMINI_STUB__ = async () => tierStubOut;
+
+  // 1) Free status (no credentials)
+  const freeSt = await callTierApi({ method: 'GET', op: 'status' });
+  check('v1.93.0: GET ?op=status without auth returns unified tier "free" (0/0)',
+    freeSt.status === 200 && freeSt.data?.status?.tier === 'free'
+    && freeSt.data.status.text?.limit === 0 && freeSt.data.status.scan?.limit === 0,
+    JSON.stringify(freeSt));
+
+  // 2) Pro taste: ECDSA P-256 licence (direct X-Pro-License + verify-pro + tamper reject + 3-scan MY-time cap)
+  const proLic = signLicense({ id: 'lic-e2e-93', product: 'duitful_pro', sub: 'pro-user' });
+  const badLic = proLic.slice(0, -3) + 'ZZZ';
+  const proDirect = await callTierApi({ method: 'GET', op: 'status', headers: { 'x-pro-license': proLic } });
+  const proBad = await callTierApi({ method: 'GET', op: 'status', headers: { 'x-pro-license': badLic } });
+  const proVer = await callTierApi({ op: 'verify-pro', body: { proLicense: proLic } });
+  const proNative = await callTierApi({ op: 'verify-pro', body: { platform: 'ios', productId: 'duitful_pro', transactionId: 'pro-tx-93' } });
+
+  tierStubOut = { total: 12.5, vendor: 'Kopi', category: 'Food' };
+  const scanRuns = [];
+  for (let i = 0; i < 4; i++) {
+    scanRuns.push(await callTierApi({
+      op: 'run', token: proVer.data?.tierToken,
+      body: { task: 'receipt-read', input: { ocrText: 'KOPI\nTOTAL 12.50', categories: ['Food'] } },
+    }));
+  }
+  check('v1.93.0: Pro taste verifies ECDSA licence & native receipt, grants 20 text + 3 scans/mo (MY UTC+8), and returns 429 { reason: "quota", resetsAt } at cap',
+    proDirect.status === 200 && proDirect.data?.status?.tier === 'pro_taste'
+    && proDirect.data.status.text?.limit === 20 && proDirect.data.status.scan?.limit === 3
+    && /\+08:00$/.test(proDirect.data.status.resetsAt || '')
+    && proBad.status === 401
+    && proVer.status === 200 && String(proVer.data?.tierToken || '').startsWith('t.')
+    && proNative.status === 200 && proNative.data?.status?.tier === 'pro_taste'
+    && scanRuns[0].status === 200 && scanRuns[2].status === 200 && scanRuns[2].data?.status?.scan?.used === 3
+    && scanRuns[3].status === 429 && scanRuns[3].data?.reason === 'quota' && /\+08:00$/.test(scanRuns[3].data?.resetsAt || ''),
+    JSON.stringify({ proDirect: proDirect.data, proBad: proBad.status, scan4: scanRuns[3] }));
+
+  // 3) Precedence: active AI+ always beats Pro taste; expired AI+ falls back cleanly to Pro taste
+  const aiVer = await callTierApi({ op: 'verify-sub', body: { platform: 'ios', plan: 'duitful_ai_monthly', transactionId: 'tx-ai-93-combo' } });
+  const bothActive = await callTierApi({ method: 'GET', op: 'status', token: aiVer.data?.subToken, headers: { 'x-pro-license': proLic } });
+  const aiExp = await callTierApi({ op: 'verify-sub', body: { platform: 'ios', plan: 'duitful_ai_monthly', transactionId: 'tx-ai-93-exp', expiresAt: Date.now() + 5000 } });
+  // Manually expire tx-ai-93-exp in KV to verify Pro taste fallback
+  const kvStore = store();
+  const expSubKey = `ai_sub:ios_${cryptoMod.createHash('sha256').update('tx-ai-93-exp').digest('hex').slice(0, 20)}`;
+  const expRec = await kvStore.get(expSubKey);
+  if (expRec) { expRec.expiresAt = Date.now() - 1000; await kvStore.set(expSubKey, expRec); }
+  const lapsedFallback = await callTierApi({ method: 'GET', op: 'status', token: aiExp.data?.subToken, headers: { 'x-pro-license': proLic } });
+  check('v1.93.0: active AI+ never lowered by Pro taste (1000/100); lapsed AI+ falls back cleanly to Pro taste (20/3)',
+    bothActive.status === 200 && bothActive.data?.status?.tier === 'aiplus' && bothActive.data.status.text?.limit === 1000
+    && lapsedFallback.status === 200 && lapsedFallback.data?.status?.tier === 'pro_taste' && lapsedFallback.data.status.text?.limit === 20,
+    JSON.stringify({ bothActive: bothActive.data?.status, lapsedFallback: lapsedFallback.data?.status }));
+
+  // 4) 14-day attested trial: web rejected, single-use nonce, Play Integrity verified, reinstall idempotent, expired refused
+  const ch1 = await callTierApi({ op: 'trial-challenge' });
+  const webTrial = await callTierApi({ op: 'verify-trial', body: { platform: 'web', nonce: ch1.data?.nonce } });
+  const devId = 'android-e2e-device-93';
+  global.__DUITFUL_PLAY_INTEGRITY_STUB__ = async ({ nonce, deviceId }) => ({
+    requestDetails: { requestPackageName: 'com.aydiljoe.duitful', nonce: playIntegrityBoundNonce(nonce, deviceId) },
+    appIntegrity: { appRecognitionVerdict: 'PLAY_RECOGNIZED' },
+    deviceIntegrity: { deviceRecognitionVerdict: ['MEETS_DEVICE_INTEGRITY'] },
+  });
+  const tr1 = await callTierApi({ op: 'verify-trial', body: { platform: 'android', nonce: ch1.data?.nonce, integrityToken: 'tok-integrity-e2e-valid-9301', deviceId: devId } });
+  const trReplay = await callTierApi({ op: 'verify-trial', body: { platform: 'android', nonce: ch1.data?.nonce, integrityToken: 'tok-integrity-e2e-valid-9301', deviceId: devId } });
+  tierStubOut = { payee: 'Grab' };
+  const trRun = await callTierApi({ op: 'run', token: tr1.data?.tierToken, body: { task: 'payee-clean', input: { raw: 'GRAB KL' } } });
+  const ch2 = await callTierApi({ op: 'trial-challenge' });
+  const trReinstall = await callTierApi({ op: 'verify-trial', body: { platform: 'android', nonce: ch2.data?.nonce, integrityToken: 'tok-integrity-e2e-valid-9302', deviceId: devId } });
+
+  // Expire the trial record in KV and verify reinstall & run both get 403 trial-expired
+  const devHash = cryptoMod.createHash('sha256').update(`and-attest:${devId}`).digest('hex').slice(0, 24);
+  const trRec = await kvStore.get(keys.trial(devHash));
+  if (trRec) { trRec.expiresAt = Date.now() - 1000; await kvStore.set(keys.trial(devHash), trRec); }
+  const ch3 = await callTierApi({ op: 'trial-challenge' });
+  const trExpiredVerify = await callTierApi({ op: 'verify-trial', body: { platform: 'android', nonce: ch3.data?.nonce, integrityToken: 'tok-integrity-e2e-valid-9303', deviceId: devId } });
+  const trExpiredRun = await callTierApi({ op: 'run', token: tr1.data?.tierToken, body: { task: 'payee-clean', input: { raw: 'GRAB KL' } } });
+
+  check('v1.93.0: 14-day attested trial rejects web & nonce replay, enforces Play Integrity (100/10), survives reinstall without resetting clock, and refuses expired trials',
+    ch1.status === 200 && webTrial.status === 400 && webTrial.data?.error === 'attestation-required'
+    && tr1.status === 200 && tr1.data?.status?.tier === 'trial' && tr1.data.status.text?.limit === 100 && tr1.data.status.scan?.limit === 10
+    && trReplay.status === 400 && trReplay.data?.error === 'invalid-nonce'
+    && trRun.status === 200 && trRun.data?.status?.text?.used === 1
+    && trReinstall.status === 200 && trReinstall.data?.status?.startedAt === tr1.data.status.startedAt && trReinstall.data.status.text?.used === 1
+    && trExpiredVerify.status === 403 && trExpiredVerify.data?.error === 'trial-expired'
+    && trExpiredRun.status === 403 && trExpiredRun.data?.error === 'trial-expired',
+    JSON.stringify({ webTrial: webTrial.data, tr1: tr1.data?.status, trReplay: trReplay.data, trReinstall: trReinstall.data?.status, trExpiredVerify: trExpiredVerify.status, trExpiredRun: trExpiredRun.status }));
+
+  // Clean up test globals
+  delete global.__DUITFUL_PRO_PUBKEY_PEM__;
+  delete global.__DUITFUL_AI_GEMINI_STUB__;
+  delete global.__DUITFUL_PLAY_INTEGRITY_STUB__;
+  if (prevMem === undefined) delete process.env.AI_MEMORY; else process.env.AI_MEMORY = prevMem;
+  if (prevLicKey === undefined) delete process.env.LICENSE_SIGNING_PRIVATE_KEY; else process.env.LICENSE_SIGNING_PRIVATE_KEY = prevLicKey;
+
+  // 5) Static checks: native App Attest & Play Integrity bridges + zero new Vercel functions (<= 12 cap)
+  const swiftSrc = readFileSync(path.join(REPO_ROOT, 'native/duitful-kit/ios/Sources/DuitfulKitPlugin/DuitfulKitPlugin.swift'), 'utf8');
+  const javaSrc = readFileSync(path.join(REPO_ROOT, 'native/duitful-kit/android/DuitfulKitPlugin.java'), 'utf8');
+  const { DEPENDENCIES: dkDeps } = await import(pathToFileURL(path.join(REPO_ROOT, 'scripts/install-duitful-kit.mjs')).href);
+  const apiFuncs = readdirSync(path.join(REPO_ROOT, 'api')).filter((f) => f.endsWith('.js'));
+  check('v1.93.0: native App Attest (iOS) & Play Integrity (Android) bridges wired and api/ stays within Hobby function cap',
+    /DCAppAttestService/.test(swiftSrc) && /func attestDevice/.test(swiftSrc)
+    && /IntegrityManagerFactory/.test(javaSrc) && /void attestDevice/.test(javaSrc)
+    && dkDeps.some((d) => d.startsWith('com.google.android.play:integrity:'))
+    && apiFuncs.length <= 4 && apiFuncs.includes('ai.js'),
+    JSON.stringify({ apiFuncs }));
+
+  // 6) Browser E2E: Pro taste enables Cloud AI toggle + Kira hub meter; web trial shows plain on-device note; 429 resetsAt falls back cleanly
+  const tCtx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  const tp = await tCtx.newPage();
+  const tErr = [];
+  tp.on('pageerror', (e) => tErr.push(e.message));
+  await tp.goto(`${BASE}/app/index.html`);
+  await tp.waitForTimeout(500);
+  await tp.click('#btn-start-open');
+  await tp.waitForTimeout(1500);
+  await tp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+
+  const uiRes = await tp.evaluate(async () => {
+    const out = {};
+    // Web trial shows plain on-device note in Kira Hub
+    state.pro = false;
+    state.proTrialStartedAt = Date.now();
+    state.aiSub = null;
+    save(); renderAll();
+    openKiraHub();
+    out.webTrialVisible = !document.getElementById('kira-hub-meter').hidden;
+    out.webTrialText = document.getElementById('kira-hub-meter-text').textContent.trim();
+    closeKiraHub();
+
+    // Pro taste enables Cloud AI toggle & renders 14 of 20 left meter in Kira Hub
+    state.pro = true;
+    state.proTrialStartedAt = 0;
+    state.aiPlusEnabled = true;
+    state.aiPlusPreviewedKinds = { payee: true };
+    state.aiSub = {
+      active: false,
+      tier: 'pro_taste',
+      tierToken: 't.mock.token',
+      periodKey: new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 7),
+      resetsAt: '2026-12-01T00:00:00+08:00',
+      textUsed: 6,
+      textLimit: 20,
+      scansUsed: 1,
+      scansLimit: 3,
+      syncedAt: Date.now(),
+    };
+    save(); renderAll(); renderAiCloudSettings();
+    out.toggleEnabled = !document.getElementById('ai-cloud-toggle').disabled;
+    out.cloudAllowed = aiCloudAllowed();
+    openKiraHub();
+    out.hubMeter = document.getElementById('kira-hub-meter-text').textContent.trim();
+    out.hubSub = document.getElementById('kira-hub-meter-sub').textContent.trim();
+    closeKiraHub();
+
+    // 429 { reason: "quota", resetsAt } dispatches duitful:ai-quota with resetsAt and returns null cleanly
+    let quotaEv = null;
+    const onQ = (e) => { quotaEv = e.detail; };
+    window.addEventListener('duitful:ai-quota', onQ, { once: true });
+    const origFetch = window.fetch;
+    window.fetch = async () => new Response(JSON.stringify({
+      error: 'quota',
+      reason: 'quota',
+      resetsAt: '2026-12-01T00:00:00+08:00',
+      status: { tier: 'pro_taste', active: false, text: { used: 20, limit: 20 }, scan: { used: 1, limit: 3 }, resetsAt: '2026-12-01T00:00:00+08:00' },
+    }), { status: 429, headers: { 'Content-Type': 'application/json' } });
+    const runRes = await aiCloudCleanPayee('GRAB KL', { skipPreview: true });
+    window.fetch = origFetch;
+    out.runNull = runRes === null;
+    out.quotaResetsAt = quotaEv && quotaEv.resetsAt;
+    return out;
+  });
+  check('v1.93.0: web trial shows on-device notice, Pro taste unlocks Cloud AI toggle & Kira hub meter, and 429 resetsAt falls back quietly',
+    uiRes.webTrialVisible && /on-device AI only/i.test(uiRes.webTrialText)
+    && uiRes.toggleEnabled && uiRes.cloudAllowed
+    && /14 of 20 left/.test(uiRes.hubMeter) && /2 of 3 scans left/.test(uiRes.hubSub)
+    && uiRes.runNull && uiRes.quotaResetsAt === '2026-12-01T00:00:00+08:00',
+    JSON.stringify(uiRes));
+  check('v1.93.0: no page errors in AI+ Server Tiers browser suite', tErr.length === 0, JSON.stringify(tErr));
+  await tCtx.close();
 }
 
 await b.close();

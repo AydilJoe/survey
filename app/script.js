@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.92.0";
+const APP_VERSION = "1.93.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -8406,8 +8406,11 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
-  "1.93.0": [
+  "1.94.0": [
     "<strong>Kira learns your words</strong> — Talk to Kira now goes by what you've logged before: say \"100 ringgit tutoring\" and it's income if that's how you saved it last time. Each row has an In / Out switch and a category chip to fix it in one tap, and Kira remembers the fix. On supported phones, the phone's own AI helps with rows Kira isn't sure of (never the amount).",
+  ],
+  "1.93.0": [
+    "<strong>Kira Pro taste and 14-day attested trial</strong> — Lifetime Pro owners now get a monthly taste of cloud Kira (20 text actions and 3 scans, resetting on the 1st of each month Malaysia time), and phone 14-day trials verify on-device for 100 actions and 10 scans with live meters in the Kira hub. Hitting a limit always falls back quietly to on-device AI.",
   ],
   "1.92.1": [
     "<strong>Talk to Kira fixes</strong> — \"100 ringgit freelancing income\" is now saved as income, not a spend, and a spoken amount like \"Two ringgit\" no longer stays in the note.",

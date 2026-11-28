@@ -4,6 +4,9 @@ import Capacitor
 import VisionKit
 import PhotosUI
 import StoreKit
+import DeviceCheck
+import CryptoKit
+import Security
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
@@ -48,6 +51,8 @@ import FoundationModels
 ///                    text is the "speechPartial" event; speechStart resolves
 ///                    {text}. Speech recognition and microphone permission are
 ///                    asked the first time the mic is used.
+///   attestDevice     Apple App Attest (DeviceCheck) for the 14-day attested
+///                    Kira trial: binds a server challenge nonce to hardware.
 ///
 /// Nothing here talks to a server, and nothing downloads a model: Vision,
 /// NSDataDetector and Foundation Models are all part of iOS.
@@ -75,6 +80,7 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         CAPPluginMethod(name: "speechStart", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "speechStop", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "haptic", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "attestDevice", returnType: CAPPluginReturnPromise),
     ]
 
     /// Shared with the App Intents in AppDelegate.swift. Rename both or neither.
@@ -624,6 +630,81 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
                 }
             }
             call.resolve(["ok": true])
+        }
+    }
+
+    // MARK: - Apple App Attest (14-day attested trial)
+
+    private static let attestService = "com.aydiljoe.duitful.appattest"
+    private static let attestAccount = "trial-key-id"
+
+    private func keychainRead(_ account: String) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.attestService,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var out: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &out) == errSecSuccess,
+              let data = out as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    private func keychainWrite(_ account: String, value: String) {
+        guard let data = value.data(using: .utf8) else { return }
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.attestService,
+            kSecAttrAccount as String: account,
+        ]
+        SecItemDelete(query as CFDictionary)
+        var add = query
+        add[kSecValueData as String] = data
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        SecItemAdd(add as CFDictionary, nil)
+    }
+
+    @objc func attestDevice(_ call: CAPPluginCall) {
+        let nonce = (call.getString("nonce") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !nonce.isEmpty else {
+            call.resolve(["supported": false, "error": "missing-nonce"])
+            return
+        }
+        let service = DCAppAttestService.shared
+        guard service.isSupported else {
+            call.resolve(["supported": false, "platform": "ios"])
+            return
+        }
+        // If this device already completed App Attest before (survives reinstall via Keychain),
+        // avoid minting a brand new key that would attempt to restart the 14-day trial.
+        if let existingKey = keychainRead(Self.attestAccount), !existingKey.isEmpty {
+            let savedToken = keychainRead("trial-token") ?? ""
+            if !savedToken.isEmpty {
+                call.resolve(["supported": true, "platform": "ios", "keyId": existingKey, "cachedTierToken": savedToken])
+                return
+            }
+        }
+        let clientDataHash = Data(SHA256.hash(data: Data(nonce.utf8)))
+        service.generateKey { keyId, err in
+            guard let keyId = keyId, err == nil else {
+                call.resolve(["supported": false, "platform": "ios", "error": "keygen-failed"])
+                return
+            }
+            service.attestKey(keyId, clientDataHash: clientDataHash) { attData, attErr in
+                guard let attData = attData, attErr == nil else {
+                    call.resolve(["supported": false, "platform": "ios", "error": "attest-failed"])
+                    return
+                }
+                self.keychainWrite(Self.attestAccount, value: keyId)
+                call.resolve([
+                    "supported": true,
+                    "platform": "ios",
+                    "keyId": keyId,
+                    "attestationObject": attData.base64EncodedString(),
+                ])
+            }
         }
     }
 }

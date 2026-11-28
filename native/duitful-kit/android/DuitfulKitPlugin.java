@@ -2,6 +2,7 @@ package com.aydiljoe.duitful.plugins;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
@@ -647,5 +648,71 @@ public class DuitfulKitPlugin extends Plugin {
             boolean ok = root.performHapticFeedback(flag);
             call.resolve(new JSObject().put("ok", ok));
         });
+    }
+
+    @PluginMethod
+    public void attestDevice(PluginCall call) {
+        final String nonce = call.getString("nonce", "").trim();
+        if (nonce.isEmpty()) {
+            call.resolve(new JSObject().put("supported", false).put("error", "missing-nonce"));
+            return;
+        }
+        final Context ctx = getContext();
+        if (ctx == null) {
+            call.resolve(new JSObject().put("supported", false).put("platform", "android"));
+            return;
+        }
+        try {
+            // App-signing-key-scoped ANDROID_ID hashed with SHA-256 (no permission required,
+            // survives reinstalls on the same device). Bound into Play Integrity's signed nonce.
+            String rawAndroidId = android.provider.Settings.Secure.getString(
+                ctx.getContentResolver(),
+                android.provider.Settings.Secure.ANDROID_ID
+            );
+            if (rawAndroidId == null || rawAndroidId.isEmpty()) {
+                call.resolve(new JSObject().put("supported", false).put("platform", "android"));
+                return;
+            }
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] devBytes = md.digest(("duitful-dev:" + rawAndroidId).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder devHex = new StringBuilder();
+            for (byte b : devBytes) devHex.append(String.format(java.util.Locale.US, "%02x", b));
+            final String deviceId = devHex.substring(0, 32);
+
+            md.reset();
+            byte[] boundBytes = md.digest((nonce + ":" + deviceId).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            final String boundNonce = android.util.Base64.encodeToString(
+                boundBytes,
+                android.util.Base64.URL_SAFE | android.util.Base64.NO_PADDING | android.util.Base64.NO_WRAP
+            );
+
+            com.google.android.play.core.integrity.IntegrityManager manager =
+                com.google.android.play.core.integrity.IntegrityManagerFactory.create(ctx);
+            com.google.android.play.core.integrity.IntegrityTokenRequest.Builder reqBuilder =
+                com.google.android.play.core.integrity.IntegrityTokenRequest.builder().setNonce(boundNonce);
+            String cloudNum = call.getString("cloudProjectNumber", "");
+            if (cloudNum != null && !cloudNum.isEmpty()) {
+                try { reqBuilder.setCloudProjectNumber(Long.parseLong(cloudNum)); } catch (NumberFormatException ignored) {}
+            }
+            manager.requestIntegrityToken(reqBuilder.build())
+                .addOnSuccessListener(resp -> {
+                    String token = resp != null ? resp.token() : "";
+                    if (token == null || token.isEmpty()) {
+                        call.resolve(new JSObject().put("supported", false).put("platform", "android"));
+                        return;
+                    }
+                    call.resolve(new JSObject()
+                        .put("supported", true)
+                        .put("platform", "android")
+                        .put("integrityToken", token)
+                        .put("deviceId", deviceId));
+                })
+                .addOnFailureListener(err -> call.resolve(new JSObject()
+                    .put("supported", false)
+                    .put("platform", "android")
+                    .put("error", "integrity-unavailable")));
+        } catch (Throwable t) {
+            call.resolve(new JSObject().put("supported", false).put("platform", "android").put("error", "attest-error"));
+        }
     }
 }

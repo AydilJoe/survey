@@ -46,12 +46,44 @@ function aiSubIsActive(sub, nowMs) {
   return exp > now || grace > now;
 }
 
+function aiCloudHasEntitlement() {
+  if (typeof state === "undefined" || !state) return false;
+  const sub = state.aiSub;
+  if (aiSubIsActive(sub) && typeof sub.subToken === "string" && sub.subToken.length > 0) return true;
+  if (state.pro) {
+    if (state.license && typeof state.license.token === "string" && state.license.token.length > 0) return true;
+    if (sub && sub.tier === "pro_taste" && typeof sub.tierToken === "string" && sub.tierToken.length > 0) return true;
+  }
+  if (typeof isTrialActive === "function" && isTrialActive()) {
+    if (sub && sub.tier === "trial" && typeof sub.tierToken === "string" && sub.tierToken.length > 0) return true;
+  }
+  return false;
+}
+
+function aiCloudAuthHeaders() {
+  const headers = {};
+  if (typeof state === "undefined" || !state) return headers;
+  const sub = state.aiSub;
+  const hasAiTok = !!(aiSubIsActive(sub) && sub && typeof sub.subToken === "string" && sub.subToken.length > 0);
+  const tierTok = sub && typeof sub.tierToken === "string" ? sub.tierToken.trim() : "";
+  const proLic = state.pro && state.license && typeof state.license.token === "string" ? state.license.token.trim() : "";
+  if (hasAiTok) {
+    headers.Authorization = `Bearer ${sub.subToken}`;
+    if (tierTok) headers["X-Tier-Token"] = tierTok;
+  } else if (tierTok) {
+    headers.Authorization = `Bearer ${tierTok}`;
+  } else if (sub && typeof sub.subToken === "string" && sub.subToken.length > 0) {
+    headers.Authorization = `Bearer ${sub.subToken}`;
+  }
+  if (proLic) headers["X-Pro-License"] = proLic;
+  return headers;
+}
+
 function aiCloudAllowed() {
   if (!aiPlusFlagOn()) return false;
   if (typeof state === "undefined" || !state) return false;
   if (!state.aiPlusEnabled) return false;
-  if (!aiSubIsActive(state.aiSub)) return false;
-  return !!(state.aiSub && typeof state.aiSub.subToken === "string" && state.aiSub.subToken.length > 0);
+  return aiCloudHasEntitlement();
 }
 
 function aiCloudApiBase() {
@@ -281,7 +313,7 @@ async function aiCloudRun(task, input, opts) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${state.aiSub.subToken}`,
+          ...aiCloudAuthHeaders(),
         },
         body: JSON.stringify({ task, input: redacted }),
       });
@@ -382,12 +414,104 @@ async function aiPairClaim(code, opts) {
   }
 }
 
+async function aiVerifyProForTaste(opts) {
+  if (typeof state === "undefined" || !state) return { ok: false, error: "no-state" };
+  const o = opts || {};
+  let payload = null;
+  const lic = typeof o.proLicense === "string" && o.proLicense.trim()
+    ? o.proLicense.trim()
+    : (state.license && typeof state.license.token === "string" ? state.license.token.trim() : "");
+  if (lic) {
+    payload = { proLicense: lic };
+  } else if (o.receipt && typeof o.receipt === "object") {
+    const tx = o.receipt;
+    const plat = (typeof nativePlatform === "function" && nativePlatform() !== "web" && nativePlatform()) || "ios";
+    const sku = String((Array.isArray(tx.products) && tx.products[0] && tx.products[0].id) || tx.productId || "duitful_pro");
+    payload = {
+      platform: plat,
+      productId: sku,
+      signedTransactionInfo: tx.jwsRepresentation || tx.signedTransactionInfo || "",
+      purchaseToken: typeof aiPlayPurchaseToken === "function" ? aiPlayPurchaseToken(tx) : (tx.purchaseToken || ""),
+      transactionId: tx.transactionId || tx.id || "",
+    };
+  }
+  if (!payload) return { ok: false, error: "missing-pro-proof" };
+  try {
+    const r = await fetch(`${aiCloudApiBase()}?op=verify-pro`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json().catch(() => null);
+    if (!r.ok || !data || !data.ok || !data.tierToken) {
+      return { ok: false, error: (data && data.error) || `http-${r.status}` };
+    }
+    state.aiSub = { ...(state.aiSub || {}), tierToken: data.tierToken };
+    aiMergeStatusSnapshot(data.status);
+    return data;
+  } catch (_) {
+    return { ok: false, error: "offline" };
+  }
+}
+
+async function aiActivateAttestedTrial() {
+  if (typeof state === "undefined" || !state) return { ok: false, error: "no-state" };
+  if (typeof isNative !== "function" || !isNative()) {
+    return { ok: false, error: "attestation-required" };
+  }
+  const kit = typeof duitfulKit === "function" ? duitfulKit("attestDevice") : null;
+  if (!kit) return { ok: false, error: "attest-unavailable" };
+  try {
+    const chRes = await fetch(`${aiCloudApiBase()}?op=trial-challenge`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const ch = await chRes.json().catch(() => null);
+    if (!chRes.ok || !ch || !ch.ok || !ch.nonce) {
+      return { ok: false, error: (ch && ch.error) || `http-${chRes.status}` };
+    }
+    const proof = await kit.attestDevice({ nonce: ch.nonce });
+    if (!proof || !proof.supported) {
+      return { ok: false, error: (proof && proof.error) || "attest-unsupported" };
+    }
+    if (proof.cachedTierToken) {
+      state.aiSub = { ...(state.aiSub || {}), tierToken: proof.cachedTierToken };
+      const st = await aiFetchStatus();
+      return st ? { ok: true, status: st } : { ok: false, error: "trial-expired" };
+    }
+    const verRes = await fetch(`${aiCloudApiBase()}?op=verify-trial`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        platform: proof.platform || (typeof nativePlatform === "function" ? nativePlatform() : ""),
+        nonce: ch.nonce,
+        keyId: proof.keyId || "",
+        attestationObject: proof.attestationObject || "",
+        integrityToken: proof.integrityToken || "",
+        deviceId: proof.deviceId || "",
+      }),
+    });
+    const data = await verRes.json().catch(() => null);
+    if (data && data.status) aiMergeStatusSnapshot(data.status);
+    if (!verRes.ok || !data || !data.ok || !data.tierToken) {
+      return { ok: false, error: (data && data.error) || `http-${verRes.status}` };
+    }
+    state.aiSub = { ...(state.aiSub || {}), tierToken: data.tierToken };
+    aiMergeStatusSnapshot(data.status);
+    return data;
+  } catch (_) {
+    return { ok: false, error: "offline" };
+  }
+}
+
 async function aiFetchStatus() {
-  if (!state || !state.aiSub || !state.aiSub.subToken) return null;
+  const headers = aiCloudAuthHeaders();
+  if (!headers.Authorization && !headers["X-Tier-Token"] && !headers["X-Pro-License"]) return null;
   try {
     const r = await fetch(`${aiCloudApiBase()}?op=status`, {
       method: "GET",
-      headers: { Authorization: `Bearer ${state.aiSub.subToken}` },
+      headers,
     });
     const data = await r.json().catch(() => null);
     if (r.ok && data && data.status) {
@@ -421,11 +545,12 @@ function renderAiCloudSettings() {
 
   const sub = (typeof state !== "undefined" && state && state.aiSub) || null;
   const active = aiSubIsActive(sub);
+  const canUseCloud = active || aiCloudHasEntitlement();
 
   const toggle = document.getElementById("ai-cloud-toggle");
   if (toggle) {
     toggle.checked = !!(state && state.aiPlusEnabled);
-    toggle.disabled = !active;
+    toggle.disabled = !canUseCloud;
   }
 
   const meter = document.getElementById("ai-cloud-meters");
@@ -457,6 +582,13 @@ function renderAiCloudSettings() {
       const devs = Number(sub.devicesCount) || 1;
       const maxDevs = Number(sub.maxDevices) || 3;
       meter.textContent = `${scansUsed}/${scansLimit} scans · ${textUsed}/${textLimit} actions · ${devs}/${maxDevs} devices`;
+      meter.hidden = false;
+    } else if (canUseCloud && sub && (Number(sub.textLimit) > 0 || Number(sub.scansLimit) > 0)) {
+      const scansUsed = Number(sub.scansUsed) || 0;
+      const scansLimit = Number(sub.scansLimit) || 0;
+      const textUsed = Number(sub.textUsed) || 0;
+      const textLimit = Number(sub.textLimit) || 0;
+      meter.textContent = `${scansUsed}/${scansLimit} scans · ${textUsed}/${textLimit} actions`;
       meter.hidden = false;
     } else {
       meter.textContent = t("Cloud AI for receipts, voice & PDFs.");
@@ -999,12 +1131,15 @@ if (typeof window !== "undefined") {
   window.aiPriceLabel = aiPriceLabel;
   window.aiPlusFlagOn = aiPlusFlagOn;
   window.aiSubIsActive = aiSubIsActive;
+  window.aiCloudHasEntitlement = aiCloudHasEntitlement;
   window.aiCloudAllowed = aiCloudAllowed;
   window.aiCloudCheck = aiCloudCheck;
   window.aiCloudRun = aiCloudRun;
   window.aiPairStart = aiPairStart;
   window.aiPairClaim = aiPairClaim;
   window.aiFetchStatus = aiFetchStatus;
+  window.aiVerifyProForTaste = aiVerifyProForTaste;
+  window.aiActivateAttestedTrial = aiActivateAttestedTrial;
   window.renderAiCloudSettings = renderAiCloudSettings;
   window.isAiSubscriptionReceipt = isAiSubscriptionReceipt;
   window.aiVerifyStoreReceipt = aiVerifyStoreReceipt;
