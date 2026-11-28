@@ -111,7 +111,8 @@
   is discarded for the plain template. Rules run first and win;
   the AI never sets an amount — totals and amounts must be printed on the
   receipt or alert. It runs entirely on the phone: no text or image is
-  uploaded, and there is no chat or financial advice. Phones
+  uploaded, and the on-device AI has no chat and gives no financial advice
+  (the optional Kira chat is a cloud AI+ feature, below). Phones
   without it work the same with Duitful's rules and on-device OCR (Apple
   Vision on iOS, ML Kit on Android).
 - **Duitful AI+ (cloud, optional subscription)**: off by default. Paid
@@ -238,9 +239,19 @@
   three-layer reactive voice waves driven purely by a numeric on-device
   volume level (no audio recorded or uploaded). Local navigation runs
   immediately for zero cloud quota; money writes (spend, split, income,
-  debt payment) always require a 1-tap Confirm card. Session-only Kira
-  Q&A answers spending, debt strategy, and country-aware tax relief
-  questions from live local numbers and clears when closed.
+  debt payment) always require a 1-tap Confirm card. When a voice row is
+  still unclear (money in or out, a split name, which wallet), Kira asks
+  one short question with one-tap replies, on the phone and offline; a
+  reply never changes the amount. **Kira chat (cloud, AI+ / Pro taste /
+  trial only)**: a short session-only conversation (up to 10 turns, in
+  memory, wiped when the sheet closes) about the user's own money in
+  Duitful and how to use Duitful's features — anything else gets one line
+  steering back. It sees only a redacted summary computed on the phone,
+  uses only numbers from that summary, may ask one follow-up with quick
+  replies, never saves anything itself (money writes are prefill +
+  Confirm) and describes rather than advises (no product or investment
+  picks). Without a cloud tier, offline answers come from the phone's own
+  figures. The Fast / Smart / Deep model choice sits in the chat too.
 - **Country-aware Tax Relief Packs & Global Tax Receipt Vault** (since
   v1.90.0): built-in on-device packs for Malaysia (LHDN, MYR), Singapore
   (IRAS Resident, SGD — preceding-year basis, S$80,000 overall personal

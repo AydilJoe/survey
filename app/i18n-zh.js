@@ -3049,4 +3049,10 @@
   "Completing purchase…": "正在完成购买…",
   "Tap Kira while you wait": "等待时可以点一点 Kira",
   "Tap Kira": "点一点 Kira",
+  "{what}: money in or out?": "{what}：是收入还是支出？",
+  "Split with {name}, or did you mean {other}?": "和 {name} 分账，还是你指的是 {other}？",
+  "Which wallet for {what}?": "{what} 用哪个钱包？",
+  "How much was “{what}”? Say it with the amount, like “RM 12 {what}”.": "“{what}”多少钱？请连金额一起说，例如“RM 12 {what}”。",
+  "I can help with your money in Duitful — like what you spent this month, your debts or your tax relief.": "我可以帮你看 Duitful 里的钱——比如本月花了多少、你的债务或扣税额度。",
+  "uses {n}": "用 {n} 次",
 };

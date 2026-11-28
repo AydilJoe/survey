@@ -8406,6 +8406,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.99.0": [
+    "<strong>Chat with Kira about your money</strong> — Kira can now ask you a quick question when something isn't clear (\"RM 100 tutoring: money in or out?\") with one-tap answers, even offline. With AI+, Pro or the trial you can keep a short conversation going about your money in Duitful, and pick Fast, Smart or Deep right in the chat. The chat stays on this screen only and is gone when you close it.",
+  ],
   "1.98.0": [
     "<strong>Multi-item Cloud Kira for Talk to Kira</strong> — AI+, Pro taste, and 14-day trial users now get cloud AI help even when speaking several spends, splits, and income entries in one sentence (up to 400 characters). Amounts and split maths always stay on your phone, what Kira learned from your own entries beats the cloud, and any row you edit or remove stays the way you left it.",
   ],

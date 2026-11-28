@@ -60,6 +60,14 @@ The owner asked for a better Gemini model.
   - the cost per action against the 1,000-a-month quota, and the worst case (the plan's unit-economics table)
 - The switch is server-only, with no app release. Ship it only with the owner's OK on the cost.
 
+### 4. Follow-up question (`clarify`, 1.99.0)
+
+- **Output (optional, v2 shape only):** `clarify: { item, field, question, options }`
+  - `item`: index into the returned `items`; the server re-points it at the kept items and drops it when that item was dropped.
+  - `field`: `kind` (options `in` / `out`), `category` (from the list), `wallet` (from the list) or `person` (from the list or named in the sentence).
+  - `question` ≤ 140 chars, no link, no number the sentence didn't say; 2–4 options, all from the closed list.
+- **Phone:** `voiceMergeCloud` keeps it only when its item paired with a phone row (same amount); it shows like the phone's own question (`voiceClarifyMaybe`), a reply changes that row only, never the amount.
+
 ## Out of scope
 
 - The phone's history learning, on-device AI and row toggles: these are Claude's 1.93.0.

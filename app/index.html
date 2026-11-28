@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=6f9ad5cc" />
+    <link rel="stylesheet" href="styles.css?v=75a7b39d" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -2475,6 +2475,23 @@
         </div>
 
         <div class="voice-chat-area" id="voice-chat-area">
+          <div class="voice-quality" id="voice-quality" hidden>
+            <div class="ai-quality-pills voice-quality-pills" id="voice-quality-picker" role="radiogroup" aria-label="Kira model">
+              <button type="button" class="ai-quality-pill active" data-ai-quality="fast" role="radio" aria-checked="true">
+                <span class="ai-quality-name">Fast</span>
+                <span class="ai-quality-rate">1×</span>
+              </button>
+              <button type="button" class="ai-quality-pill" data-ai-quality="smart" role="radio" aria-checked="false">
+                <span class="ai-quality-name">Smart</span>
+                <span class="ai-quality-rate">2×</span>
+              </button>
+              <button type="button" class="ai-quality-pill" data-ai-quality="deep" role="radio" aria-checked="false">
+                <span class="ai-quality-name">Deep</span>
+                <span class="ai-quality-rate">10×</span>
+              </button>
+            </div>
+            <p class="voice-quality-meter" id="voice-quality-hint" hidden></p>
+          </div>
           <div class="voice-thread" id="voice-thread" aria-live="polite" hidden></div>
           <div class="voice-transcript-wrap" id="voice-transcript-wrap" hidden>
             <div class="voice-transcript" id="voice-transcript" role="region" aria-label="What you said" tabindex="0"></div>
@@ -3990,7 +4007,7 @@
 
     <!-- Languages first: i18n-boot.js loads only the active pack (0 KB for English)
          synchronously before i18n.js walks the static markup. -->
-    <script src="i18n-langs.js?v=5b6cbc12"></script>
+    <script src="i18n-langs.js?v=b156a69f"></script>
     <script src="i18n-boot.js?v=e8f35f1d"></script>
     <script src="i18n.js?v=e94f1821"></script>
     <script src="drive-config.js?v=9aaf242d"></script>
@@ -4022,14 +4039,14 @@
     <script src="kira-seasons.js?v=84d7b80b"></script>
     <script src="kira.js?v=0a738a14"></script>
     <script src="streak.js?v=ce95b7ab"></script>
-    <script src="voice.js?v=c7736f13"></script>
+    <script src="voice.js?v=7d6396c0"></script>
     <script src="cloud.js?v=fcd02ad8"></script>
     <script src="capture.js?v=3af549e5"></script>
     <script src="ai-redact.js?v=e6257012"></script>
-    <script src="ai-cloud.js?v=d6300db8"></script>
+    <script src="ai-cloud.js?v=41529498"></script>
     <script src="pro.js?v=c4217d17"></script>
     <script src="ocr.js?v=d135377e"></script>
     <script src="kira-bubble.js?v=48ef936e"></script>
-    <script src="script.js?v=19baff05"></script>
+    <script src="script.js?v=a5128453"></script>
   </body>
 </html>

@@ -21463,6 +21463,265 @@ check('the brand catalogue makes no network calls at all',
   await vCtx.close();
 }
 
+// ── v1.99.0: Kira chat — model picker in the chat, follow-up questions, Duitful-only conversation ──
+{
+  const { createRequire } = await import('node:module');
+  const reqK = createRequire(import.meta.url);
+  const kiraTask = reqK('../api/_lib/ai/tasks/kira-ask.js');
+  const veTask = reqK('../api/_lib/ai/tasks/voice-entry.js');
+  const { validateInput } = reqK('../api/_lib/ai/tasks/helpers.js');
+  // Server checks: a bad `ask` / `clarify` is dropped, a good one kept.
+  const kIn = { question: 'how am I doing', summary: 'Income: RM 3,000 | Total spent: RM 1,200', history: [] };
+  const askOk = kiraTask.check(kIn, { reply: 'Here is your month.', ask: { question: 'This month or last?', options: ['This month', 'Last month'] } });
+  const askNum = kiraTask.check(kIn, { reply: 'ok', ask: { question: 'Did you spend RM 500?', options: ['Yes', 'No'] } });
+  const askLink = kiraTask.check(kIn, { reply: 'ok', ask: { question: 'Which?', options: ['See www.example.com', 'No'] } });
+  const askOne = kiraTask.check(kIn, { reply: 'ok', ask: { question: 'Which?', options: ['Only'] } });
+  const askMany = kiraTask.check(kIn, { reply: 'ok', ask: { question: 'Which?', options: ['a1', 'b', 'c', 'd', 'e'] } });
+  const hist10 = validateInput(kiraTask.input, { question: 'q', summary: 's', history: Array(10).fill('User: hi') }) === null;
+  const hist11 = validateInput(kiraTask.input, { question: 'q', summary: 's', history: Array(11).fill('User: hi') }) !== null;
+  const vIn = { sentence: 'RM 100 tutoring and RM 12 nasi lemak', categories: ['Food', 'Education'], wallets: ['MAE', 'Cash'], people: ['Ali'] };
+  const clOk = veTask.check(vIn, { items: [{ kind: 'spend', amount: 999 }, { kind: 'spend', amount: 100, note: 'tutoring' }, { kind: 'spend', amount: 12 }], clarify: { item: 1, field: 'kind', question: 'RM 100 tutoring: in or out?', options: ['in', 'out'] } });
+  const clDropped = veTask.check(vIn, { items: [{ kind: 'spend', amount: 999 }, { kind: 'spend', amount: 100 }], clarify: { item: 0, field: 'kind', question: 'In or out?', options: ['in', 'out'] } });
+  const clWallet = veTask.check(vIn, { items: [{ kind: 'spend', amount: 100 }], clarify: { item: 0, field: 'wallet', question: 'Which wallet?', options: ['MAE', 'CIMB'] } });
+  const clNum = veTask.check(vIn, { items: [{ kind: 'spend', amount: 100 }], clarify: { item: 0, field: 'kind', question: 'Was RM 55 money in?', options: ['in', 'out'] } });
+  const kPrompt = kiraTask.prompt({ question: 'weather?', lang: 'en', summary: 's' });
+  check('v1.99.0: kira-ask keeps a clean `ask` and drops one with a number not sent, a link, one reply or five; history takes 10 turns; voice-entry `clarify` re-points at kept items and drops a dropped item, an unknown wallet or a number not said; prompt keeps to Duitful and steers back',
+    askOk && askOk.ask && askOk.ask.options.length === 2 && !askNum.ask && !askLink.ask && !askOne.ask && !askMany.ask
+    && hist10 && hist11
+    && clOk && clOk.clarify && clOk.clarify.item === 0 && clOk.clarify.field === 'kind'
+    && !clDropped.clarify && !clWallet.clarify && !clNum.clarify
+    && /SCOPE/.test(kPrompt) && /steering back/.test(kPrompt) && /FOLLOW-UP/.test(kPrompt) && /IRAS Singapore/.test(kPrompt),
+    JSON.stringify({ askOk, askNum, clOk, clDropped, clWallet, clNum, hist10, hist11 }));
+
+  const kCtx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  const kp = await kCtx.newPage();
+  const kErr = [];
+  kp.on('pageerror', (e) => kErr.push(e.message));
+  await kp.goto(`${BASE}/app/index.html`);
+  await kp.waitForTimeout(500);
+  await kp.click('#btn-start-open');
+  await kp.waitForTimeout(1200);
+
+  const kRes = await kp.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    const out = {};
+    const origRun = window.aiCloudRun;
+    const origAsk = window.aiCloudKiraAsk;
+    window.aiCloudRun = async () => null;
+
+    // Free: no picker in the chat.
+    openVoiceEntry('');
+    await wait(60);
+    out.freeHidden = document.getElementById('voice-quality').hidden;
+    document.getElementById('voice-dialog').close();
+    await wait(40);
+
+    // AI+ (stubbed tier with a real server figure): picker + meter.
+    const now = new Date();
+    const my = new Date(now.getTime() + 8 * 3600e3);
+    const periodKey = `${my.getUTCFullYear()}-${String(my.getUTCMonth() + 1).padStart(2, '0')}`;
+    state.aiPlusEnabled = true;
+    state.aiQuality = 'fast';
+    state.aiSub = { active: true, subToken: 'tok-test', tier: 'aiplus', expiresAt: Date.now() + 30 * 864e5, periodKey, textUsed: 60, textLimit: 1000 };
+    save();
+    openVoiceEntry('');
+    await wait(60);
+    const wrap = document.getElementById('voice-quality');
+    out.tierShown = !wrap.hidden;
+    out.meter = document.getElementById('voice-quality-hint').textContent;
+    const pills = [...wrap.querySelectorAll('.ai-quality-pill')];
+    out.pillMinH = Math.min(...pills.map((x) => x.getBoundingClientRect().height));
+    wrap.querySelector('[data-ai-quality="deep"]').click();
+    await wait(30);
+    out.quality = state.aiQuality;
+    out.settingsDeep = document.querySelector('#ai-quality-picker [data-ai-quality="deep"]')?.getAttribute('aria-checked');
+    out.deepRate = wrap.querySelector('[data-ai-quality="deep"] .ai-quality-rate').textContent;
+    out.fastRate = wrap.querySelector('[data-ai-quality="fast"] .ai-quality-rate').textContent;
+    setAiCloudQuality('smart');
+    out.chatFollowsSettings = wrap.querySelector('[data-ai-quality="smart"]').getAttribute('aria-checked');
+    document.getElementById('voice-dialog').close();
+    await wait(40);
+
+    // Local follow-up (offline, no quota): "money in or out?" chips update the row, never the amount.
+    window.aiCloudRun = async () => null;
+    openVoiceEntry('RM 100 tutoring');
+    await wait(120);
+    const askRow = document.querySelector('#voice-thread .voice-turn--ask');
+    out.localQ = askRow ? askRow.textContent : '';
+    out.localChips = askRow ? [...askRow.querySelectorAll('.voice-reply-chip')].map((x) => x.textContent) : [];
+    const inChip = askRow && [...askRow.querySelectorAll('.voice-reply-chip')].find((x) => x.textContent === 'In');
+    if (inChip) inChip.click();
+    await wait(40);
+    out.afterKind = voiceClarifyMaybe() ? 'asked-again' : 'done';
+    const cur = (() => { const it = document.querySelector('#voice-preview-spend')?.textContent || ''; return it; })();
+    out.afterLine = cur;
+    out.askGone = !document.querySelector('#voice-thread .voice-turn--ask');
+    const beforeInc = (state.income || []).length;
+    document.getElementById('voice-save').click();
+    await wait(60);
+    const inc = (state.income || []).slice(beforeInc);
+    out.savedIncome = inc.length === 1 && inc[0].amount === 100;
+    out.learned = state.voiceLearn && state.voiceLearn.tutoring && state.voiceLearn.tutoring.kind;
+    if (document.getElementById('voice-dialog').open) document.getElementById('voice-dialog').close();
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    await wait(40);
+
+    // Skippable: Skip removes the question and Save still works with the guess.
+    openVoiceEntry('RM 7 misteri');
+    await wait(120);
+    const skip = document.querySelector('#voice-thread .voice-reply-chip.is-skip');
+    out.hasSkip = !!skip;
+    if (skip) skip.click();
+    await wait(20);
+    out.skipGone = !document.querySelector('#voice-thread .voice-turn--ask');
+    out.saveEnabled = !document.getElementById('voice-save').disabled;
+    document.getElementById('voice-dialog').close();
+    await wait(40);
+
+    // AI+ voice-entry `clarify` shows like the local one and lands on its paired row.
+    window.aiCloudRun = async (task) => (task === 'voice-entry' ? {
+      items: [{ kind: 'spend', amount: 12, category: 'Food', note: 'nasi lemak' }, { kind: 'spend', amount: 30 }],
+      clarify: { item: 1, field: 'kind', question: 'RM 30 from Abu: money in or out?', options: ['in', 'out'] },
+    } : null);
+    openVoiceEntry('RM 12 nasi lemak and RM 30 from Abu');
+    await wait(150);
+    const cAsk = document.querySelector('#voice-thread .voice-turn--ask');
+    out.cloudQ = cAsk ? cAsk.querySelector('.voice-turn-text').textContent : '';
+    const cIn = cAsk && [...cAsk.querySelectorAll('.voice-reply-chip')].find((x) => x.textContent === 'In');
+    if (cIn) cIn.click();
+    await wait(40);
+    out.cloudRows = [...document.querySelectorAll('#voice-preview .voice-item')].map((li) => `${li.classList.contains('is-income') ? 'in' : 'out'}:${li.querySelector('b').textContent}`);
+    document.getElementById('voice-dialog').close();
+    await wait(40);
+
+    // Cloud kira-ask `ask`: chips render, a tap sends the reply as the next turn with Kira's question in history.
+    const calls = [];
+    window.aiCloudKiraAsk = async (input) => {
+      calls.push(input);
+      if (/weather/i.test(input.question)) return { reply: 'I can help with your money in Duitful — like what you spent this month, your debts or your tax relief.' };
+      if (calls.length === 1) return { reply: 'Happy to check.', ask: { question: 'This month or last month?', options: ['This month', 'Last month'] } };
+      return { reply: 'Last month you spent less.' };
+    };
+    openVoiceEntry('');
+    await wait(60);
+    await voiceAskKira('How did I do?');
+    const chips = [...document.querySelectorAll('#voice-thread .voice-turn--ask .voice-reply-chip')];
+    out.askChips = chips.map((x) => x.textContent);
+    chips.find((x) => x.textContent === 'Last month')?.click();
+    await wait(60);
+    out.secondQ = calls[1] ? calls[1].question : '';
+    out.secondHist = calls[1] ? calls[1].history.join(' | ') : '';
+    out.oldChipsGone = document.querySelectorAll('#voice-thread .voice-turn--ask .voice-reply-chip').length === 0;
+    // A typed short reply goes to Kira too.
+    const input = document.getElementById('voice-input');
+    input.value = 'yes';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await wait(60);
+    out.typedReply = calls[2] ? calls[2].question : '';
+    // Off-topic (stubbed cloud) gets the steer-back.
+    await voiceAskKira("What's the weather today?");
+    out.steerCloud = document.getElementById('voice-thread').textContent.includes('I can help with your money in Duitful');
+    // History cap: never more than 10 turns, ≤ 8 sent.
+    for (let i = 0; i < 8; i++) await voiceAskKira(`How much did I spend ${i}?`);
+    out.turns = document.querySelectorAll('#voice-thread .voice-turn:not(.voice-turn--ask)').length;
+    out.maxHist = Math.max(...calls.map((c) => (c.history || []).length));
+    document.getElementById('voice-dialog').close();
+    await wait(40);
+    out.wiped = document.querySelectorAll('#voice-thread .voice-turn').length === 0;
+
+    // The phone's own checks (aiCheckAsk / aiCheckClarify) through the real
+    // aiCloudRun, with only fetch stubbed: good follow-ups show, bad ones go.
+    window.aiCloudKiraAsk = origAsk;
+    window.aiCloudRun = origRun;
+    state.aiPlusPreviewedKinds = { ...(state.aiPlusPreviewedKinds || {}), voice: true };
+    const origFetch = window.fetch;
+    let next = null;
+    window.fetch = async (url, init) => {
+      if (String(url).includes('op=run')) return new Response(JSON.stringify({ ok: true, result: next(JSON.parse(init.body)) }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      return origFetch(url, init);
+    };
+    openVoiceEntry('');
+    await wait(60);
+    next = () => ({ reply: 'Sure.', ask: { question: 'This month or last month?', options: ['This month', 'Last month'] } });
+    await voiceAskKira('How did I do overall?');
+    out.realAskChips = [...document.querySelectorAll('#voice-thread .voice-turn--ask .voice-reply-chip')].map((x) => x.textContent).join();
+    next = () => ({ reply: 'Sure.', ask: { question: 'Did you mean the RM 98765 one?', options: ['Yes', 'No'] } });
+    await voiceAskKira('Which one?');
+    out.realBadAsk = document.querySelectorAll('#voice-thread .voice-turn--ask .voice-reply-chip').length;
+    document.getElementById('voice-dialog').close();
+    await wait(40);
+    next = (body) => (body.task === 'voice-entry' ? {
+      items: [{ kind: 'spend', amount: 45 }],
+      clarify: { item: 0, field: 'kind', question: 'RM 45 ganjil: money in or out?', options: ['in', 'out'] },
+    } : null);
+    openVoiceEntry('RM 45 ganjil');
+    await wait(200);
+    out.realClarify = document.querySelector('#voice-thread .voice-turn--ask .voice-turn-text')?.textContent || '';
+    document.getElementById('voice-dialog').close();
+    await wait(40);
+    next = (body) => (body.task === 'voice-entry' ? {
+      items: [{ kind: 'spend', amount: 45 }],
+      clarify: { item: 0, field: 'wallet', question: 'Which wallet?', options: ['Nowhere Bank', 'Ghost Pay'] },
+    } : null);
+    openVoiceEntry('RM 45 ganjil');
+    await wait(200);
+    out.realBadClarify = document.querySelector('#voice-thread .voice-turn--ask .voice-turn-text')?.textContent || '';
+    document.getElementById('voice-dialog').close();
+    await wait(40);
+    // A few words with no amount, before any chat: answered on the phone, no cloud call.
+    let runs = 0;
+    next = () => { runs++; return { reply: 'cloud' }; };
+    openVoiceEntry('');
+    await wait(60);
+    const inp2 = document.getElementById('voice-input');
+    inp2.value = 'nasi lemak';
+    inp2.dispatchEvent(new Event('input', { bubbles: true }));
+    await wait(10);
+    runs = 0;
+    inp2.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await wait(80);
+    out.fewWordsLocal = runs === 0 && /How much was/.test(document.getElementById('voice-thread').textContent);
+    document.getElementById('voice-dialog').close();
+    await wait(40);
+    window.fetch = origFetch;
+
+    // Offline / no tier: the local answer steers back too, and keeps money questions.
+    out.steerLocal = kiraLocalAnswer('What is the weather in Penang?', { topCats: [], spent: 0, balance: 0, taxGaps: [] }).reply;
+    out.moneyLocal = kiraLocalAnswer('How much did I spend this month?', { topCats: [], spent: 0, balance: 0, taxGaps: [] }).reply;
+
+    window.aiCloudRun = origRun;
+    window.aiCloudKiraAsk = origAsk;
+    state.aiSub = null; state.aiPlusEnabled = false; save();
+    return out;
+  });
+  check('v1.99.0: the model picker sits in the chat only with a cloud tier, shares the Settings choice, says Deep uses 10, has 44px targets, and shows the server meter',
+    kRes.freeHidden === true && kRes.tierShown === true && /940 of 1,000 left/.test(kRes.meter)
+    && kRes.quality === 'deep' && kRes.settingsDeep === 'true' && /10/.test(kRes.deepRate) && kRes.deepRate !== '10×' && kRes.fastRate === '1×'
+    && kRes.chatFollowsSettings === 'true' && kRes.pillMinH >= 44,
+    JSON.stringify(kRes));
+  check('v1.99.0: Kira asks "money in or out?" offline; a chip updates the row (not the amount), is learned on Save, and can be skipped; AI+ clarify lands on its paired row',
+    /money in or out/.test(kRes.localQ) && kRes.localChips.join() === 'In,Out,Skip' && kRes.askGone && /100/.test(kRes.afterLine)
+    && kRes.savedIncome && kRes.learned === 'income'
+    && kRes.hasSkip && kRes.skipGone && kRes.saveEnabled
+    && /from Abu/.test(kRes.cloudQ) && /^out:\D*12\.00,in:\+\D*30\.00$/.test(kRes.cloudRows.join()),
+    JSON.stringify(kRes));
+  check('v1.99.0: cloud `ask` chips send the next turn with Kira\'s question in history; typed "yes" goes to Kira; off-topic steers back (cloud + local); ≤ 10 turns, ≤ 8 sent, wiped on close',
+    kRes.askChips.join() === 'This month,Last month' && kRes.secondQ === 'Last month' && /Kira asked: This month or last month\? Options: This month \/ Last month/.test(kRes.secondHist)
+    && kRes.oldChipsGone && kRes.typedReply === 'yes' && kRes.steerCloud
+    && kRes.turns <= 10 && kRes.turns >= 9 && kRes.maxHist <= 8 && kRes.wiped
+    && /money in Duitful/.test(kRes.steerLocal) && /spent/.test(kRes.moneyLocal),
+    JSON.stringify(kRes));
+  check('v1.99.0: through the real aiCloudRun (fetch stubbed) the phone keeps a good `ask` / `clarify` and drops one with an unsent number or an unknown wallet; a few words with no amount are answered on the phone',
+    kRes.realAskChips === 'This month,Last month' && kRes.realBadAsk === 0
+    && /ganjil: money in or out\?/.test(kRes.realClarify) && !/Which wallet/.test(kRes.realBadClarify)
+    && kRes.fewWordsLocal,
+    JSON.stringify({ realAskChips: kRes.realAskChips, realBadAsk: kRes.realBadAsk, realClarify: kRes.realClarify, realBadClarify: kRes.realBadClarify, fewWordsLocal: kRes.fewWordsLocal }));
+  check('v1.99.0: no page errors in the Kira chat suite', kErr.length === 0, JSON.stringify(kErr));
+  await kCtx.close();
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();
