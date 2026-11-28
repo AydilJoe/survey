@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=ff26025b" />
+    <link rel="stylesheet" href="styles.css?v=a7ffd4b1" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -246,7 +246,7 @@
 
     <!-- 2.0 Stage B: first-time hold-to-talk hint, one-time post-save nudge,
          and 1-tap landing jump chip. -->
-    <button type="button" class="bubble-hold-hint" id="bubble-hold-hint" hidden>Hold to talk to Kira</button>
+    <button type="button" class="bubble-hold-hint" id="bubble-hold-hint" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg><span id="bubble-hold-hint-text">Hold to talk to Kira</span></button>
     <div class="voice-nudge-chip" id="voice-nudge-chip" role="status" hidden>
       <span id="voice-nudge-text">Faster next time — hold Kira and say it.</span>
       <button type="button" class="ghost icon-btn voice-nudge-close" id="voice-nudge-close" aria-label="Dismiss">✕</button>
@@ -2174,6 +2174,7 @@
               <button type="button" class="pill active" data-type="expense" data-outflow-tab="expense" role="radio" aria-checked="true"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="8" cy="8" r="1.5"/></svg></span>Spend</button>
               <button type="button" class="pill" data-outflow-tab="split" role="radio" aria-checked="false"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></span>Split</button>
               <button type="button" class="pill" data-type="debt" data-outflow-tab="debt" role="radio" aria-checked="false"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span>Pay debt</button>
+              <button type="button" class="pill" data-type="saving" data-outflow-tab="saving" role="radio" aria-checked="false"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg></span>To savings</button>
             </div>
 
             <form id="form-daily" class="daily-form">
@@ -2314,6 +2315,10 @@
         <div class="kira-hub-head">
           <h2 id="kira-hub-title">Import Docs</h2>
           <span class="kira-hub-badge is-local" id="kira-hub-badge">On-device</span>
+          <button type="button" class="ghost kira-hub-talk-btn" id="kira-hub-talk" aria-label="Talk to Kira">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>
+            <span>Talk</span>
+          </button>
           <button type="button" class="ghost icon-btn add-dialog-close" id="kira-hub-close" aria-label="Close">✕</button>
         </div>
 
@@ -3927,7 +3932,7 @@
 
     <!-- Languages first: i18n-boot.js loads only the active pack (0 KB for English)
          synchronously before i18n.js walks the static markup. -->
-    <script src="i18n-langs.js?v=1fb63057"></script>
+    <script src="i18n-langs.js?v=3bfdf186"></script>
     <script src="i18n-boot.js?v=e8f35f1d"></script>
     <script src="i18n.js?v=e94f1821"></script>
     <script src="drive-config.js?v=9aaf242d"></script>
@@ -3966,7 +3971,7 @@
     <script src="ai-cloud.js?v=b61f627f"></script>
     <script src="pro.js?v=c4217d17"></script>
     <script src="ocr.js?v=d135377e"></script>
-    <script src="kira-bubble.js?v=7e9147c0"></script>
-    <script src="script.js?v=7f36b0b1"></script>
+    <script src="kira-bubble.js?v=11cc90e7"></script>
+    <script src="script.js?v=d93029e0"></script>
   </body>
 </html>
