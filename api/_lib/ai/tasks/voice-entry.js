@@ -8,6 +8,45 @@ const { finiteAmount, amountInText, inList } = require("./helpers");
 const HAS_DIGITS = /\d/;
 const ALLOWED_KINDS = new Set(["spend", "income", "debt"]);
 const MAX_ITEMS = 10;
+const CLARIFY_FIELDS = new Set(["kind", "category", "wallet", "person"]);
+const CLARIFY_QUESTION_MAX = 140;
+
+// The optional follow-up about ONE kept item: a short question and 2-4
+// replies, each from a closed list ("in" / "out", the categories, the wallets,
+// the people sent or named in the sentence). `item` is re-pointed at the kept
+// items; a question about a dropped item, or with a number the sentence never
+// said, is dropped.
+function checkClarify(raw, input, sentence, keptIndex) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const at = Number(raw.item);
+  if (!Number.isInteger(at) || !keptIndex.has(at)) return null;
+  const field = typeof raw.field === "string" ? raw.field.trim().toLowerCase() : "";
+  if (!CLARIFY_FIELDS.has(field)) return null;
+  const question = typeof raw.question === "string" ? raw.question.replace(/\s+/g, " ").trim() : "";
+  if (!question || question.length > CLARIFY_QUESTION_MAX || /https?:|www\.|[<>]/i.test(question)) return null;
+  const nums = question.match(/\d[\d,]*(?:\.\d{1,2})?/g) || [];
+  if (nums.some((n) => !amountInText(Number(n.replace(/,/g, "")), sentence))) return null;
+  if (!Array.isArray(raw.options)) return null;
+  const options = [];
+  for (const o of raw.options) {
+    let v = null;
+    if (field === "kind") {
+      const k = typeof o === "string" ? o.trim().toLowerCase() : "";
+      v = k === "in" || k === "income" ? "in" : (k === "out" || k === "spend" ? "out" : null);
+    } else if (field === "category") {
+      v = inList(o, input.categories || []);
+    } else if (field === "wallet") {
+      v = inList(o, input.wallets || []);
+    } else {
+      v = inList(o, input.people || [])
+        || (typeof o === "string" && o.trim() && o.trim().length <= 40 && sentence.toLowerCase().includes(o.trim().toLowerCase()) ? o.trim() : null);
+    }
+    if (!v) return null;
+    if (!options.includes(v)) options.push(v);
+  }
+  if (options.length < 2 || options.length > 4) return null;
+  return { item: keptIndex.get(at), field, question, options };
+}
 
 // Every significant word of `note` must appear in `sentence` (case-insensitive
 // for Latin/Malay words, direct inclusion for CJK characters) so the model
@@ -130,6 +169,7 @@ module.exports = {
       "- A split's own figure (e.g. \"split half with Ali\" or \"request RM 20 from Ali\") belongs inside that spend item's split object, NOT as a separate item.",
       "- Pick category and wallet ONLY from the allowed lists below. Pick split people from the list or a person's name explicitly spoken in the sentence.",
       "- note must contain ONLY short words spoken in the sentence (excluding the amount/currency).",
+      "- clarify (optional): if exactly one thing about one item is unclear — money in or out, which category, which wallet, or which person — add clarify { item: <0-based index in items>, field: \"kind\" | \"category\" | \"wallet\" | \"person\", question: <one short question in the sentence's language>, options: 2 to 4 replies (\"in\" / \"out\" for kind; names from the lists for the others) }. Never ask about an amount. Omit clarify when nothing is unclear.",
       input.categories && input.categories.length ? `Categories: [${input.categories.join(", ")}]` : "",
       input.wallets && input.wallets.length ? `Wallets: [${input.wallets.join(", ")}]` : "",
       input.people && input.people.length ? `Open split people: [${input.people.join(", ")}]` : "",
@@ -143,9 +183,20 @@ module.exports = {
         type: "array",
         items: ITEM_SCHEMA,
       },
+      clarify: {
+        type: "object",
+        properties: {
+          item: { type: "integer" },
+          field: { type: "string", enum: ["kind", "category", "wallet", "person"] },
+          question: { type: "string" },
+          options: { type: "array", items: { type: "string" } },
+        },
+        required: ["item", "field", "question", "options"],
+      },
     },
     required: ["items"],
   },
+  checkClarify,
   check(input, output) {
     if (!output || typeof output !== "object" || Array.isArray(output)) return null;
     const sentence = String(input.sentence || "");
@@ -153,17 +204,18 @@ module.exports = {
     // v2 multi-item shape: { items: [...] }
     if (Array.isArray(output.items)) {
       const items = [];
-      for (const raw of output.items.slice(0, MAX_ITEMS)) {
+      const keptIndex = new Map(); // raw index → kept index
+      output.items.slice(0, MAX_ITEMS).forEach((raw, i) => {
         const clean = checkItem(raw, input, sentence, false);
-        if (clean) items.push(clean);
-      }
+        if (clean) { keptIndex.set(i, items.length); items.push(clean); }
+      });
       if (!items.length) return null;
+      const clarify = checkClarify(output.clarify, input, sentence, keptIndex);
       // Mirror single-item fields at top level for 1 release so older installed
       // phones reading res.amount/res.category/res.note/res.split keep working.
-      if (items.length === 1) {
-        return { ...items[0], items };
-      }
-      return { items };
+      const out = items.length === 1 ? { ...items[0], items } : { items };
+      if (clarify) out.clarify = clarify;
+      return out;
     }
 
     // Legacy v1 single-object shape (kept for 1 release).

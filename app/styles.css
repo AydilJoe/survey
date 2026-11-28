@@ -12011,6 +12011,8 @@ html.kb-open dialog.voice-stage:modal {
   gap: 0.45rem;
   overflow-y: auto;
   max-height: 30vh;
+  min-height: 0; /* shrinks and scrolls when the picker and transcript need the room */
+  flex: 0 1 auto;
   padding-right: 0.15rem;
 }
 .voice-thread[hidden] { display: none; }
@@ -12059,6 +12061,64 @@ html.kb-open dialog.voice-stage:modal {
   border: 0.5px solid var(--border);
   background: var(--card);
   color: var(--primary);
+}
+/* Kira's chat (1.99.0): the model picker (same choice as Settings / the
+   hub), and Kira's follow-up questions with quick replies. */
+.voice-quality {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.voice-quality[hidden] { display: none; }
+.voice-quality-pills .ai-quality-pill {
+  min-height: 44px;
+  padding: 0.3rem 0.35rem;
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+.voice-quality-meter {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.voice-quality-meter[hidden] { display: none; }
+.voice-turn--ask .voice-turn-text {
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
+}
+.voice-turn-replies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.voice-reply-chip {
+  appearance: none;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.4rem 0.95rem;
+  border-radius: var(--r-pill, 999px);
+  border: 1px solid var(--brand);
+  background: color-mix(in srgb, var(--brand) 12%, var(--card));
+  color: var(--brand-ink);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.voice-reply-chip:hover { background: color-mix(in srgb, var(--brand) 20%, var(--card)); }
+/* While Kira waits for a reply (not listening), the stage gives the chat room. */
+dialog.voice-stage:not(.is-listening):has(.voice-turn--ask) .voice-waves { height: 0; }
+dialog.voice-stage:not(.is-listening):has(.voice-turn--ask) .voice-figure { width: 84px; height: 101px; }
+dialog.voice-stage:not(.is-listening):has(.voice-turn--ask) .voice-kira { width: 80px; height: 98px; }
+.voice-reply-chip.is-skip {
+  border-color: var(--border);
+  background: var(--card);
+  color: var(--muted);
+  font-weight: 500;
 }
 .voice-transcript-wrap {
   display: flex;

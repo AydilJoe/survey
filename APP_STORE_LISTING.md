@@ -118,7 +118,7 @@ Duitful uses Apple's on-device Foundation Models (iOS 26 with Apple Intelligence
 • A hard-to-read receipt gets a second look from your iPhone's own AI. The total must be printed on the receipt; the AI never makes up an amount
 • Your monthly recap can be worded more naturally (English), from your own figures only
 • When Talk to Kira isn't sure about something you said, it can tell money in from money out and pick a category. The amount is always what you said
-• It runs on your iPhone. Nothing is uploaded, there is no chat and no advice, and you can switch it off any time
+• It runs on your iPhone. Nothing is uploaded, this on-device AI has no chat and gives no advice, and you can switch it off any time (the optional Kira chat is part of Duitful AI+, in the cloud)
 • A small sempoa badge shows when it's on, and its beads count while it works
 On other iPhones Duitful works the same with its own rules.
 

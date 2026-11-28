@@ -123,6 +123,65 @@ function aiWordsInText(name, text) {
   return words.every((w) => hay.includes(w)) ? clean : null;
 }
 
+// The follow-up checks, the same as the server's (kira-ask `checkAsk`,
+// voice-entry `checkClarify`).
+function aiCleanLine(v, max) {
+  if (typeof v !== "string") return "";
+  const s = v.replace(/\s+/g, " ").trim();
+  if (!s || s.length > max || /https?:|www\.|<|>|```/i.test(s)) return "";
+  return s;
+}
+function aiNumbersIn(text) {
+  return (String(text || "").match(/\d[\d,]*(?:\.\d+)?/g) || []).map((x) => Number(x.replace(/,/g, ""))).filter((n) => Number.isFinite(n));
+}
+function aiNumbersAllowed(text, sources) {
+  const want = aiNumbersIn(text);
+  if (!want.length) return true;
+  const have = aiNumbersIn(sources.join(" "));
+  return want.every((n) => have.some((h) => Math.abs(h - n) < 0.005));
+}
+function aiCheckAsk(raw, input) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const question = aiCleanLine(raw.question, 160);
+  if (!question) return null;
+  const src = [input.summary || "", input.question || "", ...(Array.isArray(input.history) ? input.history : [])];
+  if (!aiNumbersAllowed(question, src) || !Array.isArray(raw.options)) return null;
+  const options = [];
+  for (const o of raw.options) {
+    const opt = aiCleanLine(o, 40);
+    if (!opt || !aiNumbersAllowed(opt, src)) return null;
+    if (!options.some((x) => x.toLowerCase() === opt.toLowerCase())) options.push(opt);
+  }
+  return options.length >= 2 && options.length <= 4 ? { question, options } : null;
+}
+function aiCheckClarify(raw, input, sentence, keptIndex) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const at = Number(raw.item);
+  if (!Number.isInteger(at) || !keptIndex.has(at)) return null;
+  const field = typeof raw.field === "string" ? raw.field.trim().toLowerCase() : "";
+  if (!["kind", "category", "wallet", "person"].includes(field)) return null;
+  const question = typeof raw.question === "string" ? raw.question.replace(/\s+/g, " ").trim() : "";
+  if (!question || question.length > 140 || /https?:|www\.|[<>]/i.test(question)) return null;
+  if ((question.match(/\d[\d,]*(?:\.\d{1,2})?/g) || []).some((n) => !aiAmountInText(Number(n.replace(/,/g, "")), sentence))) return null;
+  if (!Array.isArray(raw.options)) return null;
+  const options = [];
+  for (const o of raw.options) {
+    let v = null;
+    if (field === "kind") {
+      const k = typeof o === "string" ? o.trim().toLowerCase() : "";
+      v = k === "in" || k === "income" ? "in" : (k === "out" || k === "spend" ? "out" : null);
+    } else if (field === "category") v = aiInList(o, (input && input.categories) || []);
+    else if (field === "wallet") v = aiInList(o, (input && input.wallets) || []);
+    else {
+      v = aiInList(o, (input && input.people) || [])
+        || (typeof o === "string" && o.trim() && o.trim().length <= 40 && sentence.toLowerCase().includes(o.trim().toLowerCase()) ? o.trim() : null);
+    }
+    if (!v) return null;
+    if (!options.includes(v)) options.push(v);
+  }
+  return options.length >= 2 && options.length <= 4 ? { item: keptIndex.get(at), field, question, options } : null;
+}
+
 // Re-checks server output on the phone before anything is surfaced to the user.
 function aiCloudCheck(task, input, output) {
   if (!output || typeof output !== "object" || Array.isArray(output)) return null;
@@ -191,12 +250,16 @@ function aiCloudCheck(task, input, output) {
     };
     if (Array.isArray(output.items)) {
       const items = [];
-      for (const raw of output.items.slice(0, 10)) {
+      const keptIndex = new Map();
+      output.items.slice(0, 10).forEach((raw, i) => {
         const clean = checkItem(raw);
-        if (clean) items.push(clean);
-      }
+        if (clean) { keptIndex.set(i, items.length); items.push(clean); }
+      });
       if (!items.length) return null;
-      return items.length === 1 ? { ...items[0], items } : { items };
+      const out = items.length === 1 ? { ...items[0], items } : { items };
+      const clarify = aiCheckClarify(output.clarify, input || {}, sentence, keptIndex);
+      if (clarify) out.clarify = clarify;
+      return out;
     }
     const out = {};
     if (output.kind !== undefined && output.kind !== null) {
@@ -260,7 +323,10 @@ function aiCloudCheck(task, input, output) {
             return row;
           })
       : [];
-    return actions.length ? { reply, actions } : { reply };
+    const out = actions.length ? { reply, actions } : { reply };
+    const ask = aiCheckAsk(output.ask, input || {});
+    if (ask) out.ask = ask;
+    return out;
   }
   // statement-read, ea-read, loan-read: require non-empty object; domain guards
   // (reconcileStatement, ea-extract totalCheck, Add Debt form) validate further.
@@ -410,6 +476,31 @@ function syncAiQualityPickers() {
     ["ai-quality-wrap", "ai-quality-picker", "ai-quality-hint", canUse],
     ["kira-hub-quality", "kira-hub-quality-picker", "kira-hub-quality-hint", canUse && !(typeof isNative === "function" && !isNative() && !active && (!sub || !Number(sub.textLimit)))],
   ];
+  // Kira's chat (#voice-quality): only with a cloud tier that is switched on;
+  // the meter line only from the server's own figure (kiraQuota), never a
+  // guess; on Deep the chip says what one message uses.
+  const vWrap = document.getElementById("voice-quality");
+  if (vWrap) {
+    const t = typeof tr === "function" ? tr : (x, v) => String(x).replace(/\{(\w+)\}/g, (_, k) => (v && v[k] != null ? v[k] : ""));
+    const tier = typeof kiraTier === "function" ? kiraTier() : "free";
+    vWrap.hidden = !(tier !== "free" && aiCloudAllowed());
+    const quota = !vWrap.hidden && typeof kiraQuota === "function" ? kiraQuota() : null;
+    const meter = document.getElementById("voice-quality-hint");
+    if (meter) {
+      const fmt = (n) => Number(n).toLocaleString("en-MY");
+      meter.textContent = quota ? t("Kira this month: {n} of {m} left", { n: fmt(quota.left), m: fmt(quota.limit) }) : "";
+      meter.hidden = !quota;
+    }
+    vWrap.querySelectorAll("[data-ai-quality]").forEach((btn) => {
+      const on = btn.dataset.aiQuality === q;
+      btn.classList.toggle("active", on);
+      btn.setAttribute("aria-checked", on ? "true" : "false");
+      const rate = btn.querySelector(".ai-quality-rate");
+      const w = AI_QUALITY_WEIGHTS[btn.dataset.aiQuality] || 1;
+      if (rate) rate.textContent = on && w > 2 ? t("uses {n}", { n: w }) : `${w}×`;
+    });
+  }
+
   for (const [wrapId, pickerId, hintId, show] of pairs) {
     const wrap = document.getElementById(wrapId);
     if (wrap) wrap.hidden = !show;
@@ -740,7 +831,7 @@ function renderAiCloudSettings() {
 
 function wireAiCloudSettings() {
   if (typeof document === "undefined") return;
-  for (const id of ["ai-quality-picker", "kira-hub-quality-picker"]) {
+  for (const id of ["ai-quality-picker", "kira-hub-quality-picker", "voice-quality-picker"]) {
     const picker = document.getElementById(id);
     if (picker && !picker.dataset.wired) {
       picker.dataset.wired = "1";

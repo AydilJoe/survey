@@ -153,6 +153,17 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-99-0">
+    <span class="release-date">November 2026 &middot; v1.99.0</span>
+    <h2 class="release-title">Chat with Kira: follow-up questions &amp; the model picker in the chat</h2>
+    <ul>
+      <li><span class="tag feat">feat</span><strong>Kira asks when unsure:</strong> after the rules, your own history and AI have had their say, a voice row that is still unclear gets one short question in the chat with quick replies &mdash; money in or out, a split name that sounds like someone you already split with, or which of two wallets. Works offline; a reply changes that row only (never the amount), and a direction answer is remembered like a manual fix. Skip it and Save still works.</li>
+      <li><span class="tag feat">feat</span><strong>Conversation, about your money in Duitful only:</strong> up to 10 turns per session, kept in memory and wiped on close. Kira's last question goes with your next message so &ldquo;yes&rdquo; or &ldquo;the second one&rdquo; make sense, and Kira can offer quick replies. Anything off-topic gets one friendly line back. Numbers still come only from the summary computed on your phone, and money writes are still prefill + Confirm.</li>
+      <li><span class="tag feat">feat</span><strong>Model picker in the chat:</strong> Fast (1&times;) / Smart (2&times;) / Deep (10&times;) right above the chat for AI+, Pro taste and trial, sharing the Settings / Kira hub choice; Deep says what one message uses, and the &ldquo;Kira this month&rdquo; line shows only the server's own figure.</li>
+      <li><span class="tag feat">feat</span><strong>Checked follow-ups:</strong> <code>kira-ask</code> may return <code>ask</code> and <code>voice-entry</code> v2 may return <code>clarify</code>; the server and the phone drop any question with a number that wasn't sent, a link, or replies outside the lists.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-98-0">
     <span class="release-date">November 2026 &middot; v1.98.0</span>
     <h2 class="release-title">Multi-item Cloud Kira for Talk to Kira</h2>

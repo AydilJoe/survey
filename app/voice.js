@@ -907,7 +907,7 @@
   let voiceAiTimer = 0;
   function voiceAiSoon(ms) {
     clearTimeout(voiceAiTimer);
-    voiceAiTimer = setTimeout(() => { voiceAiLabel().catch(() => {}); }, ms == null ? 450 : ms);
+    voiceAiTimer = setTimeout(() => { voiceAiLabel().then(() => voiceClarifyMaybe()).catch(() => {}); }, ms == null ? 450 : ms);
   }
 
   // A row the person already changed keeps their choice against late answers.
@@ -1107,6 +1107,7 @@
   }
 
   // The cloud's validated reply → a merged preview (or `local` unchanged).
+  // `res.clarify` (optional) is kept only when its item paired with a row.
   function voiceMergeCloud(local, res, rawText) {
     if (!res || typeof res !== "object") return local;
     const cloudItems = Array.isArray(res.items) && res.items.length
@@ -1152,12 +1153,17 @@
         if (next !== li) any = true;
         return next;
       });
-      if (!any) return local;
+      if (!any && !res.clarify) return local;
     }
 
     const out = merged.length === 1
       ? { ...merged[0], raw: merged[0].raw || text, source: merged[0].cloud ? "cloud-ai" : (merged[0].source || "local") }
       : { ...voiceCombine(text, merged), source: "cloud-ai" };
+    // AI+'s follow-up question rides along only when its item paired with a row.
+    const cl = res.clarify;
+    if (cl && typeof cl === "object" && rowOf.has(Number(cl.item))) {
+      out.cloudClarify = { row: rowOf.get(Number(cl.item)), field: cl.field, question: cl.question, options: cl.options };
+    }
     return out;
   }
 
@@ -1191,13 +1197,241 @@
     try { return voiceMergeCloud(local, res, rawText); } catch { return local; }
   }
 
+  /* ---------- Kira asks when a row is unclear (1.99.0) ----------
+     After the rules, the person's history, AI+ and the phone's AI have had
+     their say, a row that is still unclear gets ONE short question in the
+     chat with quick replies: money in or out (no cue word, nothing learned,
+     "Others"), a split name that sounds like someone already in the split
+     list, or a wallet the sentence names that two wallets share. AI+ may
+     send its own question (`clarify`, voice-entry v2); it is shown the same
+     way. Offline, no quota. A reply changes that row only — never the
+     amount — and marks it touched (a direction answer is remembered on Save
+     like a manual fix, `voiceRemember`). Skippable; Save works without an
+     answer; a question goes as soon as its row changes or leaves the sheet. */
+  let voiceClarify = null;
+  const voiceClarifyDone = new Set();
+
+  function voiceRows(p) {
+    return p ? (p.items && p.items.length > 1 ? p.items : [p]) : [];
+  }
+  function voiceClarifyKey(it, field) {
+    return `${field}|${String((it && it.raw) || "").trim().toLowerCase()}|${it && it.amount}`;
+  }
+  function voiceClarifyAlive(parsed) {
+    const q = voiceClarify;
+    return !!(q && voiceRows(parsed).includes(q.it) && !voiceRowTouched(q.it));
+  }
+  function voiceClarifyClear() {
+    if (!voiceClarify) return;
+    voiceClarify = null;
+    renderVoiceThread();
+  }
+
+  // Edit distance ≤ 2 (or one starts the other), same first letter: "Aly" ~ "Ali".
+  function voiceNameNear(a, b) {
+    const x = String(a || "").toLowerCase();
+    const y = String(b || "").toLowerCase();
+    if (!x || !y || x === y || x[0] !== y[0]) return false;
+    if (x.length >= 3 && y.length >= 3 && (x.startsWith(y) || y.startsWith(x))) return true;
+    if (Math.abs(x.length - y.length) > 2) return false;
+    const d = Array.from({ length: x.length + 1 }, (_, i) => [i]);
+    for (let j = 1; j <= y.length; j++) d[0][j] = j;
+    for (let i = 1; i <= x.length; i++) {
+      for (let j = 1; j <= y.length; j++) {
+        d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (x[i - 1] === y[j - 1] ? 0 : 1));
+      }
+    }
+    return d[x.length][y.length] <= 2;
+  }
+
+  function voiceActiveWallets() {
+    return typeof state === "object" && state && Array.isArray(state.wallets) ? state.wallets.filter((w) => w && !w.archived && w.name) : [];
+  }
+  // Wallets sharing a word the row says ("Maybank" → "Maybank savings", "Maybank card").
+  function voiceWalletChoices(it) {
+    if (!it || it.walletId) return [];
+    const wallets = voiceActiveWallets();
+    if (wallets.length < 2) return [];
+    const words = new Set(String(it.raw || "").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 3));
+    const hits = wallets.filter((w) => String(w.name).toLowerCase().split(/[^\p{L}\p{N}]+/u).some((t) => t.length >= 3 && words.has(t)));
+    return hits.length >= 2 ? hits.slice(0, 4) : [];
+  }
+
+  function voiceRowWhat(it) {
+    const note = it.entryKind === "debt" ? (it.debtName || it.note) : it.note;
+    return [voiceMoney(it.amount), note].filter(Boolean).join(" ");
+  }
+
+  function voiceLocalClarify(p) {
+    const rows = voiceRows(p).filter((it) => it && it.amount > 0 && !voiceRowTouched(it) && it.entryKind !== "debt");
+    // 1. Money in or out?
+    for (const it of rows) {
+      const hasSplit = !!(it.split && it.split.people && it.split.people.length);
+      const unclear = !hasSplit && !it.learned && it.kindFrom !== "cloud"
+        && (it.kindFrom === "weak" || (it.kindFrom === "none" && it.entryKind === "expense" && it.category === "Others"));
+      if (!unclear || voiceClarifyDone.has(voiceClarifyKey(it, "kind"))) continue;
+      return {
+        it, field: "kind", from: "local",
+        question: voiceT("{what}: money in or out?", { what: voiceRowWhat(it) }),
+        options: [{ label: voiceT("In"), value: "in" }, { label: voiceT("Out"), value: "out" }],
+      };
+    }
+    // 2. A split name that sounds like someone already in the list.
+    const known = voiceKnownContacts();
+    if (known.length) {
+      for (const it of rows) {
+        if (!(it.split && it.split.people && it.split.people.length) || voiceClarifyDone.has(voiceClarifyKey(it, "person"))) continue;
+        for (const person of it.split.people) {
+          if (known.some((k) => k.toLowerCase() === String(person.name).toLowerCase())) continue;
+          const near = known.filter((k) => voiceNameNear(k, person.name)).slice(0, 3);
+          if (!near.length) continue;
+          return {
+            it, field: "person", from: "local", person: person.name,
+            question: voiceT("Split with {name}, or did you mean {other}?", { name: person.name, other: near[0] }),
+            options: [...near, person.name].map((n) => ({ label: n, value: n })),
+          };
+        }
+      }
+    }
+    // 3. Which wallet?
+    for (const it of rows) {
+      if (voiceClarifyDone.has(voiceClarifyKey(it, "wallet"))) continue;
+      const choices = voiceWalletChoices(it);
+      if (!choices.length) continue;
+      return {
+        it, field: "wallet", from: "local",
+        question: voiceT("Which wallet for {what}?", { what: voiceRowWhat(it) }),
+        options: choices.map((w) => ({ label: w.name, value: w.name })),
+      };
+    }
+    return null;
+  }
+
+  // AI+'s own question (voice-entry v2 `clarify`, already checked twice).
+  function voiceCloudClarify(p) {
+    const cl = p && p.cloudClarify;
+    if (!cl) return null;
+    const it = voiceRows(p)[cl.row];
+    if (!it || !(it.amount > 0) || voiceRowTouched(it) || it.entryKind === "debt") return null;
+    if (voiceClarifyDone.has(voiceClarifyKey(it, cl.field))) return null;
+    const opts = Array.isArray(cl.options) ? cl.options : [];
+    let options = [];
+    let person = "";
+    if (cl.field === "kind") {
+      if (it.split && it.split.people && it.split.people.length) return null;
+      options = [{ label: voiceT("In"), value: "in" }, { label: voiceT("Out"), value: "out" }];
+    } else if (cl.field === "category") {
+      if (it.entryKind !== "expense") return null;
+      options = opts.map((c) => voiceCatIn(c)).filter((c) => c && c !== "Income").map((c) => ({ label: voiceT(c), value: c }));
+    } else if (cl.field === "wallet") {
+      options = opts.map((n) => voiceWalletByName(n)).filter(Boolean).map((w) => ({ label: w.name, value: w.name }));
+    } else if (cl.field === "person") {
+      if (!(it.split && it.split.people && it.split.people.length)) return null;
+      person = it.split.people.find((x) => !opts.some((o) => String(o).toLowerCase() === String(x.name).toLowerCase()))?.name || it.split.people[0].name;
+      options = opts.map((n) => String(n).trim()).filter(Boolean).slice(0, 4).map((n) => ({ label: n, value: n }));
+    }
+    if (options.length < 2) return null;
+    return { it, field: cl.field, from: "cloud", person, question: String(cl.question || "").slice(0, 140), options };
+  }
+
+  // Once the labels have settled: one question, if a row still needs one.
+  function voiceClarifyMaybe() {
+    const p = voiceCurrent;
+    if (voiceClarify && voiceClarifyAlive(p)) return voiceClarify;
+    voiceClarify = null;
+    const dlg = document.getElementById("voice-dialog");
+    if (p && p.amount > 0 && (!dlg || dlg.open)) voiceClarify = voiceCloudClarify(p) || voiceLocalClarify(p);
+    renderVoiceThread();
+    return voiceClarify;
+  }
+
+  // A quick reply: that row only, never its amount.
+  function voiceClarifyAnswer(value) {
+    const q = voiceClarify;
+    const p = voiceCurrent;
+    if (!q || !voiceClarifyAlive(p)) { voiceClarifyClear(); return false; }
+    const it = q.it;
+    const amount = it.amount;
+    voiceClarifyDone.add(voiceClarifyKey(it, q.field));
+    if (q.field === "kind") {
+      voiceSetKind(it, value === "in" ? "income" : "expense");
+      it.userKind = true; // "Out" on a spend is an answer too: remembered on Save
+    } else if (q.field === "category") {
+      const cat = voiceCatIn(value);
+      if (cat) { it.category = cat; it.userCat = true; it.catFrom = "user"; }
+    } else if (q.field === "wallet") {
+      const w = voiceWalletByName(value);
+      if (w) { it.walletId = w.id; it.walletName = w.name; }
+    } else if (q.field === "person" && it.split && Array.isArray(it.split.people)) {
+      const name = String(value || "").trim();
+      const row = it.split.people.find((x) => x.name === q.person);
+      if (row && name && !it.split.people.some((x) => x !== row && x.name.toLowerCase() === name.toLowerCase())) row.name = name;
+    }
+    it.touched = true;
+    it.ai = false;
+    it.amount = amount;
+    voiceClarify = null;
+    if (p.items && p.items.length > 1) renderVoicePreview(voiceCombine(p.raw, p.items));
+    else renderVoicePreview(p);
+    voiceClarifyMaybe();
+    return true;
+  }
+
+  function voiceClarifySkip() {
+    const q = voiceClarify;
+    if (q && q.it) voiceClarifyDone.add(voiceClarifyKey(q.it, q.field));
+    voiceClarify = null;
+    voiceClarifyMaybe();
+  }
+
+  // Kira's question with its quick replies (local, AI+ voice, or kira-ask).
+  function voiceAskRow(question, options, onPick, opts) {
+    const row = document.createElement("div");
+    row.className = "voice-turn voice-turn--kira voice-turn--ask";
+    if (question) {
+      const bubble = document.createElement("p");
+      bubble.className = "voice-turn-text";
+      bubble.textContent = question;
+      row.appendChild(bubble);
+    }
+    if (options && options.length) {
+      const replies = document.createElement("div");
+      replies.className = "voice-turn-replies";
+      replies.setAttribute("role", "group");
+      if (question) replies.setAttribute("aria-label", question);
+      for (const o of options) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "voice-reply-chip";
+        btn.textContent = o.label;
+        btn.addEventListener("click", () => onPick(o.value));
+        replies.appendChild(btn);
+      }
+      if (opts && opts.onSkip) {
+        const skip = document.createElement("button");
+        skip.type = "button";
+        skip.className = "voice-reply-chip is-skip";
+        skip.textContent = voiceT("Skip");
+        skip.addEventListener("click", opts.onSkip);
+        replies.appendChild(skip);
+      }
+      row.appendChild(replies);
+    }
+    return row;
+  }
+
   /* ---------- 2.0 Stage B: Local-First Commands & Kira Assistant Q&A ----------
      Navigation and simple reads run locally for 0 AI+ quota.
      Money writes ALWAYS go through the 1-tap Confirm card (#voice-preview).
-     Session multi-turn Q&A is kept in memory only (capped at 6 messages) and
-     wiped as soon as #voice-dialog closes. */
+     Session multi-turn chat (1.99.0) is kept in memory only (capped at 10
+     messages) and wiped as soon as #voice-dialog closes. Kira talks about the
+     person's own money in Duitful and how to use Duitful, nothing else, and
+     may ask one follow-up (`ask`: a question + ≤ 4 quick replies; a tap sends
+     the reply as the next turn). The history sent with each question carries
+     Kira's last question, so "yes" / "the second one" make sense. */
 
-  const VOICE_MAX_TURNS = 6;
+  const VOICE_MAX_TURNS = 10;
+  const VOICE_HISTORY_TURNS = 8;
   let voiceTurns = [];
   let voiceAskBusy = false;
 
@@ -1387,6 +1621,9 @@
     return lines.join("\n");
   }
 
+  // What counts as "about your money in Duitful" for the offline answer.
+  const VOICE_TOPIC_RE = /\b(?:spen[dt]|spending|money|duit|wang|balance|baki|budget|bajet|income|pendapatan|gaji|salary|sav(?:e|ing|ings)|simpan(?:an)?|tabung|goals?|wallets?|dompet|bills?|bil|categor(?:y|ies)|kategori|month|bulan|reports?|laporan|split|bahagi|receipts?|resit|statements?|penyata|expenses?|belanja|berapa|how\s+much|left|cash|tunai|pay|bayar|duitful|kira|transfer|zakat|pools?|summary|ringkasan)\b|[钱花费余额预算收入储蓄钱包账单报告分账收据开销]/i;
+
   function kiraLocalAnswer(question, snap) {
     const q = String(question || "").toLowerCase();
     const fmt = (n) => (typeof fmtMoney === "function" ? fmtMoney(n) : `RM ${Number(n || 0).toFixed(2)}`);
@@ -1472,6 +1709,27 @@
       };
     }
 
+    // Not about money in Duitful: one friendly line back.
+    if (!VOICE_TOPIC_RE.test(q)) {
+      const words = q.replace(/[^\p{L}\p{N}\s]/gu, " ").trim().split(/\s+/).filter(Boolean);
+      const greet = /^(?:hi|hello|hey|hai|helo|yo|assalamualaikum|salam|thanks|thank\s+you|terima\s+kasih|ok(?:ay)?|yes|no|ya|tak|tidak|nope|你好|谢谢|好的?|是|不是)\b/i.test(q.trim());
+      // A few words with no amount and no question: what was it worth?
+      if (!greet && words.length && words.length <= 5 && !voiceLooksLikeQuestion(question)) {
+        const what = String(question || "").trim().slice(0, 40);
+        return {
+          reply: voiceT("How much was “{what}”? Say it with the amount, like “RM 12 {what}”.", { what }),
+          actions: [],
+        };
+      }
+      return {
+        reply: voiceT("I can help with your money in Duitful — like what you spent this month, your debts or your tax relief."),
+        actions: [
+          { kind: "open_reports", label: voiceT("Open Reports") },
+          { kind: "open_debts", label: voiceT("Open Debts") },
+        ],
+      };
+    }
+
     // Default: spending / balance summary for current month.
     if (snap.topCats.length) {
       const top = snap.topCats[0];
@@ -1497,14 +1755,14 @@
   function renderVoiceThread() {
     const el = document.getElementById("voice-thread");
     if (!el) return;
-    if (!voiceTurns.length) {
+    if (!voiceTurns.length && !voiceClarify) {
       el.hidden = true;
       el.innerHTML = "";
       return;
     }
     el.hidden = false;
     el.innerHTML = "";
-    for (const turn of voiceTurns) {
+    voiceTurns.forEach((turn, idx) => {
       const row = document.createElement("div");
       row.className = `voice-turn voice-turn--${turn.role}`;
       const bubble = document.createElement("p");
@@ -1525,8 +1783,28 @@
         row.appendChild(chips);
       }
       el.appendChild(row);
+      // Kira's follow-up: quick replies only on the newest turn; a tap is the next turn.
+      if (turn.role === "kira" && turn.ask) {
+        const last = idx === voiceTurns.length - 1 && !voiceAskBusy;
+        el.appendChild(voiceAskRow(turn.ask.question, last ? turn.ask.options.map((o) => ({ label: o, value: o })) : [], (v) => voiceAskKira(v)));
+      }
+    });
+    if (voiceClarify) {
+      el.appendChild(voiceAskRow(voiceClarify.question, voiceClarify.options, (v) => voiceClarifyAnswer(v), { onSkip: voiceClarifySkip }));
     }
-    el.scrollTop = el.scrollHeight;
+    // Newest at the bottom, but never with the newest row's first line cut off.
+    const last = el.lastElementChild;
+    const lastTop = last ? last.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop : 0;
+    el.scrollTop = Math.min(el.scrollHeight, Math.max(0, lastTop));
+  }
+
+  // One line of history for the next question; Kira's own question rides
+  // along so a short reply ("yes", "the second one") makes sense.
+  function voiceTurnLine(t) {
+    const who = t.role === "user" ? "User" : "Kira";
+    let line = `${who}: ${t.text}`;
+    if (t.role === "kira" && t.ask) line += ` [Kira asked: ${t.ask.question} Options: ${t.ask.options.join(" / ")}]`;
+    return line.slice(0, 260);
   }
 
   function pushVoiceTurn(turn) {
@@ -1539,13 +1817,17 @@
 
   function clearVoiceThread() {
     voiceTurns = [];
+    voiceClarify = null;
+    voiceClarifyDone.clear();
     renderVoiceThread();
   }
 
-  async function voiceAskKira(question) {
+  async function voiceAskKira(question, opts) {
     const q = String(question || "").trim();
+    const localOnly = !!(opts && opts.local);
     if (!q || voiceAskBusy) return;
     voiceAskBusy = true;
+    voiceClarify = null;
     pushVoiceTurn({ role: "user", text: q });
     const input = document.getElementById("voice-input");
     if (input) input.value = "";
@@ -1556,10 +1838,10 @@
     const snap = buildKiraLocalSnapshot();
     const summary = buildKiraSummaryString(snap);
     const lang = (window.I18N && window.I18N.lang) || "en";
-    const history = voiceTurns.slice(-5, -1).map((t) => `${t.role === "user" ? "User" : "Kira"}: ${t.text}`.slice(0, 240));
+    const history = voiceTurns.slice(0, -1).slice(-VOICE_HISTORY_TURNS).map(voiceTurnLine);
 
     let answer = null;
-    if (typeof window.aiCloudKiraAsk === "function" && typeof aiCloudAllowed === "function" && aiCloudAllowed()) {
+    if (!localOnly && typeof window.aiCloudKiraAsk === "function" && typeof aiCloudAllowed === "function" && aiCloudAllowed()) {
       try {
         answer = await window.aiCloudKiraAsk({ question: q.slice(0, 300), lang, summary, history });
       } catch {
@@ -1572,7 +1854,10 @@
     voiceAskBusy = false;
     const statusEl = document.getElementById("voice-status");
     if (statusEl && statusEl.dataset.tone !== "warn") voiceStatus("");
-    pushVoiceTurn({ role: "kira", text: answer.reply, actions: answer.actions || [] });
+    const ask = answer.ask && typeof answer.ask.question === "string" && Array.isArray(answer.ask.options) && answer.ask.options.length >= 2
+      ? { question: answer.ask.question, options: answer.ask.options.slice(0, 4) }
+      : null;
+    pushVoiceTurn({ role: "kira", text: answer.reply, actions: answer.actions || [], ask });
     voiceKiraMood("proud");
   }
 
@@ -2019,7 +2304,8 @@
   // late answer never replaces rows the person (or the phone's AI) changed.
   // The cloud's labels land on whatever the sheet shows now (rows dropped
   // or changed while the call was out stay as the person left them), then
-  // then the phone's AI for the rows still unclear.
+  // then the phone's AI for the rows still unclear, then — if a row still
+  // needs it — one question (voiceClarifyMaybe).
   function voiceSmartThenAi(raw) {
     const input = document.getElementById("voice-input");
     const text = String(raw || "").trim();
@@ -2030,7 +2316,10 @@
         const merged = voiceMergeCloud(base, res, text);
         if (merged !== base) renderVoicePreview(merged);
       }
-      return voiceAiLabel();
+      return voiceAiLabel().then((n) => {
+        if (input.value.trim() === text) voiceClarifyMaybe();
+        return n;
+      });
     }).catch(() => 0);
   }
 
@@ -2056,7 +2345,7 @@
       return;
     }
 
-    if (voiceLooksLikeQuestion(raw)) {
+    if (voiceLooksLikeQuestion(raw) || voiceTurns.length) {
       voiceAskKira(raw);
       return;
     }
@@ -2160,6 +2449,7 @@
 
   function renderVoicePreview(parsed) {
     voiceCurrent = parsed;
+    if (voiceClarify && !voiceClarifyAlive(parsed)) { voiceClarify = null; renderVoiceThread(); }
     const box = document.getElementById("voice-preview");
     const spendLine = document.getElementById("voice-preview-spend");
     const splitBox = document.getElementById("voice-preview-split");
@@ -2627,6 +2917,7 @@
     voiceClearFlight();
     voiceStatus("");
     clearVoiceThread();
+    if (typeof syncAiQualityPickers === "function") syncAiQualityPickers();
     const micReady = voiceSyncMic();
     input.value = String(initialText || "").trim();
     voiceSyncTranscript(input.value);
@@ -3038,9 +3329,12 @@
         voiceSaveConfirmed();
         return;
       }
-      if (voiceLooksLikeQuestion(val)) {
-        voiceAskKira(val);
-      }
+      // Anything else is a turn in the chat: a question, a short reply to
+      // Kira's question ("yes", "the second one"), or words with no amount.
+      // A few words with no amount before any chat ("nasi lemak") are
+      // answered on the phone ("How much was …?"), so no quota is spent.
+      const fewWords = val.split(/\s+/).filter(Boolean).length <= 5;
+      voiceAskKira(val, { local: !voiceTurns.length && fewWords && !voiceLooksLikeQuestion(val) && !VOICE_TOPIC_RE.test(val) });
     };
 
     if (askBtn) askBtn.addEventListener("click", submitInputText);
@@ -3102,6 +3396,9 @@
   window.parseAiVoiceReply = parseAiVoiceReply;
   window.voiceMatchLocalCommand = voiceMatchLocalCommand;
   window.voiceAskKira = voiceAskKira;
+  window.kiraLocalAnswer = kiraLocalAnswer;
+  window.voiceClarifyMaybe = voiceClarifyMaybe;
+  window.voiceClarifyAnswer = voiceClarifyAnswer;
   window.voiceOnSpeechLevel = voiceOnSpeechLevel;
   window.openVoiceEntry = openVoiceEntry;
   window.voiceSaveConfirmed = voiceSaveConfirmed;

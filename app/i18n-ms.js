@@ -3049,4 +3049,10 @@
   "Completing purchase…": "Menyelesaikan pembelian…",
   "Tap Kira while you wait": "Ketik Kira sambil menunggu",
   "Tap Kira": "Ketik Kira",
+  "{what}: money in or out?": "{what}: duit masuk atau keluar?",
+  "Split with {name}, or did you mean {other}?": "Bahagi dengan {name}, atau maksud anda {other}?",
+  "Which wallet for {what}?": "Dompet mana untuk {what}?",
+  "How much was “{what}”? Say it with the amount, like “RM 12 {what}”.": "Berapa harga “{what}”? Sebut sekali dengan jumlahnya, contohnya “RM 12 {what}”.",
+  "I can help with your money in Duitful — like what you spent this month, your debts or your tax relief.": "Saya boleh bantu tentang duit anda dalam Duitful — contohnya belanja bulan ini, hutang atau pelepasan cukai anda.",
+  "uses {n}": "guna {n}",
 };
