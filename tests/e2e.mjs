@@ -20856,12 +20856,12 @@ check('the brand catalogue makes no network calls at all',
   const { privateKey, publicKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
   process.env.LICENSE_SIGNING_PRIVATE_KEY = privateKey.export({ type: 'pkcs8', format: 'pem' });
   global.__DUITFUL_PRO_PUBKEY_PEM__ = publicKey.export({ type: 'spki', format: 'pem' });
-  const { signLicense } = reqB('./api/_lib/license.js');
-  const aiHandler = reqB('./api/ai.js');
-  const { MODELS, TEXT_QUALITIES } = reqB('./api/_lib/ai/models.js');
-  const { resetMemory } = reqB('./api/_lib/ai/kv.js');
-  const voiceTask = reqB('./api/_lib/ai/tasks/voice-entry.js');
-  const { validateInput } = reqB('./api/_lib/ai/tasks/helpers.js');
+  const { signLicense } = reqB('../api/_lib/license.js');
+  const aiHandler = reqB('../api/ai.js');
+  const { MODELS, TEXT_QUALITIES } = reqB('../api/_lib/ai/models.js');
+  const { resetMemory } = reqB('../api/_lib/ai/kv.js');
+  const voiceTask = reqB('../api/_lib/ai/tasks/voice-entry.js');
+  const { validateInput } = reqB('../api/_lib/ai/tasks/helpers.js');
 
   const callAiB = async (op, body, headers = {}) => {
     let status = 200, data = null;
